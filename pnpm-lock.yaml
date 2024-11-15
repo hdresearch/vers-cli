@@ -17,6 +17,9 @@ importers:
       giget:
         specifier: ^1.2.3
         version: 1.2.3
+      out-url:
+        specifier: ^1.2.2
+        version: 1.2.2
       picocolors:
         specifier: ^1.0.1
         version: 1.0.1
@@ -2912,6 +2915,9 @@ packages:
   os-tmpdir@1.0.2:
     resolution: {integrity: sha512-D2FR03Vir7FIu45XBY20mTb+/ZSWB00sjU9jdQXt83gDrI4Ztz5Fs7/yy74g2N5SVQY4xY1qDr4rNddwYRVX0g==}
     engines: {node: '>=0.10.0'}
+
+  out-url@1.2.2:
+    resolution: {integrity: sha512-9YX6NkfE8kujbeK0h1m+z8AdVYN3luHeF55ayNKks1qIfpsNInwQa4F5WAbSHhxEQvPDEB7tSnbK3RIvCxjJoA==}
 
   p-each-series@3.0.0:
     resolution: {integrity: sha512-lastgtAdoH9YaLyDa5i5z64q+kzOcQHsQ5SsZJD3q0VEyI8mq872S3geuNbRUQLVAE9siMfgKrpj7MloKFHruw==}
@@ -7096,6 +7102,8 @@ snapshots:
       wcwidth: 1.0.1
 
   os-tmpdir@1.0.2: {}
+
+  out-url@1.2.2: {}
 
   p-each-series@3.0.0: {}
 
