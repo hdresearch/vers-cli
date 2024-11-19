@@ -64,7 +64,13 @@ const showCommand = {
   describe: "Show current configuration",
   handler: () => {
     const config = loadConfigFile();
-    logger.log(JSON.stringify(config, null, 2));
+    if (Object.keys(config).length === 0) {
+      logger.warn("No configuration found in ~/.tudorrc.");
+      return;
+    }
+    Object.entries(config).forEach(([key, value]) => {
+      logger.log(`${key}: ${value}`);
+    });
   },
 };
 
