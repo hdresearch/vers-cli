@@ -5,21 +5,15 @@ CLI application for managing HDR2's platform as a service.
 ## Usage
 
 ```bash
+# all options
 tudor
-```
 
-### Configuration
-
-Set your keys with
-
-```
+# configure and show current config
 tudor config hdr
-```
-
-See currently set keys with
-
-```
 tudor config show
+
+# create resource
+tudor create
 ```
 
 ## Build
