@@ -6,14 +6,7 @@ const { open } = require('out-url')
 import { logger } from '../logger'
 import yargs, { Argv } from 'yargs'
 import { hideBin } from 'yargs/helpers'
-
-const loadConfigFile = (filePath: string): unknown => {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'))
-  } catch (error) {
-    return {}
-  }
-}
+import { loadConfigFile } from '../lib'
 
 const writeToTudorrc = (key: string, value: string): void => {
   const tudorConfigPath = path.resolve(os.homedir(), '.tudorrc')
@@ -57,12 +50,11 @@ const handleHDRApiKey = async (homeConfig: { hdrApiKey: string }) => {
   }
 }
 
-// Define the subcommands first
 const hdrCommand = {
   command: 'hdr',
   describe: 'Manage HDR API key configuration',
   handler: async () => {
-    const homeConfig = loadConfigFile(path.resolve(os.homedir(), '.tudorrc'))
+    const homeConfig = loadConfigFile()
     await handleHDRApiKey(homeConfig as { hdrApiKey: string })
   },
 }
@@ -71,7 +63,7 @@ const showCommand = {
   command: 'show',
   describe: 'Show current configuration',
   handler: () => {
-    const config = loadConfigFile(path.resolve(os.homedir(), '.tudorrc'))
+    const config = loadConfigFile()
     logger.log(JSON.stringify(config, null, 2))
   },
 }
