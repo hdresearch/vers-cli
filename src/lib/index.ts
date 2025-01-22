@@ -10,8 +10,8 @@ interface Config {
 
 export const loadConfigFile = (): Config => {
   try {
-    const tudorConfigPath = path.resolve(os.homedir(), ".tudorrc");
-    return JSON.parse(fs.readFileSync(tudorConfigPath, "utf8"));
+    const versConfigPath = path.resolve(os.homedir(), ".versrc");
+    return JSON.parse(fs.readFileSync(versConfigPath, "utf8"));
   } catch (error) {
     return {};
   }

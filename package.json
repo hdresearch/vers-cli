@@ -18,7 +18,7 @@
     "url": "git+ssh://git@github.com/kucherenko/cli-typescript-starter.git"
   },
   "scripts": {
-    "build": "tsup-node && bun build ./dist/run.js --compile --outfile tudor",
+    "build": "tsup-node && bun build ./dist/run.js --compile --outfile vers",
     "build:watch": "tsup-node --watch",
     "clean": "rimraf dist",
     "commit": "cz",
