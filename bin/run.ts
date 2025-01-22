@@ -5,7 +5,7 @@ import pc from "picocolors";
 
 config();
 
-const run = yargs(process.argv.slice(2)).scriptName("tudor").usage(pc.magenta("Usage: $0 <command> [options]"));
+const run = yargs(process.argv.slice(2)).scriptName("vers").usage(pc.magenta("Usage: $0 <command> [options]"));
 for (const command of commands) {
   run.command(command as CommandModule);
 }

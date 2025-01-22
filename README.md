@@ -1,4 +1,4 @@
-# tudor
+# vers LCI
 
 CLI application for managing HDR2's platform as a service.
 
@@ -6,16 +6,16 @@ CLI application for managing HDR2's platform as a service.
 
 ```bash
 # all options
-tudor
+vers
 
 # configure and show current config
-tudor config hdr
-tudor config show
+vers config hdr
+vers config show
 
 # create resource
-tudor create
+vers create
 ```
 
 ## Build
 
-To build the binary you'll need [Bun](https://bun.sh) installed. Running `pnpm run build` will output a `tudor` binary.
+To build the binary you'll need [Bun](https://bun.sh) installed. Running `pnpm run build` will output a `vers` binary.

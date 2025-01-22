@@ -12,8 +12,8 @@ export const builder = (yargs: Argv) => yargs;
 export async function handler() {
   const config = loadConfigFile();
   if (!config.hdrApiKey) {
-    logger.error("No HDR API key found in ~/.tudorrc.");
-    logger.info(yellow("Please run 'tudor config hdr' to configure the HDR API key."));
+    logger.error("No HDR API key found in ~/.versrc.");
+    logger.info(yellow("Please run 'vers config hdr' to configure the HDR API key."));
     return;
   }
   // hit create endpoint, return location / open browser directly for configuration
