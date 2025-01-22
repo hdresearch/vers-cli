@@ -1,4 +1,4 @@
-# vers LCI
+# vers CLI
 
 CLI application for managing HDR2's platform as a service.
 
