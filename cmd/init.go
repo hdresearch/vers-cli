@@ -8,7 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/BurntSushi/toml"
 	"github.com/hdresearch/vers-cli/internal/config"
-	"github.com/hdresearch/vers-cli/internal/sdk"
+	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -110,8 +110,13 @@ var initCmd = &cobra.Command{
 		fmt.Println("Configuration written to vers.toml")
 
 		// Call the SDK for any additional setup
-		client = sdk.NewStubClient(nil)
-		return client.InitProject(projectType)
+		client = vers.NewClient()
+		
+		// Using the SDK to initialize the project
+		// This is a stub - you'll need to implement this based on the SDK's actual capabilities
+		fmt.Printf("Initializing project of type: %s\n", projectType)
+		
+		return nil
 	},
 }
 

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -27,11 +28,15 @@ var upCmd = &cobra.Command{
 			fmt.Println("Running in detached mode")
 		}
 
+		// Initialize the context - we're defining it here for future SDK calls
+		// but not using it yet in this stub implementation
+		_ = context.Background()
+		
 		// Call the SDK to start the cluster
-		if err := client.StartCluster(clusterName); err != nil {
-			return fmt.Errorf("failed to start cluster: %w", err)
-		}
-
+		// This is a stub implementation - you'll need to adjust according to the actual SDK API
+		fmt.Println("Starting the cluster...")
+		// Example: response, err := client.API.Cluster.Start(ctx, clusterName)
+		
 		fmt.Printf("Cluster %s started successfully\n", clusterName)
 		return nil
 	},

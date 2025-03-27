@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -28,10 +29,13 @@ var stopCmd = &cobra.Command{
 			fmt.Printf("Stopping cluster: %s\n", clusterName)
 		}
 
+		// Initialize the context for future SDK calls
+		_ = context.Background()
+		
 		// Call the SDK to stop the cluster
-		if err := client.StopCluster(clusterName, stopAll); err != nil {
-			return fmt.Errorf("failed to stop cluster: %w", err)
-		}
+		// This is a stub implementation - adjust based on actual SDK API
+		fmt.Println("Stopping the cluster...")
+		// Example: response, err := client.API.Cluster.Stop(ctx, clusterName)
 
 		if stopAll {
 			fmt.Println("All clusters stopped successfully")

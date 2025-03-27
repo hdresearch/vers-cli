@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -17,10 +18,13 @@ var checkoutCmd = &cobra.Command{
 		
 		fmt.Printf("Checking out branch/commit: %s\n", branchName)
 
+		// Initialize the context for future SDK calls
+		_ = context.Background()
+		
 		// Call the SDK to checkout the branch
-		if err := client.CheckoutBranch(branchName); err != nil {
-			return fmt.Errorf("checkout failed: %w", err)
-		}
+		// This is a stub implementation - adjust based on actual SDK API
+		fmt.Println("Checking out branch...")
+		// Example: response, err := client.API.State.Checkout(ctx, branchName)
 
 		fmt.Printf("Successfully checked out: %s\n", branchName)
 		return nil

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -24,10 +25,13 @@ var sshCmd = &cobra.Command{
 			fmt.Printf("Connecting to machine: %s as user: %s\n", machineName, sshUser)
 		}
 
+		// Initialize the context for future SDK calls
+		_ = context.Background()
+		
 		// Call the SDK to establish an SSH connection
-		if err := client.SSH(machineName, sshUser); err != nil {
-			return fmt.Errorf("failed to connect to machine: %w", err)
-		}
+		// This is a stub implementation - adjust based on actual SDK API
+		fmt.Println("Establishing SSH connection...")
+		// Example: response, err := client.API.Machine.SSH(ctx, machineName, sshUser)
 
 		return nil
 	},

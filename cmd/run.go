@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -24,10 +25,13 @@ var runCmd = &cobra.Command{
 		commandStr := strings.Join(args, " ")
 		fmt.Printf("Running command on %s: %s\n", machineName, commandStr)
 
+		// Initialize the context for future SDK calls
+		_ = context.Background()
+		
 		// Call the SDK to run the command
-		if err := client.RunCommand(machineName, args); err != nil {
-			return fmt.Errorf("command execution failed: %w", err)
-		}
+		// This is a stub implementation - adjust based on actual SDK API
+		fmt.Println("Executing command...")
+		// Example: response, err := client.API.Machine.RunCommand(ctx, machineName, commandStr)
 
 		return nil
 	},

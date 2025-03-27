@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/hdresearch/vers-cli/internal/config"
-	"github.com/hdresearch/vers-cli/internal/sdk"
+	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +13,7 @@ import (
 var (
 	configPath string
 	cfg        *config.Config
-	client     sdk.VersClient
+	client     *vers.Client
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -40,7 +40,7 @@ interaction capabilities, and more.`,
 		}
 
 		// Create the SDK client
-		client = sdk.NewStubClient(cfg)
+		client = vers.NewClient()
 		return nil
 	},
 }

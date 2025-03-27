@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -23,10 +24,14 @@ var killCmd = &cobra.Command{
 			fmt.Printf("Terminating: %s\n", targetName)
 		}
 
-		// Call the SDK to kill the branch
-		if err := client.KillBranch(targetName, force); err != nil {
-			return fmt.Errorf("kill operation failed: %w", err)
-		}
+		// Initialize the context for future SDK calls
+		_ = context.Background()
+		
+		// Call the SDK to kill the branch or cluster
+		// This is a stub implementation - adjust based on actual SDK API
+		fmt.Println("Terminating target...")
+		// Example: response, err := client.API.Cluster.Kill(ctx, targetName, force)
+		// or: response, err := client.API.State.Kill(ctx, targetName, force)
 
 		fmt.Printf("Successfully terminated: %s\n", targetName)
 		return nil

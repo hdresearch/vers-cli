@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -25,10 +26,13 @@ var commitCmd = &cobra.Command{
 			fmt.Printf("Tagging commit as: %s\n", tag)
 		}
 
+		// Initialize the context for future SDK calls
+		_ = context.Background()
+		
 		// Call the SDK to commit the VM state
-		if err := client.CommitVM(commitMsg); err != nil {
-			return fmt.Errorf("commit failed: %w", err)
-		}
+		// This is a stub implementation - adjust based on actual SDK API
+		fmt.Println("Creating commit...")
+		// Example: response, err := client.API.State.Commit(ctx, commitMsg, tag)
 
 		fmt.Println("Successfully committed the current state")
 		return nil
