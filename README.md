@@ -65,7 +65,7 @@ project = "myapp"
 type = "python"
 
 [build]
-builder = "default"
+builder = "docker"
 build_command = "pip install -r requirements.txt"
 
 [run]
@@ -73,12 +73,4 @@ command = "python main.py"
 
 [env]
 DATABASE_URL = "postgres://localhost:5432/mydb"
-
-[machine.default]
-name = "default"
-image = "ubuntu:latest"
 ```
-
-## License
-
-MIT 
