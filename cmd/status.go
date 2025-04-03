@@ -75,6 +75,8 @@ var statusCmd = &cobra.Command{
 			)
 		}
 
+		fmt.Println("\nTip: To view the list of VMs in a specific cluster, use: vers status -c <cluster-id>")
+
 		return nil
 	},
 }
