@@ -6,7 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/BurntSushi/toml v1.2.0
 	github.com/google/uuid v1.6.0
-	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.2
+	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.3
 	github.com/spf13/cobra v1.8.0
 )
 

@@ -42,8 +42,7 @@ var upCmd = &cobra.Command{
 			return fmt.Errorf("failed to start cluster '%s': %w", clusterName, err)
 		}
 				// Use information from the response (adjust field names as needed)
-				fmt.Printf("Cluster '%s' (ID: %s) started successfully using image '%s'.\n",
-				clusterInfo.ID,
+				fmt.Printf("Cluster (ID: %s) started successfully with root vm '%s'.\n",
 				clusterInfo.ID,
 				clusterInfo.RootVmID,
 			)
