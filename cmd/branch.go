@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
+	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -12,27 +14,34 @@ var fromBranch string
 // branchCmd represents the branch command
 var branchCmd = &cobra.Command{
 	Use:   "branch <name>",
-	Short: "Create a new branch",
-	Long:  `Create a new branch from the current state or a specific branch/commit.`,
+	Short: "Branch a machine",
+	Long:  `Branch the state of a given machine.`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		branchName := args[0]
+		vmName := args[0]
 		
-		if fromBranch == "" {
-			fmt.Printf("Creating branch '%s' from current state\n", branchName)
-		} else {
-			fmt.Printf("Creating branch '%s' from '%s'\n", branchName, fromBranch)
+		fmt.Printf("Creating branch of vm '%s' \n", vmName)
+
+
+		baseCtx := context.Background()
+		client = vers.NewClient()
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		defer cancel() 
+
+		branchParams := vers.APIVmNewBranchParams {
+			Body: map[string]interface{}{},
 		}
 
-		// Initialize the context for future SDK calls
-		_ = context.Background()
-		
-		// Call the SDK to create a branch
-		// This is a stub implementation - adjust based on actual SDK API
 		fmt.Println("Creating branch...")
-		// Example: response, err := client.API.State.CreateBranch(ctx, branchName, fromBranch)
+		branchInfo, err := client.API.Vm.NewBranch(apiCtx, vmName, branchParams)
 
-		fmt.Printf("Successfully created branch: %s\n", branchName)
+		if err != nil {
+			return fmt.Errorf("failed to create branch of vm '%s': %w", vmName, err)
+		}
+		fmt.Printf("Branch created successfully with ID: %s\n", branchInfo.ID)
+		fmt.Printf("Branch IP address: %s\n", branchInfo.IPAddress)
+		fmt.Printf("Branch state: %s\n", branchInfo.State)
+		
 		return nil
 	},
 }
