@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -16,22 +13,22 @@ var sshCmd = &cobra.Command{
 	Long:  `Connect to a running Vers machine via SSH.`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		machineName := args[0]
+		// machineName := args[0]
 		
-		// Print SSH connection message
-		if sshUser == "" {
-			fmt.Printf("Connecting to machine: %s\n", machineName)
-		} else {
-			fmt.Printf("Connecting to machine: %s as user: %s\n", machineName, sshUser)
-		}
+		// // Print SSH connection message
+		// if sshUser == "" {
+		// 	fmt.Printf("Connecting to machine: %s\n", machineName)
+		// } else {
+		// 	fmt.Printf("Connecting to machine: %s as user: %s\n", machineName, sshUser)
+		// }
 
-		// Initialize the context for future SDK calls
-		_ = context.Background()
+		// // Initialize the context for future SDK calls
+		// _ = context.Background()
 		
-		// Call the SDK to establish an SSH connection
-		// This is a stub implementation - adjust based on actual SDK API
-		fmt.Println("Establishing SSH connection...")
-		// Example: response, err := client.API.Machine.SSH(ctx, machineName, sshUser)
+		// // Call the SDK to establish an SSH connection
+		// // This is a stub implementation - adjust based on actual SDK API
+		// fmt.Println("Establishing SSH connection...")
+		// // Example: response, err := client.API.Machine.SSH(ctx, machineName, sshUser)
 
 		return nil
 	},

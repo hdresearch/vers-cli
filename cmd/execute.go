@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// runCmd represents the run command
-var runCmd = &cobra.Command{
-	Use:   "run <vm_id> <command> [args...]",
+// executeCmd represents the execute command
+var executeCmd = &cobra.Command{
+	Use:   "execute <vm_id> <command> [args...]",
 	Short: "Run a command on a specific VM",
 	Long:  `Execute a command within the Vers environment on the specified VM.`,
 	Args:  cobra.MinimumNArgs(2), // Require at least vm_id and command
@@ -64,5 +64,5 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(executeCmd)
 } 

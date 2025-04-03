@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -14,19 +11,19 @@ var pickCmd = &cobra.Command{
 	Long:  `Select a specific branch to keep, discarding others.`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		branchName := args[0]
+		// branchName := args[0]
 		
-		fmt.Printf("Selecting branch to keep: %s\n", branchName)
+		// // fmt.Printf("Selecting branch to keep: %s\n", branchName)
 
-		// Initialize the context for future SDK calls
-		_ = context.Background()
+		// // // Initialize the context for future SDK calls
+		// // _ = context.Background()
 		
-		// Call the SDK to pick the branch
-		// This is a stub implementation - adjust based on actual SDK API
-		fmt.Println("Keeping selected branch...")
-		// Example: response, err := client.API.State.Pick(ctx, branchName)
+		// // // Call the SDK to pick the branch
+		// // // This is a stub implementation - adjust based on actual SDK API
+		// // fmt.Println("Keeping selected branch...")
+		// // // Example: response, err := client.API.State.Pick(ctx, branchName)
 
-		fmt.Printf("Successfully kept branch: %s\n", branchName)
+		// // fmt.Printf("Successfully kept branch: %s\n", branchName)
 		return nil
 	},
 }

@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -16,25 +13,25 @@ var commitCmd = &cobra.Command{
 	Short: "Commit the current state of the environment",
 	Long:  `Save the current state of the Vers environment as a commit.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Validate that a commit message is provided
-		if commitMsg == "" {
-			return fmt.Errorf("a commit message is required, use -m or --message flag")
-		}
+		// // Validate that a commit message is provided
+		// if commitMsg == "" {
+		// 	return fmt.Errorf("a commit message is required, use -m or --message flag")
+		// }
 		
-		fmt.Printf("Creating commit with message: %s\n", commitMsg)
-		if tag != "" {
-			fmt.Printf("Tagging commit as: %s\n", tag)
-		}
+		// fmt.Printf("Creating commit with message: %s\n", commitMsg)
+		// if tag != "" {
+		// 	fmt.Printf("Tagging commit as: %s\n", tag)
+		// }
 
-		// Initialize the context for future SDK calls
-		_ = context.Background()
+		// // Initialize the context for future SDK calls
+		// _ = context.Background()
 		
-		// Call the SDK to commit the VM state
-		// This is a stub implementation - adjust based on actual SDK API
-		fmt.Println("Creating commit...")
-		// Example: response, err := client.API.State.Commit(ctx, commitMsg, tag)
+		// // Call the SDK to commit the VM state
+		// // This is a stub implementation - adjust based on actual SDK API
+		// fmt.Println("Creating commit...")
+		// // Example: response, err := client.API.State.Commit(ctx, commitMsg, tag)
 
-		fmt.Println("Successfully committed the current state")
+		// fmt.Println("Successfully committed the current state")
 		return nil
 	},
 }
