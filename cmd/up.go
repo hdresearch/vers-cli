@@ -10,8 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var detach bool
-
 // upCmd represents the up command
 var upCmd = &cobra.Command{
 	Use:   "up [cluster]",
@@ -19,20 +17,14 @@ var upCmd = &cobra.Command{
 	Long:  `Start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Generate a cluster name with UUID suffix
 		clusterName := fmt.Sprintf("new-cluster-%s", uuid.New() )
 		if len(args) > 0 {
 			clusterName = args[0]
-		}
-		if(detach) { 
-			fmt.Printf("Running in detached mode\n")
 		}
 
 		fmt.Printf("Preparing cluster parameters for cluster: %s\n", clusterName)
 
 		baseCtx := context.Background()
-		
-		// Call the SDK to start the cluster
 		client = vers.NewClient()
 
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
@@ -55,13 +47,10 @@ var upCmd = &cobra.Command{
 				clusterInfo.ID,
 				clusterInfo.RootVmID,
 			)
-			return nil
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(upCmd)
-
-	// Define flags for the up command
-	upCmd.Flags().BoolVarP(&detach, "detach", "d", false, "Run in detached mode")
 } 
