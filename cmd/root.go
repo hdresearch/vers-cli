@@ -37,9 +37,6 @@ interaction capabilities, and more.`,
 		// if err != nil {
 		// 	return fmt.Errorf("error finding config: %w", err)
 		// }
-
-		// Create the SDK client
-		client = vers.NewClient()
 		return nil
 	},
 }
