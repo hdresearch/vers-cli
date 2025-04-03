@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/hdresearch/vers-cli/internal/config"
@@ -28,16 +27,16 @@ interaction capabilities, and more.`,
 	// Run: func(cmd *cobra.Command, args []string) { },
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip config loading for commands that don't require it
-		if cmd.Name() == "init" || cmd.Name() == "login" || cmd.Name() == "help" {
-			return nil
-		}
+		// if cmd.Name() == "init" || cmd.Name() == "login" || cmd.Name() == "help" {
+		// 	return nil
+		// }
 
-		// Find and load the configuration
-		var err error
-		configPath, cfg, err = config.FindConfig()
-		if err != nil {
-			return fmt.Errorf("error finding config: %w", err)
-		}
+		// // Find and load the configuration
+		// var err error
+		// configPath, cfg, err = config.FindConfig()
+		// if err != nil {
+		// 	return fmt.Errorf("error finding config: %w", err)
+		// }
 
 		// Create the SDK client
 		client = vers.NewClient()

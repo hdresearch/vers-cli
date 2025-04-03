@@ -3,7 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
+	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -16,29 +19,43 @@ var upCmd = &cobra.Command{
 	Long:  `Start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// If no cluster name is provided, use "default"
-		clusterName := "default"
+		// Generate a cluster name with UUID suffix
+		clusterName := fmt.Sprintf("new-cluster-%s", uuid.New() )
 		if len(args) > 0 {
 			clusterName = args[0]
 		}
-
-		// Print startup message
-		fmt.Printf("Starting cluster: %s\n", clusterName)
-		if detach {
-			fmt.Println("Running in detached mode")
+		if(detach) { 
+			fmt.Printf("Running in detached mode\n")
 		}
 
-		// Initialize the context - we're defining it here for future SDK calls
-		// but not using it yet in this stub implementation
-		_ = context.Background()
+		fmt.Printf("Preparing cluster parameters for cluster: %s\n", clusterName)
+
+		baseCtx := context.Background()
 		
 		// Call the SDK to start the cluster
-		// This is a stub implementation - you'll need to adjust according to the actual SDK API
-		fmt.Println("Starting the cluster...")
-		// Example: response, err := client.API.Cluster.Start(ctx, clusterName)
-		
-		fmt.Printf("Cluster %s started successfully\n", clusterName)
-		return nil
+		client = vers.NewClient()
+
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		defer cancel() 
+
+		clusterParams := vers.APIClusterNewParams {
+			Body: map[string]interface{}{
+				"name": clusterName,
+			},
+		}
+
+		fmt.Println("Sending request to start cluster...")
+		clusterInfo, err := client.API.Cluster.New(apiCtx, clusterParams)
+		if err != nil {
+			return fmt.Errorf("failed to start cluster '%s': %w", clusterName, err)
+		}
+				// Use information from the response (adjust field names as needed)
+				fmt.Printf("Cluster '%s' (ID: %s) started successfully using image '%s'.\n",
+				clusterInfo.ID,
+				clusterInfo.ID,
+				clusterInfo.RootVmID,
+			)
+			return nil
 	},
 }
 
