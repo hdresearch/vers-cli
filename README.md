@@ -2,12 +2,22 @@
 
 A command-line interface for managing virtual machine/container-based development environments.
 
+
+## Development
+
+The scripts you should use as models are `status.go`, `execute.go`, `up.go`, `branch.go`. 
+
+You can largely have AI generate new command scripts with those previous scripts as a model. You'll have to manually adjust the SDK calls, though, since the AI won't have access to the details of the SDK. 
+
+If a request specifies a parameter you'll see this type `Command param.Field[string] \`json:"command,required"`\`, make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See the "Request Fields" section of the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) for more details. You can also look at the example of `execute.go`. 
+
+
 ## Features
 
-- **Lifecycle Management**: Initialize, start, stop, and kill environments
-- **State Management**: Commit, branch, checkout, and pick environment states
-- **Interaction**: SSH into environments and run commands
-- **Configuration**: Simple configuration via vers.toml
+- **Environment Management**: Start environments with `up` command
+- **State Inspection**: Check environment status
+- **Command Execution**: Run commands within environments
+- **Branching**: Create branches from existing environments
 
 ## Installation
 
@@ -17,45 +27,29 @@ go install github.com/hdresearch/vers-cli@latest
 
 ## Usage
 
-### Basic Commands
+### Available Commands
 
 ```bash
-# Initialize a new project
-vers init
+# Check the status of all clusters
+vers status
 
-# Start a development environment
-vers up
+# Check the status of a specific cluster
+vers status -c <cluster-id>
 
-# Connect to an environment
-vers ssh default
+# Start a development environment (creates a new cluster)
+vers up [cluster-name]
 
-# Run a command within the environment
-vers run ls -la
+# Execute a command on a VM
+vers execute <vm-id> <command> [args...]
 
-# Stop the environment
-vers stop
-```
-
-### State Management
-
-```bash
-# Commit the current state
-vers commit -m "Initial working state"
-
-# Create a new branch
-vers branch experimental
-
-# Switch to a branch
-vers checkout experimental
-
-# Keep a specific branch
-vers pick main
+# Create a new branch from a VM
+vers branch <vm-id>
 ```
 
 ## Configuration
 
 Vers CLI uses a `vers.toml` configuration file to define your environment. 
-The file is created when you run `vers init` and can be customized for your specific needs.
+The file should be created manually and can be customized for your specific needs.
 
 Example:
 
