@@ -107,13 +107,8 @@ var branchCmd = &cobra.Command{
 		if branchVmID != "" {
 			// If no explicit branch name provided, use the new branch VM ID
 			if branchName == "" {
-				// Extract just the last part of the VM ID for the branch name
-				parts := strings.Split(branchVmID, "-")
-				if len(parts) > 1 {
-					branchName = parts[len(parts)-1]
-				} else {
-					branchName = branchVmID
-				}
+				// Use the full VM ID as branch name
+				branchName = branchVmID
 			}
 
 			// Check if .vers directory exists
@@ -134,7 +129,7 @@ var branchCmd = &cobra.Command{
 				}
 
 				// Optionally, switch HEAD to the new branch
-				if cmd.Flags().Changed("checkout") || cmd.Flags().Changed("c") {
+				if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
 					headFile := filepath.Join(versDir, "HEAD")
 					newRef := fmt.Sprintf("ref: refs/heads/%s\n", safeBranchName)
 					if err := os.WriteFile(headFile, []byte(newRef), 0644); err != nil {
