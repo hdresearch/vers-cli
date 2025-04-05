@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +16,7 @@ var sshCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// machineName := args[0]
-		
+
 		// // Print SSH connection message
 		// if sshUser == "" {
 		// 	fmt.Printf("Connecting to machine: %s\n", machineName)
@@ -24,12 +26,12 @@ var sshCmd = &cobra.Command{
 
 		// // Initialize the context for future SDK calls
 		// _ = context.Background()
-		
+
 		// // Call the SDK to establish an SSH connection
 		// // This is a stub implementation - adjust based on actual SDK API
 		// fmt.Println("Establishing SSH connection...")
 		// // Example: response, err := client.API.Machine.SSH(ctx, machineName, sshUser)
-
+		fmt.Println("Error: Not implemented yet. Working on the gateway configuration.")
 		return nil
 	},
 }
@@ -39,4 +41,4 @@ func init() {
 
 	// Define flags for the ssh command
 	sshCmd.Flags().StringVarP(&sshUser, "user", "u", "", "Username for SSH connection")
-} 
+}

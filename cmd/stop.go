@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +30,7 @@ var stopCmd = &cobra.Command{
 
 		// // Initialize the context for future SDK calls
 		// _ = context.Background()
-		
+
 		// // Call the SDK to stop the cluster
 		// // This is a stub implementation - adjust based on actual SDK API
 		// fmt.Println("Stopping the cluster...")
@@ -39,6 +41,7 @@ var stopCmd = &cobra.Command{
 		// } else {
 		// 	fmt.Printf("Cluster %s stopped successfully\n", clusterName)
 		// }
+		fmt.Println("Error: Not implemented yet. Multiple clusters coming soon")
 		return nil
 	},
 }
@@ -48,4 +51,4 @@ func init() {
 
 	// Define flags for the stop command
 	stopCmd.Flags().BoolVarP(&stopAll, "all", "a", false, "Stop all running clusters")
-} 
+}
