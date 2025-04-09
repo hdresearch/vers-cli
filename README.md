@@ -26,7 +26,7 @@ Make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See t
 ## Installation
 
 ```bash
-go install github.com/hdresearch/vers-cli@latest
+curl -sSL https://raw.githubusercontent.com/hdresearch/vers-cli/main/scripts/install.sh | bash
 ```
 
 ## Usage
