@@ -9,7 +9,11 @@ The scripts you should use as models are `status.go`, `execute.go`, `up.go`, `br
 
 You can largely have AI generate new command scripts with those previous scripts as a model. You'll have to manually adjust the SDK calls, though, since the AI won't have access to the details of the SDK. 
 
-If a request specifies a parameter you'll see this type `Command param.Field[string] \`json:"command,required"`\`, make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See the "Request Fields" section of the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) for more details. You can also look at the example of `execute.go`. 
+If a request specifies a parameter you'll see this type 
+```
+Command param.Field[string] `json:"command,required"`
+```
+Make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See the "Request Fields" section of the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) for more details. You can also look at the example of `execute.go`. 
 
 
 ## Features
