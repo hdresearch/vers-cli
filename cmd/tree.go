@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +68,6 @@ var treeCmd = &cobra.Command{
 				return fmt.Errorf("couldn't find a cluster containing VM '%s'", vmID)
 			}
 
-			fmt.Printf("Found cluster: %s\n", clusterID)
 		} else {
 			clusterID = args[0]
 		}
@@ -75,15 +75,14 @@ var treeCmd = &cobra.Command{
 		fmt.Printf("Generating tree for cluster: %s\n", clusterID)
 
 		// Fetch cluster data
-		fmt.Println("Fetching cluster information...")
 		cluster, err := client.API.Cluster.Get(apiCtx, clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to get information for cluster '%s': %w", clusterID, err)
 		}
 
 		// Print cluster information header
-		fmt.Printf("\nCluster: %s (Total VMs: %d)\n", cluster.ID, cluster.VmCount)
-		fmt.Println(strings.Repeat("=", 50))
+		clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", cluster.ID, cluster.VmCount))
+		fmt.Println(clusterHeader)
 
 		// Find the root VM
 		if cluster.RootVmID == "" {
@@ -100,9 +99,10 @@ var treeCmd = &cobra.Command{
 		}
 
 		fmt.Println("\nLegend:")
-		fmt.Println("- [R] Running")
-		fmt.Println("- [P] Paused")
-		fmt.Println("- [S] Stopped")
+		fmt.Println(styles.MutedTextStyle.Render("- [R] Running")) // Apply style to legend
+		fmt.Println(styles.MutedTextStyle.Render("- [P] Paused"))
+		fmt.Println(styles.MutedTextStyle.Render("- [S] Stopped"))
+		fmt.Println(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details.")) // Use help style
 
 		return nil
 	},
@@ -129,15 +129,19 @@ func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool, headVMI
 		connector = "└── "
 	}
 
-	// Format state with symbol
+	// Format state with symbol and style
 	stateSymbol := "[?]"
+	stateStyle := styles.MutedTextStyle // Default style for state
 	switch currentVM.State {
 	case "Running":
 		stateSymbol = "[R]"
+		stateStyle = styles.BaseTextStyle.Foreground(styles.TerminalGreen)
 	case "Paused":
 		stateSymbol = "[P]"
+		stateStyle = styles.MutedTextStyle
 	case "Stopped":
 		stateSymbol = "[S]"
+		stateStyle = styles.ErrorTextStyle
 	}
 
 	// Get short VM ID (last 8 characters) for cleaner display
@@ -149,15 +153,19 @@ func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool, headVMI
 		}
 	}
 
-	// Print the VM info with IP if available
-	vmInfo := fmt.Sprintf("%s %s", stateSymbol, shortID)
+	// Build the VM info string with appropriate styling
+	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(shortID))
 	if currentVM.IPAddress != "" {
-		vmInfo += fmt.Sprintf(" (%s)", currentVM.IPAddress)
+		vmInfo += fmt.Sprintf(" (%s)", styles.MutedTextStyle.Render(currentVM.IPAddress))
 	}
+
+	finalStyle := styles.NormalListItemStyle // Default list item style
 	if currentVM.ID == headVMID {
 		vmInfo += " <- HEAD"
+		finalStyle = styles.SelectedListItemStyle
 	}
-	fmt.Printf("%s%s%s\n", prefix, connector, vmInfo)
+
+	fmt.Printf("%s%s%s\n", prefix, connector, finalStyle.Render(vmInfo))
 
 	// Prepare the prefix for children
 	childPrefix := prefix
