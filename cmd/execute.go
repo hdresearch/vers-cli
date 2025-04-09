@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -10,18 +13,81 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// getCurrentHeadVM returns the VM ID from the current HEAD
+func getCurrentHeadVM() (string, error) {
+	versDir := ".vers"
+	headFile := filepath.Join(versDir, "HEAD")
+
+	// Check if .vers directory and HEAD file exist
+	if _, err := os.Stat(headFile); os.IsNotExist(err) {
+		return "", fmt.Errorf("HEAD not found. Run 'vers init' first")
+	}
+
+	// Read HEAD file
+	headData, err := os.ReadFile(headFile)
+	if err != nil {
+		return "", fmt.Errorf("error reading HEAD: %w", err)
+	}
+
+	// Parse the HEAD content
+	headContent := string(bytes.TrimSpace(headData))
+	var vmID string
+
+	// Check if HEAD is a symbolic ref or direct ref
+	if strings.HasPrefix(headContent, "ref: ") {
+		// It's a symbolic ref, extract the path
+		refPath := strings.TrimPrefix(headContent, "ref: ")
+
+		// Read the actual reference file
+		refFile := filepath.Join(versDir, refPath)
+		refData, err := os.ReadFile(refFile)
+		if err != nil {
+			return "", fmt.Errorf("error reading reference '%s': %w", refPath, err)
+		}
+
+		// Get the VM ID from the reference file
+		vmID = string(bytes.TrimSpace(refData))
+	} else {
+		// HEAD directly contains a VM ID
+		vmID = headContent
+	}
+
+	if vmID == "" {
+		return "", fmt.Errorf("could not determine current VM ID from HEAD")
+	}
+
+	return vmID, nil
+}
+
 // executeCmd represents the execute command
 var executeCmd = &cobra.Command{
-	Use:   "execute <vm_id> <command> [args...]",
+	Use:   "execute [vm_id] <command> [args...]",
 	Short: "Run a command on a specific VM",
-	Long:  `Execute a command within the Vers environment on the specified VM.`,
-	Args:  cobra.MinimumNArgs(2), // Require at least vm_id and command
+	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID is provided, uses the current HEAD.`,
+	Args:  cobra.MinimumNArgs(1), // Require at least command
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// The first argument is the vm_id
-		vmID := args[0]
-		// The rest of the arguments form the command
-		commandArgs := args[1:]
-		commandStr := strings.Join(commandArgs, " ")
+		var vmID string
+		var commandArgs []string
+		var commandStr string
+
+		// Check if first arg is a VM ID or a command
+		if len(args) >= 1 && strings.HasPrefix(args[0], "vm-") {
+			// First arg looks like a VM ID, use it
+			vmID = args[0]
+			commandArgs = args[1:]
+		} else {
+			// First arg doesn't look like a VM ID or only one arg, use HEAD
+			var err error
+			vmID, err = getCurrentHeadVM()
+			if err != nil {
+				return fmt.Errorf("no VM ID provided and %w", err)
+			}
+			fmt.Printf("Using current HEAD VM: %s\n", vmID)
+			commandArgs = args
+		}
+
+		// Join the command arguments
+		commandStr = strings.Join(commandArgs, " ")
 
 		fmt.Printf("Running command on VM '%s': %s\n", vmID, commandStr)
 
@@ -65,4 +131,4 @@ var executeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(executeCmd)
-} 
+}

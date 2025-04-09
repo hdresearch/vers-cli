@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -27,18 +29,18 @@ var loginCmd = &cobra.Command{
 		// client = vers.NewClient(
 		// 	option.WithAPIKey(token),
 		// )
-		
+
 		// // Verify the token works by making a simple API call
 		// fmt.Println("Verifying API token...")
 		// // You would typically make a simple API call here to verify the token
 		// // For example: _, err := client.API.SomeSimpleEndpoint.Get(context.TODO())
-		
+
 		// fmt.Println("Successfully logged in to Vers platform")
-		
+
 		// // Save the token for future use
 		// // This would typically involve storing the token in a secure location
 		// // like the system keychain or a config file with appropriate permissions
-		
+		fmt.Println("Error: Not implemented yet. We will be adding this soon.")
 		return nil
 	},
 }
@@ -48,4 +50,4 @@ func init() {
 
 	// Define flags for the login command
 	loginCmd.Flags().StringVarP(&token, "token", "t", "", "API token for authentication")
-} 
+}
