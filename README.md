@@ -29,6 +29,14 @@ Make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See t
 curl -sSL https://raw.githubusercontent.com/hdresearch/vers-cli/main/scripts/install.sh | bash
 ```
 
+or, while this repo is still private,
+
+```
+go install github.com/hdresearch/vers-cli/cmd/vers@latest
+
+```
+
+
 ## Usage
 
 ### Available Commands
