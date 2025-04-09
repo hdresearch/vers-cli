@@ -25,7 +25,7 @@ Make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See t
 
 ## Installation
 
-```
+```bash
 go install github.com/hdresearch/vers-cli/cmd/vers@latest
 ```
 
@@ -72,4 +72,12 @@ command = "python main.py"
 
 [env]
 DATABASE_URL = "postgres://localhost:5432/mydb"
+```
+
+
+## Development
+
+To build the binary locally, run:
+```bash
+go build -o bin/vers ./cmd/vers
 ```

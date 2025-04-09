@@ -91,7 +91,13 @@ var treeCmd = &cobra.Command{
 		}
 
 		// Print the tree starting from the root VM
-		printVMTree(cluster.Children, cluster.RootVmID, "", true)
+		headVM, err := getCurrentHeadVM()
+		if err != nil {
+			// If we can't get HEAD, just print without it
+			printVMTree(cluster.Children, cluster.RootVmID, "", true, "")
+		} else {
+			printVMTree(cluster.Children, cluster.RootVmID, "", true, headVM)
+		}
 
 		fmt.Println("\nLegend:")
 		fmt.Println("- [R] Running")
@@ -103,7 +109,7 @@ var treeCmd = &cobra.Command{
 }
 
 // printVMTree recursively prints a tree view of VMs
-func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool) {
+func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool, headVMID string) {
 	// Find the current VM in the list
 	var currentVM *vers.Vm
 	for i := range vms {
@@ -148,6 +154,9 @@ func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool) {
 	if currentVM.IPAddress != "" {
 		vmInfo += fmt.Sprintf(" (%s)", currentVM.IPAddress)
 	}
+	if currentVM.ID == headVMID {
+		vmInfo += " <- HEAD"
+	}
 	fmt.Printf("%s%s%s\n", prefix, connector, vmInfo)
 
 	// Prepare the prefix for children
@@ -161,7 +170,7 @@ func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool) {
 	// Print children
 	for i, childID := range currentVM.Children {
 		isLastChild := i == len(currentVM.Children)-1
-		printVMTree(vms, childID, childPrefix, isLastChild)
+		printVMTree(vms, childID, childPrefix, isLastChild, headVMID)
 	}
 }
 
