@@ -81,3 +81,13 @@ To build the binary locally, run:
 ```bash
 go build -o bin/vers ./cmd/vers
 ```
+
+This repository uses [Air](https://github.com/air-verse/air?tab=readme-ov-file) for development with hot reloading. You can run 
+```
+air
+```
+which will take the place of running the binary. So to develop on e.g. `vers status` you would run
+
+```
+air status
+```

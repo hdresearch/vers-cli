@@ -30,10 +30,10 @@ var (
 
 	// Semantic Palette (Example using AdaptiveColor like Tailwind's HSL vars)
 	// Replace these placeholders with actual Light/Dark hex or ANSI codes
-	Primary       = lipgloss.AdaptiveColor{Light: "#6200EE", Dark: "#ff00ff"} // Example purple tones
+	Primary       = lipgloss.AdaptiveColor{Light: "#750071", Dark: "#ff00ff"} // Example purple tones
 	PrimaryDim    = lipgloss.AdaptiveColor{Light: "#8F4EEF", Dark: "#D0AAF0"} // Example dimmed purple
 	PrimaryFg     = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#000000"}
-	Secondary     = lipgloss.AdaptiveColor{Light: "#03DAC6", Dark: "#03DAC6"} // Example teal tones
+	Secondary     = lipgloss.AdaptiveColor{Light: "#0000ff", Dark: "#0000ff"} // Example teal tones
 	SecondaryFg   = lipgloss.AdaptiveColor{Light: "#000000", Dark: "#000000"}
 	Background    = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#121212"}
 	Foreground    = lipgloss.AdaptiveColor{Light: "#000000", Dark: "#FFFFFF"}

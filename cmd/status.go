@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss/list"
+	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
@@ -29,30 +31,35 @@ var statusCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		s := NewStatusStyles()
+
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
-			fmt.Printf("Getting status for cluster: %s\n", clusterID)
+			fmt.Printf(s.ClusterHeader.Render("Getting status for cluster: "+clusterID) + "\n")
 
 			// Call the Get cluster endpoint with the cluster ID
-			fmt.Println("Fetching cluster information...")
+			fmt.Println(s.NoData.Render("Fetching cluster information..."))
 			cluster, err := client.API.Cluster.Get(apiCtx, clusterID)
 			if err != nil {
-				return fmt.Errorf("failed to get status for cluster '%s': %w", clusterID, err)
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %v"), clusterID, err)
 			}
 
-			// Display the cluster information
-			fmt.Printf("Cluster ID: %s\n", cluster.ID)
-			fmt.Println("VMs in this cluster:")
-			fmt.Println("-----------------------")
+			clusterInfo := s.ClusterInfo.Render(fmt.Sprintf("Cluster ID: %s", cluster.ID))
+			fmt.Println(clusterInfo)
+			
+			fmt.Println(s.VMListHeader.Render("VMs in this cluster:"))
+			fmt.Println(s.VMListDivider.Render("-----------------------"))
 
 			if len(cluster.Children) == 0 {
-				fmt.Println("No VMs found in this cluster.")
+				fmt.Println(s.NoData.Render("No VMs found in this cluster."))
 			} else {
 				// Display each VM's information
 				for _, vm := range cluster.Children {
-					fmt.Printf("VM ID: %s\n", vm.ID)
-					fmt.Printf("  State: %s\n", vm.State)
-					fmt.Printf("  IP Address: %s\n", vm.IPAddress)
+					vmInfo := fmt.Sprintf("VM ID: %s\n  State: %s\n  IP Address: %s",
+						vm.ID,
+						vm.State,
+						vm.IPAddress)
+					fmt.Println(s.VMInfo.Render(vmInfo))
 					fmt.Println()
 				}
 			}
@@ -61,28 +68,27 @@ var statusCmd = &cobra.Command{
 		}
 
 		// If no cluster ID provided, list all clusters
-		fmt.Println("Fetching list of clusters...")
+		fmt.Println(s.NoData.Render("Fetching list of clusters..."))
 
 		clusters, err := client.API.Cluster.List(apiCtx)
 		if err != nil {
-			return fmt.Errorf("failed to list clusters: %w", err)
+			return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %v"), err)
 		}
 
 		if clusters == nil || len(*clusters) == 0 {
-			fmt.Println("No clusters found.")
+			fmt.Println(s.NoData.Render("No clusters found."))
 			return nil
 		}
 
-		fmt.Println("Available clusters:")
+		fmt.Println(s.VMListHeader.Render("Available clusters:"))
+		clusterList := list.New().Enumerator(list.Asterisk).ItemStyle(s.ClusterList)
 		for _, cluster := range *clusters {
-			fmt.Printf("  - ID: %s, Root VM ID: %s, Children: %d\n",
-				cluster.ID,
-				cluster.RootVmID,
-				cluster.VmCount,
-			)
+			clusterList.Items("Cluster: " + cluster.ID, list.New("Root VM: " + cluster.RootVmID, "# children: " + fmt.Sprintf("%d", cluster.VmCount)))
 		}
+		fmt.Println(clusterList)
 
-		fmt.Println("\nTip: To view the list of VMs in a specific cluster, use: vers status -c <cluster-id>")
+		tip := "\nTip: To view the list of VMs in a specific cluster, use: vers status -c <cluster-id>"
+		fmt.Println(s.Tip.Render(tip))
 
 		return nil
 	},
@@ -93,25 +99,27 @@ func displayHeadStatus() {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
 
+	s := NewStatusStyles()
+
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		fmt.Println("HEAD status: Not a vers repository (or run 'vers init' first)")
-		fmt.Println("-------")
+		fmt.Println(s.ClusterHeader.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
 		return
 	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
 	if err != nil {
-		fmt.Printf("HEAD status: Error reading HEAD file (%v)\n", err)
-		fmt.Println("-------")
+		fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
 		return
 	}
 
 	// Parse the HEAD content
 	headContent := string(bytes.TrimSpace(headData))
 
+	fmt.Println(s.Container.Render("Available clusters:"))
 	// Check if HEAD is a symbolic ref or direct ref
+	var headStatus string
 	if strings.HasPrefix(headContent, "ref: ") {
 		// It's a symbolic ref, extract the branch name
 		refPath := strings.TrimPrefix(headContent, "ref: ")
@@ -125,13 +133,13 @@ func displayHeadStatus() {
 			vmID = string(bytes.TrimSpace(refData))
 		}
 
-		fmt.Printf("HEAD status: On branch '%s' (VM: %s)\n", branchName, vmID)
+		headStatus = fmt.Sprintf(s.ClusterHeader.Render("HEAD status: On branch '%s' (VM: %s)"), branchName, vmID)
 	} else {
 		// HEAD directly contains a VM ID (detached HEAD state)
-		fmt.Printf("HEAD status: Detached HEAD at VM '%s'\n", headContent)
+		headStatus = fmt.Sprintf("HEAD status: Detached HEAD at VM '%s'", headContent)
 	}
 
-	fmt.Println("-------")
+	fmt.Println(s.ClusterHeader.Render(headStatus))
 }
 
 func init() {
