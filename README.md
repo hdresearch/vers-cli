@@ -22,7 +22,7 @@ If a request specifies a parameter you'll see this type `Command param.Field[str
 ## Installation
 
 ```bash
-go install github.com/hdresearch/vers-cli@latest
+go install github.com/hdresearch/vers-cli-new@latest
 ```
 
 ## Usage

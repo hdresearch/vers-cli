@@ -1,4 +1,4 @@
-module github.com/hdresearch/vers-cli
+module github.com/hdresearch/vers-cli-new
 
 go 1.22.4
 
