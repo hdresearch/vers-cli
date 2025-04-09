@@ -6,7 +6,7 @@ var (
 	// Base Styles
 	AppStyle = lipgloss.NewStyle().Padding(1, 2) // Base padding for the whole app view
 
-	BaseTextStyle = lipgloss.NewStyle().Foreground(Foreground)
+	BaseTextStyle = AppStyle.Foreground(Foreground)
 
 	// Semantic Text Styles (inherit from BaseTextStyle)
 	PrimaryTextStyle   = BaseTextStyle.Foreground(Primary)
