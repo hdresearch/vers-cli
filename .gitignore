@@ -34,3 +34,7 @@ Thumbs.db
 bin/
 
 .vers
+
+tmp/
+
+repomix-output.xml

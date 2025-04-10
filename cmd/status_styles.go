@@ -10,8 +10,10 @@ type StatusStyles struct {
 	Container      lipgloss.Style
 	ClusterHeader  lipgloss.Style
 	ClusterInfo    lipgloss.Style
-	ClusterList    lipgloss.Style
 	VMListHeader   lipgloss.Style
+	ClusterName    lipgloss.Style
+	ClusterListItem lipgloss.Style
+	ClusterData    lipgloss.Style
 	VMInfo         lipgloss.Style
 	NoData         lipgloss.Style
 	Tip            lipgloss.Style
@@ -23,7 +25,9 @@ func NewStatusStyles() StatusStyles {
 
 	listItemStyle := containerStyle.
 		Inherit(styles.SecondaryTextStyle).
-		Padding(0, 1)
+		Padding(0,1)
+	dataItemStyle := styles.PrimaryTextStyle.
+		Foreground(styles.TerminalWhite)
 
 	return StatusStyles{
 		Container: containerStyle,
@@ -31,14 +35,24 @@ func NewStatusStyles() StatusStyles {
 		ClusterInfo: containerStyle.
 			Inherit(styles.PrimaryTextStyle).
 			Padding(0, 1),
-		ClusterList: listItemStyle,
 		VMListHeader: containerStyle.
 			Inherit(styles.PrimaryTextStyle).
-			Padding(1, 0),
+			PaddingBottom(1),
+		ClusterName: listItemStyle.
+			Inherit(styles.HeaderStyle).	
+			Background(styles.TerminalBlue).
+			Foreground(styles.TerminalWhite),	
+		ClusterListItem: listItemStyle.
+			MarginBottom(1).
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(styles.BorderColor).
+			BorderRight(true).
+			BorderBottom(true),
+		ClusterData: dataItemStyle.
+			PaddingLeft(2),
 		VMInfo: listItemStyle,
-		NoData: containerStyle.
-			Inherit(styles.MutedTextStyle),
-		Tip: containerStyle.
-			Inherit(styles.HelpStyle),
+		NoData: styles.MutedTextStyle.
+			Padding(1,0),
+		Tip: styles.HelpStyle.Padding(0,0),
 	}
 } 

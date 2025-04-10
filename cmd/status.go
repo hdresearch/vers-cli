@@ -82,9 +82,16 @@ var statusCmd = &cobra.Command{
 		}
 
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
-		clusterList := list.New().Enumerator(list.Asterisk).ItemStyle(s.ClusterList)
+		clusterList := list.New().Enumerator(list.Asterisk).ItemStyle(s.ClusterListItem)
 		for _, cluster := range *clusters {
-			clusterList.Items("Cluster: " + cluster.ID, list.New("Root VM: " + cluster.RootVmID, "# children: " + fmt.Sprintf("%d", cluster.VmCount)))
+			// Combine the cluster name and its data into a single string
+			clusterInfo := fmt.Sprintf(
+				"%s\n%s\n%s",
+				s.ClusterName.Render("Cluster: "+cluster.ID),
+				s.ClusterData.Render("Root VM: "+cluster.RootVmID),
+				s.ClusterData.Render("# children: "+fmt.Sprintf("%d", cluster.VmCount)),
+			)
+			clusterList.Items(clusterInfo)
 		}
 		fmt.Println(clusterList)
 
@@ -118,7 +125,6 @@ func displayHeadStatus() {
 	// Parse the HEAD content
 	headContent := string(bytes.TrimSpace(headData))
 
-	fmt.Println(s.Container.Render("Available clusters:"))
 	// Check if HEAD is a symbolic ref or direct ref
 	var headStatus string
 	if strings.HasPrefix(headContent, "ref: ") {
