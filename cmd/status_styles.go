@@ -12,7 +12,6 @@ type StatusStyles struct {
 	ClusterInfo    lipgloss.Style
 	ClusterList    lipgloss.Style
 	VMListHeader   lipgloss.Style
-	VMListDivider  lipgloss.Style
 	VMInfo         lipgloss.Style
 	NoData         lipgloss.Style
 	Tip            lipgloss.Style
@@ -22,22 +21,21 @@ type StatusStyles struct {
 func NewStatusStyles() StatusStyles {
 	containerStyle := styles.AppStyle
 
+	listItemStyle := containerStyle.
+		Inherit(styles.SecondaryTextStyle).
+		Padding(0, 1)
+
 	return StatusStyles{
 		Container: containerStyle,
 		ClusterHeader: styles.HeaderStyle,
 		ClusterInfo: containerStyle.
 			Inherit(styles.PrimaryTextStyle).
 			Padding(0, 1),
-		ClusterList: containerStyle.
-			Inherit(styles.SecondaryTextStyle).
-			Padding(0, 1),
+		ClusterList: listItemStyle,
 		VMListHeader: containerStyle.
 			Inherit(styles.PrimaryTextStyle).
 			Padding(1, 0),
-		VMListDivider: containerStyle.
-			Inherit(styles.SecondaryTextStyle),
-		VMInfo: containerStyle.
-			Inherit(styles.NormalListItemStyle),
+		VMInfo: listItemStyle,
 		NoData: containerStyle.
 			Inherit(styles.MutedTextStyle),
 		Tip: containerStyle.

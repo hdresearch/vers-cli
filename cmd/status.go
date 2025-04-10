@@ -48,20 +48,21 @@ var statusCmd = &cobra.Command{
 			fmt.Println(clusterInfo)
 			
 			fmt.Println(s.VMListHeader.Render("VMs in this cluster:"))
-			fmt.Println(s.VMListDivider.Render("-----------------------"))
 
-			if len(cluster.Children) == 0 {
+			if len(cluster.Vms) == 0 {
 				fmt.Println(s.NoData.Render("No VMs found in this cluster."))
 			} else {
-				// Display each VM's information
-				for _, vm := range cluster.Children {
-					vmInfo := fmt.Sprintf("VM ID: %s\n  State: %s\n  IP Address: %s",
-						vm.ID,
-						vm.State,
-						vm.IPAddress)
-					fmt.Println(s.VMInfo.Render(vmInfo))
-					fmt.Println()
+				vmList := list.New().Enumerator(list.Asterisk).ItemStyle(s.VMInfo)
+				for _, vm := range cluster.Vms {
+					vmList.Items(
+						fmt.Sprintf("VM: %s", vm.ID),
+						list.New(
+							fmt.Sprintf("State: %s", vm.State),
+							fmt.Sprintf("IP Address: %s", vm.IPAddress),
+						),
+					)
 				}
+				fmt.Println(vmList)
 			}
 
 			return nil

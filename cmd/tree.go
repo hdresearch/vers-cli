@@ -51,7 +51,7 @@ var treeCmd = &cobra.Command{
 				}
 
 				// Check all children in the cluster
-				for _, vm := range cluster.Children {
+				for _, vm := range cluster.Vms {
 					if vm.ID == vmID {
 						clusterID = cluster.ID
 						found = true
@@ -93,9 +93,9 @@ var treeCmd = &cobra.Command{
 		headVM, err := getCurrentHeadVM()
 		if err != nil {
 			// If we can't get HEAD, just print without it
-			printVMTree(cluster.Children, cluster.RootVmID, "", true, "")
+			printVMTree(cluster.Vms, cluster.RootVmID, "", true, "")
 		} else {
-			printVMTree(cluster.Children, cluster.RootVmID, "", true, headVM)
+			printVMTree(cluster.Vms, cluster.RootVmID, "", true, headVM)
 		}
 
 		fmt.Println("\nLegend:")
