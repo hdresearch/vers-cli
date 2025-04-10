@@ -124,6 +124,10 @@ var branchCmd = &cobra.Command{
 					fmt.Printf(s.Warning.Render("⚠ Warning: Failed to create branch ref: %v\n"), err)
 				} 
 
+
+				// Branch creation success
+				fmt.Printf(s.Success.Render("✓ Branch created successfully!")+"\n")
+		
 				// Optionally, switch HEAD to the new branch
 				if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
 					headFile := filepath.Join(versDir, "HEAD")
@@ -141,12 +145,9 @@ var branchCmd = &cobra.Command{
 			}
 		}
 
-		// Branch creation success
-		fmt.Printf(s.Success.Render("✓ Branch created successfully!")+"\n")
-		
 		// Branch details
-		fmt.Printf(s.ListHeader.Render("Branch Details")+"\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("Branch ID")+": "+s.VMID.Render(branchInfo.ID))+"\n")
+		fmt.Printf(s.ListHeader.Render("Branch details:")+"\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("New VM ID")+": "+s.VMID.Render(branchInfo.ID))+"\n")
 		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress))+"\n")
 		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State)))+"\n\n")
 

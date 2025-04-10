@@ -36,4 +36,17 @@ var (
 				Padding(0, 1) // Basic padding for alignment
 
 	HelpStyle = MutedTextStyle.Padding(1, 0)
+
+	// Version Control Styles
+	HeadStatusStyle = BaseTextStyle.
+		Foreground(Primary).
+		Italic(true).
+		Padding(1, 0)
+
+	BranchNameStyle = BaseTextStyle.
+		Bold(true).
+		Foreground(Primary)
+
+	VmIDStyle = BaseTextStyle.
+		Background(TerminalSilver)
 )

@@ -53,18 +53,14 @@ func NewBranchStyles() BranchStyles {
 			Foreground(styles.TerminalWhite).
 			Background(styles.TerminalBlue).
 			Padding(0, 1),
-		ListHeader: styles.HeaderStyle.
-			Foreground(styles.TerminalWhite).
-			Background(styles.TerminalNavy).
+		ListHeader: styles.BaseTextStyle.
+			Foreground(styles.TerminalMagenta).
 			MarginBottom(1).
 			Padding(0, 1),
 
 		// Branch and VM styles
-		BranchName: styles.PrimaryTextStyle.
-			Foreground(styles.TerminalBlue).
-			Bold(true),
-		VMID: styles.PrimaryTextStyle.
-			Foreground(styles.TerminalYellow),
+		BranchName: styles.BranchNameStyle,
+		VMID: styles.VmIDStyle,
 		CurrentState: styles.SecondaryTextStyle.
 			Foreground(styles.TerminalWhite),
 
@@ -97,8 +93,6 @@ func NewBranchStyles() BranchStyles {
 		Tip: styles.MutedTextStyle.
 			Italic(true).
 			Foreground(styles.TerminalGray),
-		HeadStatus: styles.HeaderStyle.
-			Foreground(styles.TerminalWhite).
-			Bold(true),
+		HeadStatus: styles.HeadStatusStyle,
 	}
 } 
