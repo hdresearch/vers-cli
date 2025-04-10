@@ -34,7 +34,7 @@ var statusCmd = &cobra.Command{
 
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
-			fmt.Printf(s.ClusterHeader.Render("Getting status for cluster: "+clusterID) + "\n")
+			fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterID) + "\n")
 
 			// Call the Get cluster endpoint with the cluster ID
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
@@ -127,7 +127,7 @@ func displayHeadStatus() {
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		fmt.Println(s.ClusterHeader.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
+		fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
 		return
 	}
 
@@ -156,13 +156,13 @@ func displayHeadStatus() {
 			vmID = string(bytes.TrimSpace(refData))
 		}
 
-		headStatus = fmt.Sprintf(s.ClusterHeader.Render("HEAD status: On branch '%s' (VM: %s)"), branchName, vmID)
+		headStatus = fmt.Sprintf(s.HeadStatus.Render("HEAD status: On branch '%s' (VM: %s)"), branchName, vmID)
 	} else {
 		// HEAD directly contains a VM ID (detached HEAD state)
 		headStatus = fmt.Sprintf("HEAD status: Detached HEAD at VM '%s'", headContent)
 	}
 
-	fmt.Println(s.ClusterHeader.Render(headStatus))
+	fmt.Println(s.HeadStatus.Render(headStatus))
 }
 
 func emptyEnumerator(_ list.Items, _ int) string {

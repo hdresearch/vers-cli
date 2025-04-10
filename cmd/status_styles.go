@@ -8,7 +8,7 @@ import (
 // StatusStyles contains all styles used in the status command
 type StatusStyles struct {
 	Container      lipgloss.Style
-	ClusterHeader  lipgloss.Style
+	HeadStatus  lipgloss.Style
 	ClusterInfo    lipgloss.Style
 	VMListHeader   lipgloss.Style
 	ClusterName    lipgloss.Style
@@ -32,7 +32,8 @@ func NewStatusStyles() StatusStyles {
 
 	return StatusStyles{
 		Container: containerStyle,
-		ClusterHeader: styles.HeaderStyle,
+		HeadStatus: styles.PrimaryTextStyle.
+			Italic(true),
 		ClusterInfo: containerStyle.
 			Inherit(styles.PrimaryTextStyle).
 			Padding(0, 1),
