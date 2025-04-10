@@ -24,6 +24,7 @@ var branchCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmName string
+		s := NewBranchStyles()
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
@@ -33,13 +34,13 @@ var branchCmd = &cobra.Command{
 
 			// Check if .vers directory and HEAD file exist
 			if _, err := os.Stat(headFile); os.IsNotExist(err) {
-				return fmt.Errorf("no VM ID provided and HEAD not found. Run 'vers init' first")
+				return fmt.Errorf(s.Error.Render("no VM ID provided and HEAD not found. Run 'vers init' first"))
 			}
 
 			// Read HEAD file
 			headData, err := os.ReadFile(headFile)
 			if err != nil {
-				return fmt.Errorf("error reading HEAD: %w", err)
+				return fmt.Errorf(s.Error.Render("error reading HEAD: %v"), err)
 			}
 
 			// Parse the HEAD content
@@ -55,7 +56,7 @@ var branchCmd = &cobra.Command{
 				refFile := filepath.Join(versDir, refPath)
 				refData, err := os.ReadFile(refFile)
 				if err != nil {
-					return fmt.Errorf("error reading reference '%s': %w", refPath, err)
+					return fmt.Errorf(s.Error.Render("error reading reference '%s': %v"), refPath, err)
 				}
 
 				// Get the VM ID from the reference file
@@ -66,10 +67,10 @@ var branchCmd = &cobra.Command{
 			}
 
 			if vmName == "" {
-				return fmt.Errorf("could not determine current VM ID from HEAD")
+				return fmt.Errorf(s.Error.Render("could not determine current VM ID from HEAD"))
 			}
 
-			fmt.Printf("Using current HEAD VM: %s\n", vmName)
+			fmt.Printf(s.Tip.Render("Using current HEAD VM: ")+s.VMID.Render(vmName)+"\n")
 		} else {
 			vmName = args[0]
 		}
@@ -81,7 +82,6 @@ var branchCmd = &cobra.Command{
 			tempBranchName = "[auto-generated]"
 		}
 
-		fmt.Printf("Creating branch of vm '%s' as '%s'\n", vmName, tempBranchName)
 
 		baseCtx := context.Background()
 		client = vers.NewClient()
@@ -92,16 +92,14 @@ var branchCmd = &cobra.Command{
 			Body: map[string]interface{}{},
 		}
 
-		fmt.Println("Creating branch...")
+		fmt.Println(s.Progress.Render("Creating branch..."))
 		branchInfo, err := client.API.Vm.NewBranch(apiCtx, vmName, branchParams)
 
 		if err != nil {
-			return fmt.Errorf("failed to create branch of vm '%s': %w", vmName, err)
+			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %v"), vmName, err)
 		}
-		fmt.Printf("Branch created successfully with ID: %s\n", branchInfo.ID)
-		fmt.Printf("Branch IP address: %s\n", branchInfo.IPAddress)
-		fmt.Printf("Branch state: %s\n", branchInfo.State)
 
+		
 		// Store the branch VM ID in version control system
 		branchVmID := branchInfo.ID
 		if branchVmID != "" {
@@ -114,7 +112,7 @@ var branchCmd = &cobra.Command{
 			// Check if .vers directory exists
 			versDir := ".vers"
 			if _, err := os.Stat(versDir); os.IsNotExist(err) {
-				fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
+				fmt.Println(s.Warning.Render("⚠ Warning: .vers directory not found. Run 'vers init' first."))
 			} else {
 				// Sanitize branch name (remove invalid characters for filenames)
 				safeBranchName := strings.ReplaceAll(branchName, "/", "-")
@@ -123,28 +121,38 @@ var branchCmd = &cobra.Command{
 				// Create branch ref file
 				branchRefPath := filepath.Join(versDir, "refs", "heads", safeBranchName)
 				if err := os.WriteFile(branchRefPath, []byte(branchVmID+"\n"), 0644); err != nil {
-					fmt.Printf("Warning: Failed to create branch ref: %v\n", err)
-				} else {
-					fmt.Printf("Created branch reference: refs/heads/%s -> %s\n", safeBranchName, branchVmID)
-				}
+					fmt.Printf(s.Warning.Render("⚠ Warning: Failed to create branch ref: %v\n"), err)
+				} 
 
 				// Optionally, switch HEAD to the new branch
 				if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
 					headFile := filepath.Join(versDir, "HEAD")
 					newRef := fmt.Sprintf("ref: refs/heads/%s\n", safeBranchName)
 					if err := os.WriteFile(headFile, []byte(newRef), 0644); err != nil {
-						fmt.Printf("Warning: Failed to update HEAD: %v\n", err)
+						fmt.Printf(s.Warning.Render("⚠ Warning: Failed to update HEAD: %v\n"), err)
 					} else {
-						fmt.Printf("HEAD now points to: refs/heads/%s\n", safeBranchName)
+						fmt.Printf(s.Success.Render("✓ HEAD now points to: ")+s.BranchName.Render("refs/heads/"+safeBranchName)+"\n")
 					}
 				} else {
 					// Show message indicating HEAD was not changed
 					currentBranch := getCurrentBranchName(versDir)
-					fmt.Printf("Note: HEAD is still on '%s'. Use --checkout or -c to switch to the new branch.\n", currentBranch)
-					fmt.Printf("Run 'vers checkout %s' to switch to this branch.\n", safeBranchName)
+					fmt.Printf(s.HeadStatus.Render("HEAD: On branch '"+currentBranch+"'")+"\n")
 				}
 			}
 		}
+
+		// Branch creation success
+		fmt.Printf(s.Success.Render("✓ Branch created successfully!")+"\n")
+		
+		// Branch details
+		fmt.Printf(s.ListHeader.Render("Branch Details")+"\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("Branch ID")+": "+s.VMID.Render(branchInfo.ID))+"\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress))+"\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State)))+"\n\n")
+
+		fmt.Printf(s.Tip.Render("Use --checkout or -c to switch to the new branch")+"\n")
+		fmt.Printf(s.Tip.Render("Run 'vers checkout "+branchName+"' to switch to this branch")+"\n")
+
 
 		return nil
 	},
