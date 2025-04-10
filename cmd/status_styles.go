@@ -17,6 +17,7 @@ type StatusStyles struct {
 	VMInfo         lipgloss.Style
 	NoData         lipgloss.Style
 	Tip            lipgloss.Style
+	VMID           lipgloss.Style
 }
 
 // NewStatusStyles initializes and returns all styles used in the status command
@@ -55,5 +56,7 @@ func NewStatusStyles() StatusStyles {
 		NoData: styles.MutedTextStyle.
 			Padding(1,0),
 		Tip: styles.HelpStyle.Padding(0,0),
+		VMID: dataItemStyle.
+			Foreground(styles.TerminalYellow),
 	}
 } 

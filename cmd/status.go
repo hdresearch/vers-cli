@@ -43,26 +43,41 @@ var statusCmd = &cobra.Command{
 				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %v"), clusterID, err)
 			}
 
-			clusterInfo := s.ClusterInfo.Render(fmt.Sprintf("Cluster ID: %s", cluster.ID))
-			fmt.Println(clusterInfo)
+			displayHeadStatus()
+
+			fmt.Println(s.VMListHeader.Render("Cluster details:"))
+			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 			
+			// Format cluster info similar to the default view
+			clusterInfo := fmt.Sprintf(
+				"%s\n%s\n%s",
+				s.ClusterName.Render("Cluster: "+cluster.ID),
+				s.ClusterData.Render("Root VM: "+s.VMID.Render(cluster.RootVmID)),
+				s.ClusterData.Render("# VMs: "+fmt.Sprintf("%d", len(cluster.Vms))),
+			)
+			clusterList.Items(clusterInfo)
+			fmt.Println(clusterList)
+
 			fmt.Println(s.VMListHeader.Render("VMs in this cluster:"))
 
 			if len(cluster.Vms) == 0 {
 				fmt.Println(s.NoData.Render("No VMs found in this cluster."))
 			} else {
-				vmList := list.New().Enumerator(list.Asterisk).ItemStyle(s.VMInfo)
+				vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 				for _, vm := range cluster.Vms {
-					vmList.Items(
-						fmt.Sprintf("VM: %s", vm.ID),
-						list.New(
-							fmt.Sprintf("State: %s", vm.State),
-							fmt.Sprintf("IP Address: %s", vm.IPAddress),
-						),
+					vmInfo := fmt.Sprintf(
+						"%s\n%s\n%s",
+						s.ClusterData.Render("VM: "+s.VMID.Render(vm.ID)),
+						s.ClusterData.Render("State: "+string(vm.State)),
+						s.ClusterData.Render("IP Address: "+vm.IPAddress),
 					)
+					vmList.Items(vmInfo)
 				}
 				fmt.Println(vmList)
 			}
+
+			tip := "\nTip: To view all clusters, run: vers status"
+			fmt.Println(s.Tip.Render(tip))
 
 			return nil
 		}
@@ -89,7 +104,7 @@ var statusCmd = &cobra.Command{
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
 				s.ClusterName.Render("Cluster: "+cluster.ID),
-				s.ClusterData.Render("Root VM: "+cluster.RootVmID),
+				s.ClusterData.Render("Root VM: "+s.VMID.Render(cluster.RootVmID)),
 				s.ClusterData.Render("# children: "+fmt.Sprintf("%d", cluster.VmCount)),
 			)
 			clusterList.Items(clusterInfo)
