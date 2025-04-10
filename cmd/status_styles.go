@@ -25,7 +25,7 @@ func NewStatusStyles() StatusStyles {
 
 	listItemStyle := containerStyle.
 		Inherit(styles.SecondaryTextStyle).
-		Padding(0,1)
+		Padding(0,0)
 	dataItemStyle := styles.PrimaryTextStyle.
 		Foreground(styles.TerminalWhite)
 
@@ -41,7 +41,8 @@ func NewStatusStyles() StatusStyles {
 		ClusterName: listItemStyle.
 			Inherit(styles.HeaderStyle).	
 			Background(styles.TerminalBlue).
-			Foreground(styles.TerminalWhite),	
+			Foreground(styles.TerminalWhite).
+			Padding(0,1),	
 		ClusterListItem: listItemStyle.
 			MarginBottom(1).
 			BorderStyle(lipgloss.RoundedBorder()).

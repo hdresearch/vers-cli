@@ -22,7 +22,6 @@ var statusCmd = &cobra.Command{
 	Long:  `Displays the status of all clusters or details of a specific cluster if specified with -cluster or -c flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Display current HEAD information
-		displayHeadStatus()
 
 		clusterID, _ := cmd.Flags().GetString("cluster")
 
@@ -81,8 +80,10 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
+		displayHeadStatus()
+
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
-		clusterList := list.New().Enumerator(list.Asterisk).ItemStyle(s.ClusterListItem)
+		clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 		for _, cluster := range *clusters {
 			// Combine the cluster name and its data into a single string
 			clusterInfo := fmt.Sprintf(
@@ -147,6 +148,10 @@ func displayHeadStatus() {
 	}
 
 	fmt.Println(s.ClusterHeader.Render(headStatus))
+}
+
+func emptyEnumerator(_ list.Items, _ int) string {
+	return ""
 }
 
 func init() {
