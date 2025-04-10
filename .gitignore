@@ -38,3 +38,5 @@ bin/
 tmp/
 
 repomix-output.xml
+
+id_rsa
