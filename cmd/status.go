@@ -66,10 +66,9 @@ var statusCmd = &cobra.Command{
 				vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 				for _, vm := range cluster.Vms {
 					vmInfo := fmt.Sprintf(
-						"%s\n%s\n%s",
+						"%s\n%s\n",
 						s.ClusterData.Render("VM: "+s.VMID.Render(vm.ID)),
 						s.ClusterData.Render("State: "+string(vm.State)),
-						s.ClusterData.Render("IP Address: "+vm.IPAddress),
 					)
 					vmList.Items(vmInfo)
 				}
