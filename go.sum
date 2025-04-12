@@ -25,6 +25,8 @@ github.com/hdresearch/vers-sdk-go v0.1.0-alpha.6 h1:Zvn38yWJkYLmZnSghBDKXzILgBbB
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.6/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.7 h1:xKDIf/i7Fun35fkp9x6BNPpGD/Gyt+1wqfO5hyLd0C8=
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.7/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.8 h1:PNK+2/FAPHocjhH+5aQt1gBvDcDO+WdKxownLetZQGI=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.8/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
