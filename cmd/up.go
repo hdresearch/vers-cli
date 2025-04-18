@@ -32,11 +32,7 @@ var upCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		clusterParams := vers.APIClusterNewParams{
-			Body: map[string]interface{}{
-				"name": clusterName,
-			},
-		}
+		clusterParams := vers.APIClusterNewParams{}
 
 		fmt.Println("Sending request to start cluster...")
 		clusterInfo, err := client.API.Cluster.New(apiCtx, clusterParams)
