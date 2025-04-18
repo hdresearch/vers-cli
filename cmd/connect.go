@@ -3,14 +3,21 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
+
+// getSSHKeyPath returns the path to the SSH key file for a given VM
+func getSSHKeyPath(vmID string) string {
+	versDir := ".vers"
+	keysDir := filepath.Join(versDir, "keys")
+	return filepath.Join(keysDir, fmt.Sprintf("%s.key", vmID))
+}
 
 // connectCmd represents the connect command
 var connectCmd = &cobra.Command{
@@ -56,57 +63,74 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-		// Get SSH key using SDK
-		sshKeyBytes, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
-		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
-		}
-		
-		// Create a temporary file for the SSH key
-		tmpFile, err := ioutil.TempFile("", "vers-ssh-key-*")
-		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to create temporary key file: %v"), err)
-		}
-		defer os.Remove(tmpFile.Name()) // Ensure cleanup
+		// Determine the path for storing the SSH key
+		keyPath := getSSHKeyPath(vmID)
 
-		// Write key to the temporary file
-		if _, err := tmpFile.Write([]byte(*sshKeyBytes)); err != nil {
-			tmpFile.Close()
-			return fmt.Errorf(s.NoData.Render("failed to write key to temporary file: %v"), err)
+		// Check if SSH key already exists
+		keyExists := false
+		if _, err := os.Stat(keyPath); err == nil {
+			keyExists = true
 		}
 
-		if err := tmpFile.Chmod(0600); err != nil {
-			tmpFile.Close()
-			return fmt.Errorf(s.NoData.Render("failed to set permissions on temporary key file: %v"), err)
+		// If key doesn't exist, fetch it and save it
+		if !keyExists {
+			// Create the keys directory if it doesn't exist
+			keysDir := filepath.Dir(keyPath)
+			if err := os.MkdirAll(keysDir, 0755); err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to create keys directory: %v"), err)
+			}
+
+			// Get SSH key using SDK
+			sshKeyBytes, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
+			}
+
+			// Write key to file
+			if err := os.WriteFile(keyPath, []byte(*sshKeyBytes), 0600); err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to write key file: %v"), err)
+			}
+
+			fmt.Printf(s.HeadStatus.Render("SSH key saved to %s\n"), keyPath)
+		} else {
+			fmt.Printf(s.HeadStatus.Render("Using existing SSH key from %s\n"), keyPath)
 		}
-		
-		if err := tmpFile.Close(); err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to close temporary key file: %v"), err)
+
+		// Get the host IP to connect to (either from flag or default)
+		hostIP, _ := cmd.Flags().GetString("host")
+		if hostIP == "" {
+			hostIP = "13.219.19.157" // Use hardcoded default public IP
 		}
+
+		// Debug info about connection
+		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
 
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", "13.219.19.157"), // TODO: Use vm.NetworkInfo.PublicIP or similar if available
+			fmt.Sprintf("root@%s", hostIP),
 			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
-			"-i", tmpFile.Name()) // Use the temporary file
+			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
+			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
+			"-i", keyPath) // Use the persistent key file
 
 		sshCmd.Stdout = os.Stdout
 		sshCmd.Stderr = os.Stderr
 		sshCmd.Stdin = os.Stdin // Connect terminal stdin for interactive session
 
-		err = sshCmd.Run() 
+		err = sshCmd.Run()
 
 		if err != nil {
 			if _, ok := err.(*exec.ExitError); !ok {
 				return fmt.Errorf(s.NoData.Render("failed to run SSH command: %v"), err)
 			}
 		}
-		
-		return nil 
+
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(connectCmd)
-} 
+	connectCmd.Flags().String("host", "", "Specify the host IP to connect to (overrides default)")
+}
