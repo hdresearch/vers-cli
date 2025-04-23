@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/hdresearch/vers-cli/internal/config"
 	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/joho/godotenv" // Import godotenv
 	"github.com/spf13/cobra"
 )
 
@@ -26,17 +28,34 @@ interaction capabilities, and more.`,
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip config loading for commands that don't require it
+		// Skip config loading and client init for commands that don't require it (optional)
 		// if cmd.Name() == "init" || cmd.Name() == "login" || cmd.Name() == "help" {
 		// 	return nil
 		// }
 
-		// // Find and load the configuration
+		// Add other options if needed, e.g., API key
+		// apiKey := os.Getenv("VERS_API_KEY")
+		// if apiKey != "" {
+		//  clientOptions = append(clientOptions, vers.WithAPIKey(apiKey))
+		// }
+
+		err := godotenv.Load()
+    	if err != nil {
+    		// Log only if you want to be strict about the .env file existing
+    		// log.Println("Warning: Could not load .env file:", err)
+    	}
+
+		versURL := os.Getenv("VERS_URL")
+		fmt.Println("Overriding with versURL: ", versURL)
+		client = vers.NewClient() // Initialize the global client
+
+		// // Configuration loading (keep if needed, but separate from client init)
 		// var err error
 		// configPath, cfg, err = config.FindConfig()
 		// if err != nil {
 		// 	return fmt.Errorf("error finding config: %w", err)
 		// }
+
 		return nil
 	},
 }
