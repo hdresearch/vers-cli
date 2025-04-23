@@ -25,7 +25,6 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("error checking API key: %w", err)
 		}
 		if !hasAPIKey {
-			fmt.Println("No API key found. Please run 'vers login' to authenticate first.")
 			return auth.PromptForLogin()
 		}
 

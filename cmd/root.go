@@ -42,6 +42,7 @@ interaction capabilities, and more.`,
 
 		if apiKey == "" {
 			auth.PromptForLogin()
+			cmd.SilenceUsage = true
 			return fmt.Errorf("authentication required")
 		}
 
