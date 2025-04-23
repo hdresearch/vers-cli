@@ -32,10 +32,32 @@ var upCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		clusterParams := vers.APIClusterNewParams{
-			Body: map[string]interface{}{
-				"name": clusterName,
-			},
+		// Create new cluster params with the mandatory KernelName field
+		clusterParams := vers.APIClusterNewParams{}
+
+		// Handle optional parameters from flags
+		memSize, _ := cmd.Flags().GetInt64("mem-size")
+		if memSize > 0 {
+			clusterParams.MemSizeMib = vers.F(memSize)
+			fmt.Printf("Setting memory size to %d MiB\n", memSize)
+		}
+
+		rootfs, _ := cmd.Flags().GetString("rootfs")
+		if rootfs != "" {
+			clusterParams.RootfsName = vers.F(rootfs)
+			fmt.Printf("Using rootfs: %s\n", rootfs)
+		}
+
+		vcpuCount, _ := cmd.Flags().GetInt64("vcpu")
+		if vcpuCount > 0 {
+			clusterParams.VcpuCount = vers.F(vcpuCount)
+			fmt.Printf("Setting vCPU count to %d\n", vcpuCount)
+		}
+
+		kernelName, _ := cmd.Flags().GetString("kernel")
+		if kernelName != "" {
+			clusterParams.KernelName = vers.F(kernelName)
+			fmt.Printf("Using kernel: %s\n", kernelName)
 		}
 
 		fmt.Println("Sending request to start cluster...")
@@ -76,4 +98,10 @@ var upCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(upCmd)
+
+	// Add flags for all optional parameters
+	upCmd.Flags().String("kernel", "", "Kernel name to use for the cluster")
+	upCmd.Flags().Int64("mem", 0, "Memory size in MiB (0 = use default)")
+	upCmd.Flags().String("rootfs", "", "Root filesystem name to use")
+	upCmd.Flags().Int64("vcpu", 0, "Number of virtual CPUs (0 = use default)")
 }
