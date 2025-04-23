@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/config"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/joho/godotenv" // Import godotenv
@@ -28,26 +30,33 @@ interaction capabilities, and more.`,
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip config loading and client init for commands that don't require it (optional)
-		// if cmd.Name() == "init" || cmd.Name() == "login" || cmd.Name() == "help" {
-		// 	return nil
-		// }
+		if cmd.Name() == "login" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
+			return nil
+		}
 
-		// Add other options if needed, e.g., API key
-		// apiKey := os.Getenv("VERS_API_KEY")
-		// if apiKey != "" {
-		//  clientOptions = append(clientOptions, vers.WithAPIKey(apiKey))
-		// }
+		// Load .env for the VERS_URL
+		godotenv.Load()
 
-		err := godotenv.Load()
-    	if err != nil {
-    		// Log only if you want to be strict about the .env file existing
-    		// log.Println("Warning: Could not load .env file:", err)
-    	}
+		// Initialize the client with API key if available
+		apiKey, err := auth.GetAPIKey()
+		if err != nil {
+			return fmt.Errorf("failed to load API key: %w", err)
+		}
+
+		if apiKey == "" {
+			auth.PromptForLogin()
+			return fmt.Errorf("authentication required")
+		}
 
 		versURL := os.Getenv("VERS_URL")
-		fmt.Println("Overriding with versURL: ", versURL)
-		client = vers.NewClient() // Initialize the global client
+		if versURL != "" {
+			fmt.Println("Overriding with versURL: ", versURL)
+		}
+		// Set the API key in the environment for the SDK
+		os.Setenv("VERS_API_KEY", apiKey)
+
+		// Initialize the client *only* if we have an API key
+		client = vers.NewClient()
 
 		// // Configuration loading (keep if needed, but separate from client init)
 		// var err error
@@ -65,6 +74,12 @@ interaction capabilities, and more.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
+		// Check if the error is a 401 Unauthorized
+		if strings.Contains(err.Error(), "401") || 
+		   strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
+			fmt.Println("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
+			os.Exit(1)
+		}
 		os.Exit(1)
 	}
 }

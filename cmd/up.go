@@ -27,7 +27,6 @@ var upCmd = &cobra.Command{
 		fmt.Printf("Preparing cluster parameters for cluster: %s\n", clusterName)
 
 		baseCtx := context.Background()
-		client = vers.NewClient()
 
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()

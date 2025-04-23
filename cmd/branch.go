@@ -84,7 +84,6 @@ var branchCmd = &cobra.Command{
 
 
 		baseCtx := context.Background()
-		client = vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 

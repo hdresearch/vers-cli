@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hdresearch/vers-cli/internal/assets"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -18,6 +19,15 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new vers project",
 	Long:  `Initialize a new vers project with a vers.toml configuration file.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Check if API key exists, prompt for login if not
+		hasAPIKey, err := auth.HasAPIKey()
+		if err != nil {
+			return fmt.Errorf("error checking API key: %w", err)
+		}
+		if !hasAPIKey {
+			fmt.Println("No API key found. Please run 'vers login' to authenticate first.")
+			return auth.PromptForLogin()
+		}
 
 		// Create a hidden .vers directory
 		versDir := ".vers"
