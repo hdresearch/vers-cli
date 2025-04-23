@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/hdresearch/vers-cli/styles"
 )
 
 // Config represents the structure of the .versrc file
@@ -102,6 +104,7 @@ func HasAPIKey() (bool, error) {
 
 // PromptForLogin creates a helper function that checks for API key and prompts for login if not found
 func PromptForLogin() error {
-	fmt.Println("No API key found. Please run 'vers login' to authenticate.")
+	errorMsg := styles.ErrorTextStyle.Render("No API key found. Please run 'vers login' to authenticate.")
+	fmt.Println(errorMsg)
 	return nil
 } 
