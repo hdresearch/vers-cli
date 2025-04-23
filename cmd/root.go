@@ -26,9 +26,6 @@ var rootCmd = &cobra.Command{
 	Long: `Vers CLI provides a command-line interface for managing virtual machine/container-based 
 development environments. It offers lifecycle management, state management, 
 interaction capabilities, and more.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Name() == "login" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
 			return nil
