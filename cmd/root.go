@@ -3,16 +3,13 @@ package cmd
 import (
 	"os"
 
-	"github.com/hdresearch/vers-cli/internal/config"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
 // Global vars for configuration and SDK client
 var (
-	configPath string
-	cfg        *config.Config
-	client     *vers.Client
+	client *vers.Client
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -60,4 +57,4 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-} 
+}
