@@ -46,15 +46,16 @@ interaction capabilities, and more.`,
 			return fmt.Errorf("authentication required")
 		}
 
-		versURL := os.Getenv("VERS_URL")
-		if versURL != "" {
-			fmt.Println("Overriding with versURL: ", versURL)
-		}
+		
 		// Set the API key in the environment for the SDK
 		os.Setenv("VERS_API_KEY", apiKey)
 
+
+		clientOptions := auth.GetClientOptions()
+
+
 		// Initialize the client *only* if we have an API key
-		client = vers.NewClient()
+		client = vers.NewClient(clientOptions...)
 
 		// // Configuration loading (keep if needed, but separate from client init)
 		// var err error

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-sdk-go/option"
 )
 
 // Config represents the structure of the .versrc file
@@ -108,3 +109,14 @@ func PromptForLogin() error {
 	fmt.Println(errorMsg)
 	return nil
 } 
+
+
+func GetClientOptions() []option.RequestOption {
+	clientOptions := []option.RequestOption{}
+	versUrl := 	os.Getenv("VERS_URL")
+	if versUrl != "" {
+		clientOptions = append(clientOptions, option.WithVersURL(versUrl))
+		fmt.Println("Overriding with versURL: ", versUrl)
+	}
+	return clientOptions
+}
