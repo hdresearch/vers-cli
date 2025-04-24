@@ -10,6 +10,8 @@ import (
 	"github.com/hdresearch/vers-sdk-go/option"
 )
 
+const DEFAULT_VERS_URL = "13.219.19.157"
+
 // Config represents the structure of the .versrc file
 type Config struct {
 	APIKey string `json:"apiKey"`
@@ -110,11 +112,18 @@ func PromptForLogin() error {
 	return nil
 } 
 
+func GetVersUrl() string { 
+	versUrl := 	os.Getenv("VERS_URL")
+	if versUrl != "" {
+		return versUrl
+	}
+	return DEFAULT_VERS_URL // Default public IP
+}
 
 func GetClientOptions() []option.RequestOption {
 	clientOptions := []option.RequestOption{}
-	versUrl := 	os.Getenv("VERS_URL")
-	if versUrl != "" {
+	versUrl := 	GetVersUrl()
+	if versUrl != DEFAULT_VERS_URL {
 		clientOptions = append(clientOptions, option.WithVersURL(versUrl))
 		fmt.Println("Overriding with versURL: ", versUrl)
 	}

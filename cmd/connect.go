@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/spf13/cobra"
 )
 
@@ -94,11 +95,7 @@ var connectCmd = &cobra.Command{
 			fmt.Printf(s.HeadStatus.Render("Using existing SSH key from %s\n"), keyPath)
 		}
 
-		// Get the host IP to connect to (either from flag or default)
-		hostIP, _ := cmd.Flags().GetString("host")
-		if hostIP == "" {
-			hostIP = "13.219.19.157" // Use hardcoded default public IP
-		}
+		hostIP := auth.GetVersUrl()
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
