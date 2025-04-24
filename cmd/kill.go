@@ -25,7 +25,6 @@ var killCmd = &cobra.Command{
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 

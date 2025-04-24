@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +42,6 @@ var connectCmd = &cobra.Command{
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 

@@ -93,7 +93,7 @@ var executeCmd = &cobra.Command{
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()
-		client := vers.NewClient()
+		// Use the global client instead of creating a new one
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
 
