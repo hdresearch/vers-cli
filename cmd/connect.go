@@ -55,12 +55,17 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-		
+	
 
 		hostIP := auth.GetVersUrl()
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
+
+		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
+		if err != nil {
+			return fmt.Errorf("failed to get or create SSH key: %w", err)
+		}	
 
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", hostIP),
