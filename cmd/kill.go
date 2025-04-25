@@ -38,14 +38,14 @@ var killCmd = &cobra.Command{
 				}
 
 				// Show warning with cluster details
-				fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs\n"), 
+				fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs\n"),
 					targetID, cluster.VmCount)
-				
+
 				// Ask for confirmation
 				fmt.Print("Are you sure you want to proceed? [y/N]: ")
 				var response string
 				fmt.Scanln(&response)
-				
+
 				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
 					fmt.Println(s.NoData.Render("Operation cancelled"))
 					return nil
@@ -70,11 +70,11 @@ var killCmd = &cobra.Command{
 			deleteParams := vers.APIVmDeleteParams{
 				Recursive: vers.F(false),
 			}
-			err := client.API.Vm.Delete(apiCtx, targetID, deleteParams)
+			vm, err := client.API.Vm.Delete(apiCtx, targetID, deleteParams)
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to delete VM: %v"), err)
 			}
-			fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), targetID)
+			fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), vm.ID)
 		}
 
 		return nil
@@ -87,4 +87,4 @@ func init() {
 	// Define flags for the kill command
 	killCmd.Flags().BoolVarP(&force, "force", "f", false, "Force termination without confirmation")
 	killCmd.Flags().BoolVarP(&isCluster, "cluster", "c", false, "Target is a cluster instead of a VM")
-} 
+}

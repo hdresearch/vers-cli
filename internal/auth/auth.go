@@ -91,7 +91,7 @@ func SaveAPIKey(apiKey string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	config.APIKey = apiKey
 	return SaveConfig(config)
 }
@@ -110,10 +110,10 @@ func PromptForLogin() error {
 	errorMsg := styles.ErrorTextStyle.Render("No API key found. Please run 'vers login' to authenticate.")
 	fmt.Println(errorMsg)
 	return nil
-} 
+}
 
-func GetVersUrl() string { 
-	versUrl := 	os.Getenv("VERS_URL")
+func GetVersUrl() string {
+	versUrl := os.Getenv("VERS_URL")
 	if versUrl != "" {
 		return versUrl
 	}
@@ -122,9 +122,9 @@ func GetVersUrl() string {
 
 func GetClientOptions() []option.RequestOption {
 	clientOptions := []option.RequestOption{}
-	versUrl := 	GetVersUrl()
+	versUrl := GetVersUrl()
 	if versUrl != DEFAULT_VERS_URL {
-		clientOptions = append(clientOptions, option.WithVersURL(versUrl))
+		clientOptions = append(clientOptions, option.WithBaseURL(versUrl))
 		fmt.Println("Overriding with versURL: ", versUrl)
 	}
 	return clientOptions

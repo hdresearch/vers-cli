@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +69,7 @@ var branchCmd = &cobra.Command{
 				return fmt.Errorf(s.Error.Render("could not determine current VM ID from HEAD"))
 			}
 
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ")+s.VMID.Render(vmName)+"\n")
+			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmName) + "\n")
 		} else {
 			vmName = args[0]
 		}
@@ -82,23 +81,17 @@ var branchCmd = &cobra.Command{
 			tempBranchName = "[auto-generated]"
 		}
 
-
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		branchParams := vers.APIVmNewBranchParams{
-			Body: map[string]interface{}{},
-		}
-
 		fmt.Println(s.Progress.Render("Creating branch..."))
-		branchInfo, err := client.API.Vm.NewBranch(apiCtx, vmName, branchParams)
+		branchInfo, err := client.API.Vm.Branch(apiCtx, vmName)
 
 		if err != nil {
 			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %v"), vmName, err)
 		}
 
-		
 		// Store the branch VM ID in version control system
 		branchVmID := branchInfo.ID
 		if branchVmID != "" {
@@ -121,12 +114,11 @@ var branchCmd = &cobra.Command{
 				branchRefPath := filepath.Join(versDir, "refs", "heads", safeBranchName)
 				if err := os.WriteFile(branchRefPath, []byte(branchVmID+"\n"), 0644); err != nil {
 					fmt.Printf(s.Warning.Render("⚠ Warning: Failed to create branch ref: %v\n"), err)
-				} 
-
+				}
 
 				// Branch creation success
-				fmt.Printf(s.Success.Render("✓ Branch created successfully!")+"\n")
-		
+				fmt.Printf(s.Success.Render("✓ Branch created successfully!") + "\n")
+
 				// Optionally, switch HEAD to the new branch
 				if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
 					headFile := filepath.Join(versDir, "HEAD")
@@ -134,25 +126,24 @@ var branchCmd = &cobra.Command{
 					if err := os.WriteFile(headFile, []byte(newRef), 0644); err != nil {
 						fmt.Printf(s.Warning.Render("⚠ Warning: Failed to update HEAD: %v\n"), err)
 					} else {
-						fmt.Printf(s.Success.Render("✓ HEAD now points to: ")+s.BranchName.Render("refs/heads/"+safeBranchName)+"\n")
+						fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render("refs/heads/"+safeBranchName) + "\n")
 					}
 				} else {
 					// Show message indicating HEAD was not changed
 					currentBranch := getCurrentBranchName(versDir)
-					fmt.Printf(s.HeadStatus.Render("HEAD: On branch '"+currentBranch+"'")+"\n")
+					fmt.Printf(s.HeadStatus.Render("HEAD: On branch '"+currentBranch+"'") + "\n")
 				}
 			}
 		}
 
 		// Branch details
-		fmt.Printf(s.ListHeader.Render("Branch details:")+"\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("New VM ID")+": "+s.VMID.Render(branchInfo.ID))+"\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress))+"\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State)))+"\n\n")
+		fmt.Printf(s.ListHeader.Render("Branch details:") + "\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("New VM ID")+": "+s.VMID.Render(branchInfo.ID)) + "\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress)) + "\n")
+		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
 
-		fmt.Printf(s.Tip.Render("Use --checkout or -c to switch to the new branch")+"\n")
-		fmt.Printf(s.Tip.Render("Run 'vers checkout "+branchName+"' to switch to this branch")+"\n")
-
+		fmt.Printf(s.Tip.Render("Use --checkout or -c to switch to the new branch") + "\n")
+		fmt.Printf(s.Tip.Render("Run 'vers checkout "+branchName+"' to switch to this branch") + "\n")
 
 		return nil
 	},
