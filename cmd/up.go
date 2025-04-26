@@ -1,60 +1,70 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
 // upCmd represents the up command
 var upCmd = &cobra.Command{
 	Use:   "up [cluster]",
-	Short: "Start a development environment",
-	Long:  `Start a Vers development environment according to the configuration in vers.toml.`,
+	Short: "Build and start a development environment",
+	Long:  `Build a rootfs image and start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		baseCtx := context.Background()
+		// Get flag values for passing to subcommands
+		memSize, _ := cmd.Flags().GetInt64("mem-size")
+		vcpuCount, _ := cmd.Flags().GetInt64("vcpu-count")
+		rootfs, _ := cmd.Flags().GetString("rootfs")
+		kernel, _ := cmd.Flags().GetString("kernel")
 
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-		defer cancel()
+		// First, run the build command
+		fmt.Println("=== Building rootfs image ===")
+		buildCmd := buildCmd
 
-		clusterParams := vers.APIClusterNewParams{}
-
-		fmt.Println("Sending request to start cluster...")
-		clusterInfo, err := client.API.Cluster.New(apiCtx, clusterParams)
-		if err != nil {
-			return fmt.Errorf("failed to start cluster: %w", err)
-		}
-		// Use information from the response (adjust field names as needed)
-		fmt.Printf("Cluster (ID: %s) started successfully with root vm '%s'.\n",
-			clusterInfo.ID,
-			clusterInfo.RootVmID,
-		)
-
-		// Store VM ID in version control system
-		vmID := clusterInfo.RootVmID
-		if vmID != "" {
-			// Check if .vers directory exists
-			versDir := ".vers"
-			if _, err := os.Stat(versDir); os.IsNotExist(err) {
-				fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
-			} else {
-				// Update refs/heads/main with VM ID
-				mainRefPath := filepath.Join(versDir, "refs", "heads", "main")
-				if err := os.WriteFile(mainRefPath, []byte(vmID+"\n"), 0644); err != nil {
-					fmt.Printf("Warning: Failed to update refs: %v\n", err)
-				} else {
-					fmt.Printf("Updated VM reference: %s -> %s\n", "refs/heads/main", vmID)
-				}
-
-				// HEAD already points to refs/heads/main from init, so we don't need to update it
-				fmt.Println("HEAD is now pointing to the new VM")
+		// Pass along rootfs flag if set
+		if rootfs != "" {
+			if err := buildCmd.Flags().Set("rootfs", rootfs); err != nil {
+				return fmt.Errorf("failed to set rootfs flag: %w", err)
 			}
+		}
+
+		if err := buildCmd.RunE(buildCmd, nil); err != nil {
+			return fmt.Errorf("build failed: %w", err)
+		}
+
+		// Then, run the run command
+		fmt.Println("\n=== Starting development environment ===")
+		runCmd := runCmd
+
+		// Pass along all flags
+		if memSize > 0 {
+			if err := runCmd.Flags().Set("mem-size", fmt.Sprintf("%d", memSize)); err != nil {
+				return fmt.Errorf("failed to set mem-size flag: %w", err)
+			}
+		}
+
+		if vcpuCount > 0 {
+			if err := runCmd.Flags().Set("vcpu-count", fmt.Sprintf("%d", vcpuCount)); err != nil {
+				return fmt.Errorf("failed to set vcpu-count flag: %w", err)
+			}
+		}
+
+		if rootfs != "" {
+			if err := runCmd.Flags().Set("rootfs", rootfs); err != nil {
+				return fmt.Errorf("failed to set rootfs flag: %w", err)
+			}
+		}
+
+		if kernel != "" {
+			if err := runCmd.Flags().Set("kernel", kernel); err != nil {
+				return fmt.Errorf("failed to set kernel flag: %w", err)
+			}
+		}
+
+		if err := runCmd.RunE(runCmd, args); err != nil {
+			return fmt.Errorf("run failed: %w", err)
 		}
 
 		return nil
@@ -63,4 +73,10 @@ var upCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(upCmd)
+
+	// Add flags to override toml configuration, mirroring those from run command
+	upCmd.Flags().Int64("mem-size", 0, "Override memory size (MiB)")
+	upCmd.Flags().Int64("vcpu-count", 0, "Override number of virtual CPUs")
+	upCmd.Flags().String("rootfs", "", "Override rootfs name")
+	upCmd.Flags().String("kernel", "", "Override kernel name")
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/hdresearch/vers-sdk-go/option"
@@ -112,20 +113,36 @@ func PromptForLogin() error {
 	return nil
 }
 
+// GetVersUrl returns the raw hostname/IP without protocol
 func GetVersUrl() string {
 	versUrl := os.Getenv("VERS_URL")
 	if versUrl != "" {
+		// Strip any protocol if present
+		if strings.HasPrefix(versUrl, "http://") {
+			versUrl = strings.TrimPrefix(versUrl, "http://")
+		} else if strings.HasPrefix(versUrl, "https://") {
+			versUrl = strings.TrimPrefix(versUrl, "https://")
+		}
 		return versUrl
 	}
 	return DEFAULT_VERS_URL // Default public IP
 }
 
+// GetClientOptions returns the options for the SDK client
 func GetClientOptions() []option.RequestOption {
 	clientOptions := []option.RequestOption{}
+
+	// Get the raw URL (no protocol)
 	versUrl := GetVersUrl()
-	if versUrl != DEFAULT_VERS_URL {
-		clientOptions = append(clientOptions, option.WithBaseURL(versUrl))
-		fmt.Println("Overriding with versURL: ", versUrl)
-	}
+
+	// Add the HTTP protocol for SDK requests
+	fullUrl := "http://" + versUrl
+
+	// Set the base URL with protocol
+	clientOptions = append(clientOptions, option.WithBaseURL(fullUrl))
+
+	// Uncomment for debugging
+	// fmt.Println("Using API endpoint: ", fullUrl)
+
 	return clientOptions
 }
