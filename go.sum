@@ -23,6 +23,8 @@ github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250425212922-9b2365d41251 
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250425212922-9b2365d41251/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250425231323-8e2a14f40e34 h1:BXuNhUJYvH08/xa2rBDn8EiZ7TlWAi249zwpsw+nWXM=
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250425231323-8e2a14f40e34/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250429234236-735b9fd0faea h1:ZSIhbDp1jweuqzIxxILN31Nu9gGLEgbxymG6j+rGtXY=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250429234236-735b9fd0faea/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
