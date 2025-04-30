@@ -160,8 +160,8 @@ vcpu_count = %d
 [rootfs]
 # Name of the rootfs image
 name = "%s"
-# Builder type (currently only 'docker' is supported)
-builder = "docker"
+# Builder type (currently only 'docker' and 'none' are supported)
+builder = "none"
 
 [kernel]
 # Name of the kernel image
