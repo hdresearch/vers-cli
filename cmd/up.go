@@ -22,14 +22,12 @@ var upCmd = &cobra.Command{
 		// Apply flag overrides
 		applyFlagOverrides(cmd, config)
 
-		// Skip build step if rootfs is "default"
-		if config.Rootfs.Name != "default" {
+		// Skip build step if rootfs is "default" or if builder is "none"
+		if config.Rootfs.Name != "default" || config.Rootfs.Builder == "none" {
 			fmt.Println("=== Building rootfs image ===")
 			if err := BuildRootfs(config); err != nil {
 				return fmt.Errorf("build failed: %w", err)
 			}
-		} else {
-			fmt.Println("=== Skipping build step for 'default' rootfs ===")
 		}
 
 		// Then, run the environment
