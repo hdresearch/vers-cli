@@ -19,6 +19,12 @@ github.com/charmbracelet/x/term v0.2.1/go.mod h1:oQ4enTYFV7QN4m0i9mzHrViD7TQKvNE
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430031250-8c7d00b67ffe h1:lKr4aav/9x+r82o5gjJr/YLVv8nLbheJQX+Gwjmb7TE=
 github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430031250-8c7d00b67ffe/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430195545-6b5c9d853c78 h1:C7heGvhdXti4JfyOk92+Np0yLDfxvHcFmt0Euxeo/Ds=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430195545-6b5c9d853c78/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430202232-afcb28b7695d h1:bmKVAoLz+msEQmGieogfN5BSCuqFJKbMWdbWjYx579Q=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430202232-afcb28b7695d/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430205748-f69c23f4f168 h1:ROnyc9gifbIOmqPUMITGjZq/iARAluwQw7S912/ZGYE=
+github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430205748-f69c23f4f168/go.mod h1:DNFFMmYF8qOcTD2LPejHXQCxDvSWkmej4JobkpPlcWs=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
