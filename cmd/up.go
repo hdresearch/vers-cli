@@ -23,7 +23,6 @@ var upCmd = &cobra.Command{
 		applyFlagOverrides(cmd, config)
 
 		// Skip build step if rootfs is "default" or if builder is "none"
-		fmt.Printf("%s %s", config.Rootfs.Name, config.Rootfs.Builder)
 		if config.Rootfs.Name != "default" && config.Rootfs.Builder != "none" {
 			fmt.Println("=== Building rootfs image ===")
 			if err := BuildRootfs(config); err != nil {
