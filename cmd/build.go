@@ -38,8 +38,11 @@ var buildCmd = &cobra.Command{
 
 // BuildRootfs builds a rootfs image according to the provided configuration
 func BuildRootfs(config *Config) error {
-	// Verify builder is "docker"
-	if config.Rootfs.Builder != "docker" {
+	// Validate builder value
+	if config.Rootfs.Builder == "none" {
+		fmt.Printf("Builder is set to 'none'; skipping")
+		return nil
+	} else if config.Rootfs.Builder != "docker" {
 		return fmt.Errorf("unsupported builder: %s (only 'docker' is currently supported)", config.Rootfs.Builder)
 	}
 
