@@ -13,57 +13,28 @@ var upCmd = &cobra.Command{
 	Long:  `Build a rootfs image and start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get flag values for passing to subcommands
-		memSize, _ := cmd.Flags().GetInt64("mem-size")
-		vcpuCount, _ := cmd.Flags().GetInt64("vcpu-count")
-		rootfs, _ := cmd.Flags().GetString("rootfs")
-		kernel, _ := cmd.Flags().GetString("kernel")
+		// Load configuration just once
+		config, err := loadConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
 
-		// First, run the build command
-		fmt.Println("=== Building rootfs image ===")
-		buildCmd := buildCmd
+		// Apply flag overrides
+		applyFlagOverrides(cmd, config)
 
-		// Pass along rootfs flag if set
-		if rootfs != "" {
-			if err := buildCmd.Flags().Set("rootfs", rootfs); err != nil {
-				return fmt.Errorf("failed to set rootfs flag: %w", err)
+		// Skip build step if rootfs is "default"
+		if config.Rootfs.Name != "default" {
+			fmt.Println("=== Building rootfs image ===")
+			if err := BuildRootfs(config); err != nil {
+				return fmt.Errorf("build failed: %w", err)
 			}
+		} else {
+			fmt.Println("=== Skipping build step for 'default' rootfs ===")
 		}
 
-		if err := buildCmd.RunE(buildCmd, nil); err != nil {
-			return fmt.Errorf("build failed: %w", err)
-		}
-
-		// Then, run the run command
+		// Then, run the environment
 		fmt.Println("\n=== Starting development environment ===")
-		runCmd := runCmd
-
-		// Pass along all flags
-		if memSize > 0 {
-			if err := runCmd.Flags().Set("mem-size", fmt.Sprintf("%d", memSize)); err != nil {
-				return fmt.Errorf("failed to set mem-size flag: %w", err)
-			}
-		}
-
-		if vcpuCount > 0 {
-			if err := runCmd.Flags().Set("vcpu-count", fmt.Sprintf("%d", vcpuCount)); err != nil {
-				return fmt.Errorf("failed to set vcpu-count flag: %w", err)
-			}
-		}
-
-		if rootfs != "" {
-			if err := runCmd.Flags().Set("rootfs", rootfs); err != nil {
-				return fmt.Errorf("failed to set rootfs flag: %w", err)
-			}
-		}
-
-		if kernel != "" {
-			if err := runCmd.Flags().Set("kernel", kernel); err != nil {
-				return fmt.Errorf("failed to set kernel flag: %w", err)
-			}
-		}
-
-		if err := runCmd.RunE(runCmd, args); err != nil {
+		if err := StartCluster(config, args); err != nil {
 			return fmt.Errorf("run failed: %w", err)
 		}
 

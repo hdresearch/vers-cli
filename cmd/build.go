@@ -32,59 +32,64 @@ var buildCmd = &cobra.Command{
 		// Apply flag overrides
 		applyFlagOverrides(cmd, config)
 
-		// Verify builder is "docker"
-		if config.Rootfs.Builder != "docker" {
-			return fmt.Errorf("unsupported builder: %s (only 'docker' is currently supported)", config.Rootfs.Builder)
-		}
-
-		// Check for Dockerfile
-		if _, err := os.Stat("Dockerfile"); os.IsNotExist(err) {
-			return fmt.Errorf("Dockerfile not found in current directory")
-		}
-
-		// Create temporary tar archive
-		tempFile, err := os.CreateTemp("", "vers-rootfs-*.tar")
-		if err != nil {
-			return fmt.Errorf("failed to create temporary file: %w", err)
-		}
-		defer os.Remove(tempFile.Name()) // Clean up the temp file when done
-
-		fmt.Println("Creating tar archive of working directory...")
-		if err := createTarArchive(tempFile); err != nil {
-			return fmt.Errorf("failed to create tar archive: %w", err)
-		}
-
-		// Reset file pointer to beginning for reading
-		if _, err := tempFile.Seek(0, 0); err != nil {
-			return fmt.Errorf("failed to reset file pointer: %w", err)
-		}
-
-		// Create context with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-
-		// Prepare for upload
-		fmt.Printf("Uploading rootfs archive as '%s'...\n", config.Rootfs.Name)
-
-		// Reading the file into memory for the request
-		fileContent, err := os.ReadFile(tempFile.Name())
-		if err != nil {
-			return fmt.Errorf("failed to read tar file: %w", err)
-		}
-
-		// Create upload request option with the file content as the body
-		fileOption := option.WithRequestBody("application/x-tar", fileContent)
-
-		// Upload with the file content
-		res, err := client.API.Rootfs.Upload(ctx, config.Rootfs.Name, fileOption)
-		if err != nil {
-			// Parse and handle the error based on the error type
-			return handleBuildError(err, config.Rootfs.Name)
-		}
-
-		fmt.Printf("Successfully uploaded rootfs: %s\n", res.RootfsName)
-		return nil
+		return BuildRootfs(config)
 	},
+}
+
+// BuildRootfs builds a rootfs image according to the provided configuration
+func BuildRootfs(config *Config) error {
+	// Verify builder is "docker"
+	if config.Rootfs.Builder != "docker" {
+		return fmt.Errorf("unsupported builder: %s (only 'docker' is currently supported)", config.Rootfs.Builder)
+	}
+
+	// Check for Dockerfile
+	if _, err := os.Stat("Dockerfile"); os.IsNotExist(err) {
+		return fmt.Errorf("Dockerfile not found in current directory")
+	}
+
+	// Create temporary tar archive
+	tempFile, err := os.CreateTemp("", "vers-rootfs-*.tar")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer os.Remove(tempFile.Name()) // Clean up the temp file when done
+
+	fmt.Println("Creating tar archive of working directory...")
+	if err := createTarArchive(tempFile); err != nil {
+		return fmt.Errorf("failed to create tar archive: %w", err)
+	}
+
+	// Reset file pointer to beginning for reading
+	if _, err := tempFile.Seek(0, 0); err != nil {
+		return fmt.Errorf("failed to reset file pointer: %w", err)
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Prepare for upload
+	fmt.Printf("Uploading rootfs archive as '%s'...\n", config.Rootfs.Name)
+
+	// Reading the file into memory for the request
+	fileContent, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		return fmt.Errorf("failed to read tar file: %w", err)
+	}
+
+	// Create upload request option with the file content as the body
+	fileOption := option.WithRequestBody("application/x-tar", fileContent)
+
+	// Upload with the file content
+	res, err := client.API.Rootfs.Upload(ctx, config.Rootfs.Name, fileOption)
+	if err != nil {
+		// Parse and handle the error based on the error type
+		return handleBuildError(err, config.Rootfs.Name)
+	}
+
+	fmt.Printf("Successfully uploaded rootfs: %s\n", res.RootfsName)
+	return nil
 }
 
 // handleBuildError parses the error from the API and returns a user-friendly error message
