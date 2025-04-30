@@ -46,13 +46,10 @@ interaction capabilities, and more.`,
 			return fmt.Errorf("authentication required")
 		}
 
-		
 		// Set the API key in the environment for the SDK
 		os.Setenv("VERS_API_KEY", apiKey)
 
-
 		clientOptions := auth.GetClientOptions()
-
 
 		// Initialize the client *only* if we have an API key
 		client = vers.NewClient(clientOptions...)
@@ -74,8 +71,8 @@ func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
 		// Check if the error is a 401 Unauthorized
-		if strings.Contains(err.Error(), "401") || 
-		   strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
+		if strings.Contains(err.Error(), "401") ||
+			strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
 			fmt.Println("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
 			os.Exit(1)
 		}
@@ -93,4 +90,4 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-} 
+}
