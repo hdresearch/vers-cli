@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250429234236-735b9fd0faea
+	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.13.0.20250430031250-8c7d00b67ffe
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.9.1
 )

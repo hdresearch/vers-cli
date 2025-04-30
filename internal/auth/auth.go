@@ -140,9 +140,7 @@ func GetClientOptions() []option.RequestOption {
 
 	// Set the base URL with protocol
 	clientOptions = append(clientOptions, option.WithBaseURL(fullUrl))
-
-	// Uncomment for debugging
-	// fmt.Println("Using API endpoint: ", fullUrl)
+	fmt.Println("Using API endpoint: ", fullUrl)
 
 	return clientOptions
 }
