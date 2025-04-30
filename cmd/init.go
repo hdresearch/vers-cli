@@ -143,6 +143,10 @@ var initCmd = &cobra.Command{
 				}
 			}
 
+			if rootfsName == "" {
+				rootfsName = projectName
+			}
+
 			// Create the vers.toml content
 			versTomlContent := fmt.Sprintf(`# Vers.toml Configuration
 # Project: %s
@@ -215,6 +219,6 @@ func init() {
 	// Add flags for vers.toml configuration
 	initCmd.Flags().Int64Var(&memSize, "mem-size", 512, "Memory size in MiB")
 	initCmd.Flags().Int64Var(&vcpuCount, "vcpu-count", 1, "Number of virtual CPUs")
-	initCmd.Flags().StringVar(&rootfsName, "rootfs", "default", "Name of the rootfs image")
+	initCmd.Flags().StringVar(&rootfsName, "rootfs", "", "Name of the rootfs image (defaults to project name)")
 	initCmd.Flags().StringVar(&kernelName, "kernel", "default.bin", "Name of the kernel image")
 }
