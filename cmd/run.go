@@ -130,7 +130,7 @@ func handleRunError(err error, rootfsName, kernelName string) error {
 			if errorMessage != "" {
 				return fmt.Errorf("access denied: %s", errorMessage)
 			}
-			return fmt.Errorf("access denied for this operation")
+			return fmt.Errorf("not found or unauthorized")
 
 		case http.StatusNotFound: // 404
 			if errorMessage != "" {
