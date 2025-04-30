@@ -187,6 +187,6 @@ func init() {
 	// Add flags to override toml configuration
 	runCmd.Flags().Int64("mem-size", 512, "Override memory size (MiB)")
 	runCmd.Flags().Int64("vcpu-count", 1, "Override number of virtual CPUs")
-	runCmd.Flags().String("rootfs", "", "Override rootfs name")
+	runCmd.Flags().String("rootfs", "default", "Override rootfs name")
 	runCmd.Flags().String("kernel", "default.bin", "Override kernel name")
 }
