@@ -36,16 +36,16 @@ var buildCmd = &cobra.Command{
 // BuildRootfs builds a rootfs image according to the provided configuration
 func BuildRootfs(config *Config) error {
 	// Validate builder value
-	if config.Rootfs.Builder == "none" {
+	if config.Builder.Name == "none" {
 		fmt.Printf("Builder is set to 'none'; skipping")
 		return nil
-	} else if config.Rootfs.Builder != "docker" {
-		return fmt.Errorf("unsupported builder: %s (only 'docker' is currently supported)", config.Rootfs.Builder)
+	} else if config.Builder.Name != "docker" {
+		return fmt.Errorf("unsupported builder: %s (only 'docker' is currently supported)", config.Builder.Name)
 	}
 
 	// Check for Dockerfile
-	if _, err := os.Stat("Dockerfile"); os.IsNotExist(err) {
-		return fmt.Errorf("Dockerfile not found in current directory")
+	if _, err := os.Stat(config.Builder.Dockerfile); os.IsNotExist(err) {
+		return fmt.Errorf("Dockerfile '%s' not found in current directory", config.Builder.Dockerfile)
 	}
 
 	// Create temporary tar archive

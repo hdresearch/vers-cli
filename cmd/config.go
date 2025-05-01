@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Machine MachineConfig `toml:"machine"`
 	Rootfs  RootfsConfig  `toml:"rootfs"`
+	Builder BuilderConfig `toml:"builder"`
 	Kernel  KernelConfig  `toml:"kernel"`
 }
 
@@ -21,8 +22,12 @@ type MachineConfig struct {
 }
 
 type RootfsConfig struct {
-	Name    string `toml:"name"`
-	Builder string `toml:"builder"`
+	Name string `toml:"name"`
+}
+
+type BuilderConfig struct {
+	Name       string `toml:"name"`
+	Dockerfile string `toml:"dockerfile"`
 }
 
 type KernelConfig struct {
@@ -37,8 +42,11 @@ func DefaultConfig() *Config {
 			VcpuCount:  1,
 		},
 		Rootfs: RootfsConfig{
-			Name:    "default",
-			Builder: "docker",
+			Name: "default",
+		},
+		Builder: BuilderConfig{
+			Name:       "docker",
+			Dockerfile: "Dockerfile",
 		},
 		Kernel: KernelConfig{
 			Name: "default.bin",

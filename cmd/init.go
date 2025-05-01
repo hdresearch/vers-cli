@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	projectName string
-	memSize     int64
-	vcpuCount   int64
-	rootfsName  string
-	kernelName  string
+	projectName    string
+	memSize        int64
+	vcpuCount      int64
+	rootfsName     string
+	kernelName     string
+	dockerfileName string
 )
 
 // initCmd represents the init command
@@ -160,8 +161,12 @@ vcpu_count = %d
 [rootfs]
 # Name of the rootfs image
 name = "%s"
+
+[builder]
 # Builder type (currently only 'docker' and 'none' are supported)
-builder = "none"
+name = "none"
+# Name of the Dockerfile to use for 'docker' builder
+dockerfile = "Dockerfile"
 
 [kernel]
 # Name of the kernel image
@@ -221,4 +226,5 @@ func init() {
 	initCmd.Flags().Int64Var(&vcpuCount, "vcpu-count", 1, "Number of virtual CPUs")
 	initCmd.Flags().StringVar(&rootfsName, "rootfs", "", "Name of the rootfs image (defaults to project name)")
 	initCmd.Flags().StringVar(&kernelName, "kernel", "default.bin", "Name of the kernel image")
+	initCmd.Flags().StringVar(&dockerfileName, "dockerfile", "Dockerfile", "Name of the Docker file")
 }
