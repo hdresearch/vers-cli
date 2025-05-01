@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-sdk-go"
 	"github.com/hdresearch/vers-sdk-go/option"
 	"github.com/spf13/cobra"
 )
@@ -82,7 +83,10 @@ func BuildRootfs(config *Config) error {
 	fileOption := option.WithRequestBody("application/x-tar", fileContent)
 
 	// Upload with the file content
-	res, err := client.API.Rootfs.Upload(ctx, config.Rootfs.Name, fileOption)
+	body := vers.APIRootfUploadParams{
+		Dockerfile: vers.F(config.Builder.Dockerfile),
+	}
+	res, err := client.API.Rootfs.Upload(ctx, config.Rootfs.Name, body, fileOption)
 	if err != nil {
 		return err
 	}
@@ -165,4 +169,5 @@ func init() {
 
 	// Add flags to override toml configuration
 	buildCmd.Flags().String("rootfs", "", "Override rootfs name")
+	buildCmd.Flags().String("dockerfile", "", "Dockerfile path")
 }

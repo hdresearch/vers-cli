@@ -93,4 +93,8 @@ func applyFlagOverrides(cmd *cobra.Command, config *Config) {
 	if kernel, _ := cmd.Flags().GetString("kernel"); kernel != "" {
 		config.Kernel.Name = kernel
 	}
+
+	if dockerfile, _ := cmd.Flags().GetString("dockerfile"); dockerfile != "" {
+		config.Builder.Dockerfile = dockerfile
+	}
 }
