@@ -144,8 +144,8 @@ var executeCmd = &cobra.Command{
 
 		hostIP := auth.GetVersUrl()
 
-		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
+		// // Debug info about connection
+		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
 
 		// Create the SSH command with the provided command string
 		sshCmd := exec.Command("ssh",
@@ -155,6 +155,7 @@ var executeCmd = &cobra.Command{
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
 			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
 			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
+			"-o", "LogLevel=ERROR", // Add this line to suppress warnings
 			"-i", keyPath, // Use the persistent key file
 			commandStr) // Add the command to execute
 
