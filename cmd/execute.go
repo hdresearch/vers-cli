@@ -70,14 +70,10 @@ var executeCmd = &cobra.Command{
 		var commandArgs []string
 		var commandStr string
 		s := NewStatusStyles()
-
+		
 		// Check if first arg is a VM ID or a command
-		if len(args) >= 1 && strings.HasPrefix(args[0], "vm-") {
-			// First arg looks like a VM ID, use it
+		if len(args) > 1 {
 			vmID = args[0]
-			// Trim the "vm-" prefix if present
-			vmID = strings.TrimPrefix(vmID, "vm-")
-
 			commandArgs = args[1:]
 		} else {
 			// First arg doesn't look like a VM ID or only one arg, use HEAD
