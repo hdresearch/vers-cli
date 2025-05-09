@@ -48,10 +48,11 @@ func StartCluster(config *Config, args []string) error {
 	}
 
 	fmt.Println("Sending request to start cluster...")
-	clusterInfo, err := client.API.Cluster.New(apiCtx, clusterParams)
+	response, err := client.API.Cluster.New(apiCtx, clusterParams)
 	if err != nil {
 		return err
 	}
+	clusterInfo := response.Data
 
 	// Use information from the response
 	fmt.Printf("Cluster (ID: %s) started successfully with root vm '%s'.\n",

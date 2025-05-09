@@ -47,10 +47,11 @@ var connectCmd = &cobra.Command{
 		defer cancel()
 
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
-		vm, err := client.API.Vm.Get(apiCtx, vmID)
+		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %v"), err)
 		}
+		vm := response.Data
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -80,13 +81,14 @@ var connectCmd = &cobra.Command{
 			}
 
 			// Get SSH key using SDK
-			sshKeyBytes, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
+			response, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
 			}
+			sshKeyBytes := response.Data
 
 			// Write key to file
-			if err := os.WriteFile(keyPath, []byte(*sshKeyBytes), 0600); err != nil {
+			if err := os.WriteFile(keyPath, []byte(sshKeyBytes), 0600); err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to write key file: %v"), err)
 			}
 

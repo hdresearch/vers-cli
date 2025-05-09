@@ -36,16 +36,17 @@ var statusCmd = &cobra.Command{
 
 			// Call the Get cluster endpoint with the cluster ID
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
-			cluster, err := client.API.Cluster.Get(apiCtx, clusterID)
+			response, err := client.API.Cluster.Get(apiCtx, clusterID)
 			if err != nil {
 				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %v"), clusterID, err)
 			}
+			cluster := response.Data
 
 			displayHeadStatus()
 
 			fmt.Println(s.VMListHeader.Render("Cluster details:"))
 			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-			
+
 			// Format cluster info similar to the default view
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
@@ -82,12 +83,13 @@ var statusCmd = &cobra.Command{
 		// If no cluster ID provided, list all clusters
 		fmt.Println(s.NoData.Render("Fetching list of clusters..."))
 
-		clusters, err := client.API.Cluster.List(apiCtx)
+		response, err := client.API.Cluster.List(apiCtx)
 		if err != nil {
 			return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %v"), err)
 		}
+		clusters := response.Data
 
-		if clusters == nil || len(*clusters) == 0 {
+		if len(clusters) == 0 {
 			fmt.Println(s.NoData.Render("No clusters found."))
 			return nil
 		}
@@ -96,7 +98,7 @@ var statusCmd = &cobra.Command{
 
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
 		clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-		for _, cluster := range *clusters {
+		for _, cluster := range clusters {
 			// Combine the cluster name and its data into a single string
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",

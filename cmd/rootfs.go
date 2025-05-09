@@ -30,14 +30,15 @@ var rootfsListCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to list rootfs images: %w", err)
 		}
+		data := response.Data
 
-		if len(response.RootfsNames) == 0 {
+		if len(data.RootfsNames) == 0 {
 			fmt.Println("No rootfs images found.")
 			return nil
 		}
 
 		fmt.Println("Available rootfs images:")
-		for _, name := range response.RootfsNames {
+		for _, name := range data.RootfsNames {
 			fmt.Printf("- %s\n", name)
 		}
 
@@ -75,8 +76,9 @@ var rootfsDeleteCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to delete rootfs '%s': %w", rootfsName, err)
 		}
+		data := response.Data
 
-		fmt.Printf("Successfully deleted rootfs '%s'.\n", response.RootfsName)
+		fmt.Printf("Successfully deleted rootfs '%s'.\n", data.RootfsName)
 		return nil
 	},
 }

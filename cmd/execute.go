@@ -106,25 +106,22 @@ var executeCmd = &cobra.Command{
 
 		// Call the SDK to run the command
 		fmt.Println("Executing command via Vers SDK...")
-		executeResult, err := client.API.Vm.Execute(apiCtx, vmID, executeParams)
+		response, err := client.API.Vm.Execute(apiCtx, vmID, executeParams)
 		if err != nil {
 			return fmt.Errorf("failed to execute command on vm '%s': %w", vmID, err)
 		}
+		executeResult := response.Data
 
 		// Handle the response (adjust based on actual APIVmExecuteResult structure)
 		fmt.Printf("Command executed successfully on VM '%s'.\n", vmID)
-		// Example of how you might display output if the SDK provides it:
-		if executeResult != nil {
-			if executeResult.CommandResult.Stdout != "" {
-				fmt.Println("Output:")
-				fmt.Println(executeResult.CommandResult.Stdout)
-			}
-			if executeResult.CommandResult.Stderr != "" {
-				fmt.Println("Error:")
-				fmt.Println(executeResult.CommandResult.Stderr)
-			}
-		} else {
-			fmt.Println("No output received or output field not available in response.")
+
+		if executeResult.CommandResult.Stdout != "" {
+			fmt.Println("Output:")
+			fmt.Println(executeResult.CommandResult.Stdout)
+		}
+		if executeResult.CommandResult.Stderr != "" {
+			fmt.Println("Error:")
+			fmt.Println(executeResult.CommandResult.Stderr)
 		}
 
 		return nil
