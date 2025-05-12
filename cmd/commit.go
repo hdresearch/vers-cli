@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var commitMsg string
 var tag string
 
 // writeCommitToLogFile writes commit information to a JSON log file
@@ -80,18 +79,13 @@ var commitCmd = &cobra.Command{
 	Short: "Commit the current state of the environment",
 	Long:  `Save the current state of the Vers environment as a commit.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Validate that a commit message is provided
-		if commitMsg == "" {
-			return fmt.Errorf("a commit message is required, use -m or --message flag")
-		}
-
 		// Get the current HEAD VM ID
 		vmID, err := getCurrentHeadVM()
 		if err != nil {
 			return fmt.Errorf("failed to get current VM: %w", err)
 		}
 
-		fmt.Printf("Creating commit for VM '%s' with message: %s\n", vmID, commitMsg)
+		fmt.Printf("Creating commit for VM '%s'n", vmID)
 		if tag != "" {
 			fmt.Printf("Tagging commit as: %s\n", tag)
 		}
@@ -102,25 +96,13 @@ var commitCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
 
-		// Prepare parameters for the Commit API call
-		body := map[string]interface{}{
-			"message": commitMsg,
-		}
-
-		if tag != "" {
-			body["tag"] = tag
-		}
-
-		commitParams := vers.APIVmCommitParams{
-			Body: body,
-		}
-
 		// Call the SDK to commit the VM state
 		fmt.Println("Creating commit...")
-		commitResult, err := client.API.Vm.Commit(apiCtx, vmID, commitParams)
+		response, err := client.API.Vm.Commit(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmID, err)
 		}
+		commitResult := response.Data
 
 		fmt.Printf("Successfully committed VM '%s'\n", vmID)
 		fmt.Printf("Commit ID: %s\n", commitResult.ID)
@@ -134,7 +116,6 @@ var commitCmd = &cobra.Command{
 			// Create commit info
 			commitInfo := logCommitEntry{
 				ID:        commitResult.ID,
-				Message:   commitMsg,
 				Timestamp: time.Now().Unix(),
 				Tag:       tag,
 				Author:    "user", // Could be improved to use actual user info
@@ -156,9 +137,5 @@ func init() {
 	rootCmd.AddCommand(commitCmd)
 
 	// Define flags for the commit command
-	commitCmd.Flags().StringVarP(&commitMsg, "message", "m", "", "Commit message (required)")
 	commitCmd.Flags().StringVarP(&tag, "tag", "t", "", "Tag for this commit")
-
-	// Mark message as required
-	commitCmd.MarkFlagRequired("message")
 }
