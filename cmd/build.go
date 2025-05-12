@@ -91,7 +91,7 @@ func BuildRootfs(config *Config) error {
 		return err
 	}
 
-	fmt.Printf("Successfully uploaded rootfs: %s\n", res.RootfsName)
+	fmt.Printf("Successfully uploaded rootfs: %s\n", res.Data.RootfsName)
 	return nil
 }
 

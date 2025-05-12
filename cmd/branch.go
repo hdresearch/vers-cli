@@ -87,11 +87,11 @@ var branchCmd = &cobra.Command{
 		defer cancel()
 
 		fmt.Println(s.Progress.Render("Creating branch..."))
-		branchInfo, err := client.API.Vm.Branch(apiCtx, vmName)
-
+		response, err := client.API.Vm.Branch(apiCtx, vmName)
 		if err != nil {
 			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %v"), vmName, err)
 		}
+		branchInfo := response.Data
 
 		// Store the branch VM ID in version control system
 		branchVmID := branchInfo.ID

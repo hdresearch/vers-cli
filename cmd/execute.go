@@ -70,7 +70,7 @@ var executeCmd = &cobra.Command{
 		var commandArgs []string
 		var commandStr string
 		s := NewStatusStyles()
-		
+
 		// Check if first arg is a VM ID or a command
 		if len(args) > 1 {
 			vmID = args[0]
@@ -89,16 +89,16 @@ var executeCmd = &cobra.Command{
 		// Join the command arguments
 		commandStr = strings.Join(commandArgs, " ")
 
-
 		// Initialize SDK client and context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		vm, err := client.API.Vm.Get(apiCtx, vmID)
+		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %v"), err)
 		}
+		vm := response.Data
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -126,13 +126,14 @@ var executeCmd = &cobra.Command{
 			}
 
 			// Get SSH key using SDK
-			sshKeyBytes, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
+			response, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
 			}
+			sshKeyBytes := response.Data
 
 			// Write key to file
-			if err := os.WriteFile(keyPath, []byte(*sshKeyBytes), 0600); err != nil {
+			if err := os.WriteFile(keyPath, []byte(sshKeyBytes), 0600); err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to write key file: %v"), err)
 			}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
@@ -40,10 +41,11 @@ var connectCmd = &cobra.Command{
 		defer cancel()
 
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
-		vm, err := client.API.Vm.Get(apiCtx, vmID)
+		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %v"), err)
 		}
+		vm := response.Data
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -55,7 +57,39 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-	
+		// Determine the path for storing the SSH key
+		keyPath := getSSHKeyPath(vmID)
+
+		// Check if SSH key already exists
+		keyExists := false
+		if _, err := os.Stat(keyPath); err == nil {
+			keyExists = true
+		}
+
+		// If key doesn't exist, fetch it and save it
+		if !keyExists {
+			// Create the keys directory if it doesn't exist
+			keysDir := filepath.Dir(keyPath)
+			if err := os.MkdirAll(keysDir, 0755); err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to create keys directory: %v"), err)
+			}
+
+			// Get SSH key using SDK
+			response, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
+			}
+			sshKeyBytes := response.Data
+
+			// Write key to file
+			if err := os.WriteFile(keyPath, []byte(sshKeyBytes), 0600); err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to write key file: %v"), err)
+			}
+
+			fmt.Printf(s.HeadStatus.Render("SSH key saved to %s\n"), keyPath)
+		} else {
+			fmt.Printf(s.HeadStatus.Render("Using existing SSH key from %s\n"), keyPath)
+		}
 
 		hostIP := auth.GetVersUrl()
 
@@ -65,7 +99,7 @@ var connectCmd = &cobra.Command{
 		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
-		}	
+		}
 
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", hostIP),
