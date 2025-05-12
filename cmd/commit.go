@@ -123,7 +123,7 @@ var commitCmd = &cobra.Command{
 
 			// Save commit info
 			if err := writeCommitToLogFile(versDir, vmID, commitInfo); err != nil {
-				fmt.Printf("Warning: Failed to store commit information: %v\n", err)
+				return fmt.Errorf("Warning: Failed to store commit information: %w\n", err)
 			}
 		}
 

@@ -81,7 +81,7 @@ var executeCmd = &cobra.Command{
 			var err error
 			vmID, err = getCurrentHeadVM()
 			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no VM ID provided and %v"), err)
+				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
 			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 			commandArgs = args
@@ -97,7 +97,7 @@ var executeCmd = &cobra.Command{
 
 		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to get VM information: %v"), err)
+			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
 		vm := response.Data
 
@@ -143,7 +143,7 @@ var executeCmd = &cobra.Command{
 				// If the command ran but returned non-zero, return the exit code
 				return fmt.Errorf(s.NoData.Render("command exited with code %d"), exitErr.ExitCode())
 			}
-			return fmt.Errorf(s.NoData.Render("failed to run SSH command: %v"), err)
+			return fmt.Errorf(s.NoData.Render("failed to run SSH command: %w"), err)
 		}
 
 		return nil

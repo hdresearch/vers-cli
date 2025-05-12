@@ -38,7 +38,7 @@ var statusCmd = &cobra.Command{
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
 			response, err := client.API.Cluster.Get(apiCtx, clusterID)
 			if err != nil {
-				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %v"), clusterID, err)
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %w"), clusterID, err)
 			}
 			cluster := response.Data
 
@@ -85,7 +85,7 @@ var statusCmd = &cobra.Command{
 
 		response, err := client.API.Cluster.List(apiCtx)
 		if err != nil {
-			return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %v"), err)
+			return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %w"), err)
 		}
 		clusters := response.Data
 
@@ -118,7 +118,7 @@ var statusCmd = &cobra.Command{
 }
 
 // Helper function to display current HEAD status
-func displayHeadStatus() {
+func displayHeadStatus() error {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
 
@@ -126,15 +126,13 @@ func displayHeadStatus() {
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
-		return
+		return fmt.Errorf(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
 	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
 	if err != nil {
-		fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
-		return
+		return fmt.Errorf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%w)\n"), err)
 	}
 
 	// Parse the HEAD content
@@ -162,6 +160,7 @@ func displayHeadStatus() {
 	}
 
 	fmt.Println(s.HeadStatus.Render(headStatus))
+	return nil
 }
 
 func emptyEnumerator(_ list.Items, _ int) string {

@@ -71,7 +71,7 @@ func StartCluster(config *Config, args []string) error {
 			// Update refs/heads/main with VM ID
 			mainRefPath := filepath.Join(versDir, "refs", "heads", "main")
 			if err := os.WriteFile(mainRefPath, []byte(vmID+"\n"), 0644); err != nil {
-				fmt.Printf("Warning: Failed to update refs: %v\n", err)
+				return fmt.Errorf("Warning: Failed to update refs: %w\n", err)
 			} else {
 				fmt.Printf("Updated VM reference: %s -> %s\n", "refs/heads/main", vmID)
 			}

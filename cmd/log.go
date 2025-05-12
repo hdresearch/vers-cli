@@ -170,7 +170,7 @@ var logCmd = &cobra.Command{
 		// Get branch information
 		branches, err := readRefsHeads(versDir)
 		if err != nil {
-			fmt.Printf("Warning: Failed to read branch information: %v\n", err)
+			return fmt.Errorf("Warning: Failed to read branch information: %w\n", err)
 		}
 
 		// Initialize SDK client and context
@@ -189,8 +189,8 @@ var logCmd = &cobra.Command{
 		// First, try to read existing commit log
 		commits, err := readCommitLogFile(versDir, vmID)
 		if err != nil {
-			fmt.Printf("Warning: %v\n", err)
 			commits = []logCommitEntry{}
+			return fmt.Errorf("Warning: %w\n", err)
 		}
 
 		// Check if we need to add a new commit record for this VM
@@ -231,7 +231,7 @@ var logCmd = &cobra.Command{
 
 			// Save updated commits list
 			if err := writeCommitLogFile(versDir, vmID, commits); err != nil {
-				fmt.Printf("Warning: Failed to update commit log: %v\n", err)
+				return fmt.Errorf("Warning: Failed to update commit log: %w\n", err)
 			}
 		}
 
