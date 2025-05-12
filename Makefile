@@ -17,6 +17,4 @@ install:
 	cp bin/vers /usr/local/bin
 
 # Build and install binary
-build-and-install:
-	go build -o bin/vers ./cmd/vers
-	cp bin/vers /usr/local/bin
+build-and-install: build install
