@@ -182,10 +182,11 @@ var logCmd = &cobra.Command{
 
 		// Get VM details to verify it exists
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
-		vm, err := client.API.Vm.Get(apiCtx, vmID)
+		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf("failed to get VM information: %w", err)
 		}
+		vm := response.Data
 
 		// First, try to read existing commit log
 		commits, err := readCommitLogFile(versDir, vmID)
@@ -205,7 +206,7 @@ var logCmd = &cobra.Command{
 
 		// If we don't have a commit record for this VM and we successfully got VM details,
 		// create a new commit info record using data from the API
-		if !foundCurrentVM && vm != nil {
+		if !foundCurrentVM {
 			// Determine branch name if known
 			branchName := branches[vmID]
 
