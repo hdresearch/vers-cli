@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +22,7 @@ var killCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		targetID := args[0]
-		s := NewKillStyles()
+		s := styles.NewKillStyles()
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()

@@ -13,8 +13,41 @@ var upCmd = &cobra.Command{
 	Long:  `Build a rootfs image and start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load configuration just once
-		config, err := loadConfig()
+		baseCtx := context.Background()
+
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		defer cancel()
+
+		// Create new cluster params with the mandatory KernelName field
+		clusterParams := vers.APIClusterNewParams{}
+
+		// Handle optional parameters from flags
+		memSize, _ := cmd.Flags().GetInt64("mem-size")
+		if memSize > 0 {
+			clusterParams.MemSizeMib = vers.F(memSize)
+			fmt.Printf("Setting memory size to %d MiB\n", memSize)
+		}
+
+		rootfs, _ := cmd.Flags().GetString("rootfs")
+		if rootfs != "" {
+			clusterParams.RootfsName = vers.F(rootfs)
+			fmt.Printf("Using rootfs: %s\n", rootfs)
+		}
+
+		vcpuCount, _ := cmd.Flags().GetInt64("vcpu")
+		if vcpuCount > 0 {
+			clusterParams.VcpuCount = vers.F(vcpuCount)
+			fmt.Printf("Setting vCPU count to %d\n", vcpuCount)
+		}
+
+		kernelName, _ := cmd.Flags().GetString("kernel")
+		if kernelName != "" {
+			clusterParams.KernelName = vers.F(kernelName)
+			fmt.Printf("Using kernel: %s\n", kernelName)
+		}
+
+		fmt.Println("Sending request to start cluster...")
+		clusterInfo, err := client.API.Cluster.New(apiCtx, clusterParams)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}

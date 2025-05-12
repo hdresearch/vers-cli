@@ -5,19 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
-
-// getSSHKeyPath returns the path to the SSH key file for a given VM
-func getSSHKeyPath(vmID string) string {
-	versDir := ".vers"
-	keysDir := filepath.Join(versDir, "keys")
-	return filepath.Join(keysDir, fmt.Sprintf("%s.key", vmID))
-}
 
 // connectCmd represents the connect command
 var connectCmd = &cobra.Command{
@@ -27,7 +20,7 @@ var connectCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmID string
-		s := NewStatusStyles()
+		s := styles.NewStatusStyles()
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
@@ -62,43 +55,17 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-		// Determine the path for storing the SSH key
-		keyPath := getSSHKeyPath(vmID)
-
-		// Check if SSH key already exists
-		keyExists := false
-		if _, err := os.Stat(keyPath); err == nil {
-			keyExists = true
-		}
-
-		// If key doesn't exist, fetch it and save it
-		if !keyExists {
-			// Create the keys directory if it doesn't exist
-			keysDir := filepath.Dir(keyPath)
-			if err := os.MkdirAll(keysDir, 0755); err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to create keys directory: %v"), err)
-			}
-
-			// Get SSH key using SDK
-			sshKeyBytes, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
-			}
-
-			// Write key to file
-			if err := os.WriteFile(keyPath, []byte(*sshKeyBytes), 0600); err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to write key file: %v"), err)
-			}
-
-			fmt.Printf(s.HeadStatus.Render("SSH key saved to %s\n"), keyPath)
-		} else {
-			fmt.Printf(s.HeadStatus.Render("Using existing SSH key from %s\n"), keyPath)
-		}
+	
 
 		hostIP := auth.GetVersUrl()
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
+
+		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
+		if err != nil {
+			return fmt.Errorf("failed to get or create SSH key: %w", err)
+		}	
 
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", hostIP),

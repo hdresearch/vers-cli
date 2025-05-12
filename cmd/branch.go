@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +24,7 @@ var branchCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmName string
-		s := NewBranchStyles()
+		s := styles.NewBranchStyles()
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
