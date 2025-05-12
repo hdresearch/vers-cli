@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +70,7 @@ var executeCmd = &cobra.Command{
 		var vmID string
 		var commandArgs []string
 		var commandStr string
-		s := NewStatusStyles()
+		s := styles.NewStatusStyles()
 
 		// Check if first arg is a VM ID or a command
 		if len(args) > 1 {
@@ -109,34 +110,9 @@ var executeCmd = &cobra.Command{
 		}
 
 		// Determine the path for storing the SSH key
-		keyPath := getSSHKeyPath(vmID)
-
-		// Check if SSH key already exists
-		keyExists := false
-		if _, err := os.Stat(keyPath); err == nil {
-			keyExists = true
-		}
-
-		// If key doesn't exist, fetch it and save it
-		if !keyExists {
-			// Create the keys directory if it doesn't exist
-			keysDir := filepath.Dir(keyPath)
-			if err := os.MkdirAll(keysDir, 0755); err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to create keys directory: %v"), err)
-			}
-
-			// Get SSH key using SDK
-			response, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to get SSH key: %v"), err)
-			}
-			sshKeyBytes := response.Data
-
-			// Write key to file
-			if err := os.WriteFile(keyPath, []byte(sshKeyBytes), 0600); err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to write key file: %v"), err)
-			}
-
+		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
+		if err != nil {
+			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
 		hostIP := auth.GetVersUrl()
