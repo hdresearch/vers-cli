@@ -99,7 +99,9 @@ var executeCmd = &cobra.Command{
 
 		// Prepare parameters for the Execute API call
 		executeParams := vers.APIVmExecuteParams{
-			Command: vers.F(commandStr),
+			ExecuteCommand: vers.ExecuteCommandParam{
+				Command: vers.F(commandStr),
+			},
 		}
 
 		// Call the SDK to run the command

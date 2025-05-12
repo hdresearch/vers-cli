@@ -1,8 +1,7 @@
-package cmd
+package styles
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hdresearch/vers-cli/styles"
 )
 
 // KillStyles contains all styles used in the kill command
@@ -18,17 +17,17 @@ type KillStyles struct {
 
 // NewKillStyles initializes and returns all styles used in the kill command
 func NewKillStyles() KillStyles {
-	containerStyle := styles.AppStyle
+	containerStyle := AppStyle
 
 	return KillStyles{
 		Container:  containerStyle,
-		HeadStatus: styles.HeadStatusStyle,
-		Error:      styles.ErrorTextStyle,
-		Warning:    styles.ErrorTextStyle.Foreground(styles.TerminalYellow),
-		Progress:   styles.PrimaryTextStyle,
-		Success:    styles.PrimaryTextStyle.
+		HeadStatus: HeadStatusStyle,
+		Error:      ErrorTextStyle,
+		Warning:    ErrorTextStyle.Foreground(TerminalYellow),
+		Progress:   PrimaryTextStyle,
+		Success:    PrimaryTextStyle.
 		Padding(1,0).
-		Foreground(styles.TerminalGreen),
-		NoData:     styles.MutedTextStyle.Padding(1, 0),
+		Foreground(TerminalGreen),
+		NoData:     MutedTextStyle.Padding(1, 0),
 	}
 } 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var branchCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmName string
-		s := NewBranchStyles()
+		s := styles.NewBranchStyles()
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
@@ -86,12 +86,8 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		branchParams := vers.APIVmNewBranchParams{
-			Body: map[string]interface{}{},
-		}
-
 		fmt.Println(s.Progress.Render("Creating branch..."))
-		branchInfo, err := client.API.Vm.NewBranch(apiCtx, vmName, branchParams)
+		branchInfo, err := client.API.Vm.Branch(apiCtx, vmName)
 
 		if err != nil {
 			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %v"), vmName, err)
