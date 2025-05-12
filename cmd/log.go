@@ -13,7 +13,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/hdresearch/vers-cli/styles"
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -176,7 +175,6 @@ var logCmd = &cobra.Command{
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 

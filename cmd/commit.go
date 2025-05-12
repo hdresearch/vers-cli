@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -85,14 +84,13 @@ var commitCmd = &cobra.Command{
 			return fmt.Errorf("failed to get current VM: %w", err)
 		}
 
-		fmt.Printf("Creating commit for VM '%s'n", vmID)
+		fmt.Printf("Creating commit for VM '%s'\n", vmID)
 		if tag != "" {
 			fmt.Printf("Tagging commit as: %s\n", tag)
 		}
 
 		// Initialize the context and SDK client
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
 

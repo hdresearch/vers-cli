@@ -19,9 +19,8 @@ var treeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var clusterID string
 
-		// Initialize context and client
+		// Initialize context
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
