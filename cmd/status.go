@@ -28,7 +28,7 @@ var statusCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		s := NewStatusStyles()
+		s := styles.NewStatusStyles()
 
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
@@ -120,7 +120,7 @@ func displayHeadStatus() {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
 
-	s := NewStatusStyles()
+	s := styles.NewStatusStyles()
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
