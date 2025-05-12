@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hdresearch/vers-cli/internal/assets"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -17,12 +19,29 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new vers project",
 	Long:  `Initialize a new vers project with a vers.toml configuration file.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Check if API key exists, prompt for login if not
+		hasAPIKey, err := auth.HasAPIKey()
+		if err != nil {
+			return fmt.Errorf("error checking API key: %w", err)
+		}
+		if !hasAPIKey {
+			return auth.PromptForLogin()
+		}
 
 		// Create a hidden .vers directory
 		versDir := ".vers"
 		if err := os.MkdirAll(versDir, 0755); err != nil {
 			return fmt.Errorf("error creating .vers directory: %w", err)
 		}
+
+		// Create a .gitignore file if it doesn't exist
+		gitignorePath := ".gitignore"
+		if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
+			gitignoreContent := assets.GitIgnoreContent
+			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+				return fmt.Errorf("error creating .gitignore file: %w", err)
+			}
+		} 
 
 		// Create .vers/refs directory
 		refsDir := filepath.Join(versDir, "refs")

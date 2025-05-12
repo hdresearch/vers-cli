@@ -11,7 +11,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss/list"
 	"github.com/hdresearch/vers-cli/styles"
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +25,6 @@ var statusCmd = &cobra.Command{
 		clusterID, _ := cmd.Flags().GetString("cluster")
 
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
