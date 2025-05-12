@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hdresearch/vers-cli/internal/config"
 	"github.com/hdresearch/vers-cli/internal/auth"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/joho/godotenv" // Import godotenv
