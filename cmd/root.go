@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/config"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/joho/godotenv" // Import godotenv
 	"github.com/spf13/cobra"
@@ -14,9 +14,7 @@ import (
 
 // Global vars for configuration and SDK client
 var (
-	configPath string
-	cfg        *config.Config
-	client     *vers.Client
+	client *vers.Client
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -57,13 +55,6 @@ interaction capabilities, and more.`,
 		// Initialize the client *only* if we have an API key
 		client = vers.NewClient(clientOptions...)
 
-		// // Configuration loading (keep if needed, but separate from client init)
-		// var err error
-		// configPath, cfg, err = config.FindConfig()
-		// if err != nil {
-		// 	return fmt.Errorf("error finding config: %w", err)
-		// }
-
 		return nil
 	},
 }
@@ -74,8 +65,8 @@ func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
 		// Check if the error is a 401 Unauthorized
-		if strings.Contains(err.Error(), "401") || 
-		   strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
+		if strings.Contains(err.Error(), "401") ||
+			strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
 			fmt.Println("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
 			os.Exit(1)
 		}
@@ -84,13 +75,7 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.vers.yaml)")
-
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-} 
+}
