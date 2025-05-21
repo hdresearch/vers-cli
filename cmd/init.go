@@ -145,7 +145,7 @@ var initCmd = &cobra.Command{
 			}
 
 			if rootfsName == "" {
-				rootfsName = projectName
+				rootfsName = "default"
 			}
 
 			// Create the vers.toml content
