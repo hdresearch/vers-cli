@@ -15,7 +15,8 @@ const DEFAULT_VERS_URL = "13.219.19.157"
 
 // Config represents the structure of the .versrc file
 type Config struct {
-	APIKey string `json:"apiKey"`
+	APIKey  string `json:"apiKey"`
+	VersURL string `json:"versUrl,omitempty"`
 }
 
 // GetConfigPath returns the path to the .versrc file in the user's home directory
@@ -115,8 +116,9 @@ func PromptForLogin() error {
 
 // GetVersUrl returns the raw hostname/IP without protocol
 func GetVersUrl() string {
-	versUrl := os.Getenv("VERS_URL")
-	if versUrl != "" {
+	config, err := LoadConfig()
+	if err == nil && config.VersURL != "" {
+		versUrl := config.VersURL
 		// Strip any protocol if present
 		if strings.HasPrefix(versUrl, "http://") {
 			versUrl = strings.TrimPrefix(versUrl, "http://")
@@ -125,6 +127,8 @@ func GetVersUrl() string {
 		}
 		return versUrl
 	}
+
+	
 	return DEFAULT_VERS_URL // Default public IP
 }
 
