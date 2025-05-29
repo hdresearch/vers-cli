@@ -1,15 +1,16 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +31,7 @@ func getCurrentHeadVM() (string, error) {
 	}
 
 	// Parse the HEAD content
-	headContent := string(bytes.TrimSpace(headData))
+	headContent := string(strings.TrimSpace(string(headData)))
 	var vmID string
 
 	// Check if HEAD is a symbolic ref or direct ref
@@ -46,7 +47,7 @@ func getCurrentHeadVM() (string, error) {
 		}
 
 		// Get the VM ID from the reference file
-		vmID = string(bytes.TrimSpace(refData))
+		vmID = string(strings.TrimSpace(string(refData)))
 	} else {
 		// HEAD directly contains a VM ID
 		vmID = headContent
@@ -69,10 +70,10 @@ var executeCmd = &cobra.Command{
 		var vmID string
 		var commandArgs []string
 		var commandStr string
+		s := styles.NewStatusStyles()
 
 		// Check if first arg is a VM ID or a command
-		if len(args) >= 1 && strings.HasPrefix(args[0], "vm-") {
-			// First arg looks like a VM ID, use it
+		if len(args) > 1 {
 			vmID = args[0]
 			commandArgs = args[1:]
 		} else {
@@ -80,49 +81,69 @@ var executeCmd = &cobra.Command{
 			var err error
 			vmID, err = getCurrentHeadVM()
 			if err != nil {
-				return fmt.Errorf("no VM ID provided and %w", err)
+				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf("Using current HEAD VM: %s\n", vmID)
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 			commandArgs = args
 		}
 
 		// Join the command arguments
 		commandStr = strings.Join(commandArgs, " ")
 
-		fmt.Printf("Running command on VM '%s': %s\n", vmID, commandStr)
-
 		// Initialize SDK client and context
 		baseCtx := context.Background()
-		// Use the global client instead of creating a new one
-		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Prepare parameters for the Execute API call
-		executeParams := vers.APIVmExecuteParams{
-			Command: vers.F(commandStr),
-		}
-
-		// Call the SDK to run the command
-		fmt.Println("Executing command via Vers SDK...")
-		executeResult, err := client.API.Vm.Execute(apiCtx, vmID, executeParams)
+		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
-			return fmt.Errorf("failed to execute command on vm '%s': %w", vmID, err)
+			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
+		}
+		vm := response.Data
+
+		if vm.State != "Running" {
+			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
 		}
 
-		// Handle the response (adjust based on actual APIVmExecuteResult structure)
-		fmt.Printf("Command executed successfully on VM '%s'.\n", vmID)
-		// Example of how you might display output if the SDK provides it:
-		if executeResult != nil {
-			if executeResult.CommandResult.Stdout != "" {
-				fmt.Println("Output:")
-				fmt.Println(executeResult.CommandResult.Stdout)
+		if vm.NetworkInfo.SSHPort == 0 {
+			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
+		}
+
+		// Determine the path for storing the SSH key
+		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
+		if err != nil {
+			return fmt.Errorf("failed to get or create SSH key: %w", err)
+		}
+
+		hostIP := auth.GetVersUrl()
+
+		// // Debug info about connection
+		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
+
+		// Create the SSH command with the provided command string
+		sshCmd := exec.Command("ssh",
+			fmt.Sprintf("root@%s", hostIP),
+			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
+			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
+			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
+			"-o", "LogLevel=ERROR", // Add this line to suppress warnings
+			"-i", keyPath, // Use the persistent key file
+			commandStr) // Add the command to execute
+
+		// Connect command output to current terminal
+		sshCmd.Stdout = os.Stdout
+		sshCmd.Stderr = os.Stderr
+
+		// Execute the command
+		err = sshCmd.Run()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				// If the command ran but returned non-zero, return the exit code
+				return fmt.Errorf(s.NoData.Render("command exited with code %d"), exitErr.ExitCode())
 			}
-			if executeResult.CommandResult.Stderr != "" {
-				fmt.Println("Error:")
-				fmt.Println(executeResult.CommandResult.Stderr)
-			}
-		} else {
-			fmt.Println("No output received or output field not available in response.")
+			return fmt.Errorf(s.NoData.Render("failed to run SSH command: %w"), err)
 		}
 
 		return nil
@@ -131,4 +152,5 @@ var executeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(executeCmd)
+	executeCmd.Flags().String("host", "", "Specify the host IP to connect to (overrides default)")
 }

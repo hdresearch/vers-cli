@@ -11,7 +11,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var projectName string
+var (
+	projectName    string
+	memSize        int64
+	vcpuCount      int64
+	rootfsName     string
+	kernelName     string
+	dockerfileName string
+)
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
@@ -41,7 +48,7 @@ var initCmd = &cobra.Command{
 			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
 				return fmt.Errorf("error creating .gitignore file: %w", err)
 			}
-		} 
+		}
 
 		// Create .vers/refs directory
 		refsDir := filepath.Join(versDir, "refs")
@@ -123,26 +130,77 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("error creating index file: %w", err)
 		}
 
+		// Create vers.toml file if it doesn't exist
+		versTomlPath := "vers.toml"
+		if _, err := os.Stat(versTomlPath); os.IsNotExist(err) {
+			// Use provided flag values or defaults
+			if projectName == "" {
+				// Default to current directory name if not specified
+				currentDir, err := os.Getwd()
+				if err == nil {
+					projectName = filepath.Base(currentDir)
+				} else {
+					projectName = "unnamed-project"
+				}
+			}
+
+			if rootfsName == "" {
+				rootfsName = "default"
+			}
+
+			// Create the vers.toml content
+			versTomlContent := fmt.Sprintf(`# Vers.toml Configuration
+# Project: %s
+
+[machine]
+# Memory size in MiB
+mem_size_mib = %d
+# Number of virtual CPUs
+vcpu_count = %d
+
+[rootfs]
+# Name of the rootfs image
+name = "%s"
+
+[builder]
+# Builder type (currently only 'docker' and 'none' are supported)
+name = "none"
+# Name of the Dockerfile to use for 'docker' builder
+dockerfile = "Dockerfile"
+
+[kernel]
+# Name of the kernel image
+name = "%s"
+`, projectName, memSize, vcpuCount, rootfsName, kernelName)
+
+			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
+				return fmt.Errorf("error creating vers.toml file: %w", err)
+			}
+			fmt.Printf(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
+		} else {
+			fmt.Printf(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
+		}
+
 		logoStyle := styles.AppStyle.Foreground(styles.TerminalMagenta)
-		// fmt.Printf(logoStyle.Render(`		                                                                                                                                                                                                         
-                                                                       
-        //     ↑↑↑↑                        
-        //     ↑↑↑↑↑↑↑                     
-        //        ↑↑↑↑↑↑↑                  
-        //           ↑↑↑↑↑                 
-        //            ↑↑↑↑                 
-        //            ↑↑↑↑                 
-        //   ↑↑↑↑↑    ↑↑↑↑                 
-        //  ↑↑↑↑↑     ↑↑↑↑                 
-        //  ↑↑↑↑       ↑↑↑                 
-        //  ↑↑↑↑                           
-        //  ↑↑↑↑                           
-        //  ↑↑↑↑                           
-        //  ↑↑↑↑↑           ↑↑↑↑           
-        //    ↑↑↑↑↑↑     ↑↑↑↑↑↑            
-        //      ↑↑↑↑↑↑↑↑↑↑↑↑↑              
-        //         ↑↑↑↑↑↑↑                 
-                                                                                                                                
+		// fmt.Printf(logoStyle.Render(`
+
+		//     ↑↑↑↑
+		//     ↑↑↑↑↑↑↑
+		//        ↑↑↑↑↑↑↑
+		//           ↑↑↑↑↑
+		//            ↑↑↑↑
+		//            ↑↑↑↑
+		//   ↑↑↑↑↑    ↑↑↑↑
+		//  ↑↑↑↑↑     ↑↑↑↑
+		//  ↑↑↑↑       ↑↑↑
+		//  ↑↑↑↑
+		//  ↑↑↑↑
+		//  ↑↑↑↑
+		//  ↑↑↑↑↑           ↑↑↑↑
+		//    ↑↑↑↑↑↑     ↑↑↑↑↑↑
+		//      ↑↑↑↑↑↑↑↑↑↑↑↑↑
+		//         ↑↑↑↑↑↑↑
+
 		// `))
 		fmt.Println(logoStyle.Render(`	
 		▗▖  ▗▖▗▄▄▄▖▗▄▄▖  ▗▄▄▖
@@ -151,7 +209,7 @@ var initCmd = &cobra.Command{
 		 ▝▚▞▘ ▐▙▄▄▖▐▌ ▐▌▗▄▄▞▘						 
    `))
 
-   		fmt.Printf(styles.MutedTextStyle.Render("Initialized vers repository in %s directory\n"), versDir)
+		fmt.Printf(styles.MutedTextStyle.Render("Initialized vers repository in %s directory\n"), versDir)
 
 		return nil
 	},
@@ -162,7 +220,11 @@ func init() {
 
 	// Define flags for the init command
 	initCmd.Flags().StringVarP(&projectName, "name", "n", "", "Project name (defaults to directory name)")
+
+	// Add flags for vers.toml configuration
+	initCmd.Flags().Int64Var(&memSize, "mem-size", 512, "Memory size in MiB")
+	initCmd.Flags().Int64Var(&vcpuCount, "vcpu-count", 1, "Number of virtual CPUs")
+	initCmd.Flags().StringVar(&rootfsName, "rootfs", "", "Name of the rootfs image (defaults to project name)")
+	initCmd.Flags().StringVar(&kernelName, "kernel", "default.bin", "Name of the kernel image")
+	initCmd.Flags().StringVar(&dockerfileName, "dockerfile", "Dockerfile", "Name of the Docker file")
 }
-
-
-

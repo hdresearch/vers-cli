@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +24,7 @@ var branchCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmName string
-		s := NewBranchStyles()
+		s := styles.NewBranchStyles()
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
@@ -40,7 +40,7 @@ var branchCmd = &cobra.Command{
 			// Read HEAD file
 			headData, err := os.ReadFile(headFile)
 			if err != nil {
-				return fmt.Errorf(s.Error.Render("error reading HEAD: %v"), err)
+				return fmt.Errorf(s.Error.Render("error reading HEAD: %w"), err)
 			}
 
 			// Parse the HEAD content
@@ -56,7 +56,7 @@ var branchCmd = &cobra.Command{
 				refFile := filepath.Join(versDir, refPath)
 				refData, err := os.ReadFile(refFile)
 				if err != nil {
-					return fmt.Errorf(s.Error.Render("error reading reference '%s': %v"), refPath, err)
+					return fmt.Errorf(s.Error.Render("error reading reference '%s': %w"), refPath, err)
 				}
 
 				// Get the VM ID from the reference file
@@ -86,16 +86,12 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		branchParams := vers.APIVmNewBranchParams{
-			Body: map[string]interface{}{},
-		}
-
 		fmt.Println(s.Progress.Render("Creating branch..."))
-		branchInfo, err := client.API.Vm.NewBranch(apiCtx, vmName, branchParams)
-
+		response, err := client.API.Vm.Branch(apiCtx, vmName)
 		if err != nil {
-			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %v"), vmName, err)
+			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %w"), vmName, err)
 		}
+		branchInfo := response.Data
 
 		// Store the branch VM ID in version control system
 		branchVmID := branchInfo.ID
@@ -118,7 +114,7 @@ var branchCmd = &cobra.Command{
 				// Create branch ref file
 				branchRefPath := filepath.Join(versDir, "refs", "heads", safeBranchName)
 				if err := os.WriteFile(branchRefPath, []byte(branchVmID+"\n"), 0644); err != nil {
-					fmt.Printf(s.Warning.Render("⚠ Warning: Failed to create branch ref: %v\n"), err)
+					fmt.Printf(s.Warning.Render("⚠ Warning: Failed to create branch ref: %w\n"), err)
 				}
 
 				// Branch creation success
@@ -129,7 +125,7 @@ var branchCmd = &cobra.Command{
 					headFile := filepath.Join(versDir, "HEAD")
 					newRef := fmt.Sprintf("ref: refs/heads/%s\n", safeBranchName)
 					if err := os.WriteFile(headFile, []byte(newRef), 0644); err != nil {
-						fmt.Printf(s.Warning.Render("⚠ Warning: Failed to update HEAD: %v\n"), err)
+						fmt.Printf(s.Warning.Render("⚠ Warning: Failed to update HEAD: %w\n"), err)
 					} else {
 						fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render("refs/heads/"+safeBranchName) + "\n")
 					}

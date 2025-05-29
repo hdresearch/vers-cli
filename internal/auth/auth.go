@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-sdk-go/option"
 )
+
+const DEFAULT_VERS_URL = "13.219.19.157"
 
 // Config represents the structure of the .versrc file
 type Config struct {
@@ -88,7 +92,7 @@ func SaveAPIKey(apiKey string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	config.APIKey = apiKey
 	return SaveConfig(config)
 }
@@ -107,4 +111,36 @@ func PromptForLogin() error {
 	errorMsg := styles.ErrorTextStyle.Render("No API key found. Please run 'vers login' to authenticate.")
 	fmt.Println(errorMsg)
 	return nil
-} 
+}
+
+// GetVersUrl returns the raw hostname/IP without protocol
+func GetVersUrl() string {
+	versUrl := os.Getenv("VERS_URL")
+	if versUrl != "" {
+		// Strip any protocol if present
+		if strings.HasPrefix(versUrl, "http://") {
+			versUrl = strings.TrimPrefix(versUrl, "http://")
+		} else if strings.HasPrefix(versUrl, "https://") {
+			versUrl = strings.TrimPrefix(versUrl, "https://")
+		}
+		return versUrl
+	}
+	return DEFAULT_VERS_URL // Default public IP
+}
+
+// GetClientOptions returns the options for the SDK client
+func GetClientOptions() []option.RequestOption {
+	clientOptions := []option.RequestOption{}
+
+	// Get the raw URL (no protocol)
+	versUrl := GetVersUrl()
+
+	// Add the HTTP protocol for SDK requests
+	fullUrl := "http://" + versUrl
+
+	// Set the base URL with protocol
+	clientOptions = append(clientOptions, option.WithBaseURL(fullUrl))
+	fmt.Println("Using API endpoint: ", fullUrl)
+
+	return clientOptions
+}

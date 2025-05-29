@@ -33,10 +33,12 @@ Thumbs.db
 # Binary output directory
 bin/
 
-.vers
-
 tmp/
 
 repomix-output.xml
 
 id_rsa
+
+vers.toml
+
+.vers

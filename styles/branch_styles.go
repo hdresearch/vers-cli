@@ -1,8 +1,7 @@
-package cmd
+package styles
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hdresearch/vers-cli/styles"
 )
 
 // BranchStyles contains all styles used in the branch command
@@ -38,7 +37,7 @@ type BranchStyles struct {
 // NewBranchStyles initializes and returns all styles used in the branch command
 func NewBranchStyles() BranchStyles {
 	// Base container style
-	containerStyle := styles.AppStyle.
+	containerStyle := AppStyle.
 		PaddingLeft(2).
 		PaddingRight(2)
 
@@ -46,53 +45,53 @@ func NewBranchStyles() BranchStyles {
 		Container: containerStyle,
 
 		// Headers use the base header style
-		Header: styles.HeaderStyle.
-			Background(styles.TerminalMagenta).
+		Header: HeaderStyle.
+			Background(TerminalMagenta).
 			Padding(0, 1),
-		SubHeader: styles.HeaderStyle.
-			Foreground(styles.TerminalWhite).
-			Background(styles.TerminalBlue).
+		SubHeader: HeaderStyle.
+			Foreground(TerminalWhite).
+			Background(TerminalBlue).
 			Padding(0, 1),
-		ListHeader: styles.BaseTextStyle.
-			Foreground(styles.TerminalMagenta).
+		ListHeader: BaseTextStyle.
+			Foreground(TerminalMagenta).
 			MarginBottom(1).
 			Padding(0, 1),
 
 		// Branch and VM styles
-		BranchName: styles.BranchNameStyle,
-		VMID: styles.VmIDStyle,
-		CurrentState: styles.SecondaryTextStyle.
-			Foreground(styles.TerminalWhite),
+		BranchName: BranchNameStyle,
+		VMID: VmIDStyle,
+		CurrentState: SecondaryTextStyle.
+			Foreground(TerminalWhite),
 
 		// Status styles
-		Progress: styles.MutedTextStyle.
+		Progress: MutedTextStyle.
 			Italic(true).
 			Padding(1, 0),
-		Success: styles.PrimaryTextStyle.
-			Foreground(styles.TerminalGreen).
+		Success: PrimaryTextStyle.
+			Foreground(TerminalGreen).
 			Bold(true).
 			Padding(1, 0),
-		Warning: styles.PrimaryTextStyle.
-			Foreground(styles.TerminalYellow).
+		Warning: PrimaryTextStyle.
+			Foreground(TerminalYellow).
 			Bold(true).
 			Padding(1, 0),
-		Error: styles.ErrorTextStyle.
+		Error: ErrorTextStyle.
 			Padding(1, 0),
 
 		// Information styles
-		Info: styles.PrimaryTextStyle.
-			Foreground(styles.TerminalWhite).
+		Info: PrimaryTextStyle.
+			Foreground(TerminalWhite).
 			Padding(0, 1),
-		InfoLabel: styles.SecondaryTextStyle.
-			Foreground(styles.TerminalSilver).
+		InfoLabel: SecondaryTextStyle.
+			Foreground(TerminalSilver).
 			Width(12),
-		InfoValue: styles.PrimaryTextStyle.
-			Foreground(styles.TerminalWhite),
-		ListItem: styles.PrimaryTextStyle.
+		InfoValue: PrimaryTextStyle.
+			Foreground(TerminalWhite),
+		ListItem: PrimaryTextStyle.
 			PaddingLeft(3),
-		Tip: styles.MutedTextStyle.
+		Tip: MutedTextStyle.
 			Italic(true).
-			Foreground(styles.TerminalGray),
-		HeadStatus: styles.HeadStatusStyle,
+			Foreground(TerminalGray),
+		HeadStatus: HeadStatusStyle,
 	}
 } 

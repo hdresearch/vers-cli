@@ -28,7 +28,7 @@ var statusCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		s := NewStatusStyles()
+		s := styles.NewStatusStyles()
 
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
@@ -36,16 +36,17 @@ var statusCmd = &cobra.Command{
 
 			// Call the Get cluster endpoint with the cluster ID
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
-			cluster, err := client.API.Cluster.Get(apiCtx, clusterID)
+			response, err := client.API.Cluster.Get(apiCtx, clusterID)
 			if err != nil {
-				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %v"), clusterID, err)
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %w"), clusterID, err)
 			}
+			cluster := response.Data
 
 			displayHeadStatus()
 
 			fmt.Println(s.VMListHeader.Render("Cluster details:"))
 			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-			
+
 			// Format cluster info similar to the default view
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
@@ -82,12 +83,13 @@ var statusCmd = &cobra.Command{
 		// If no cluster ID provided, list all clusters
 		fmt.Println(s.NoData.Render("Fetching list of clusters..."))
 
-		clusters, err := client.API.Cluster.List(apiCtx)
+		response, err := client.API.Cluster.List(apiCtx)
 		if err != nil {
-			return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %v"), err)
+			return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %w"), err)
 		}
+		clusters := response.Data
 
-		if clusters == nil || len(*clusters) == 0 {
+		if len(clusters) == 0 {
 			fmt.Println(s.NoData.Render("No clusters found."))
 			return nil
 		}
@@ -96,7 +98,7 @@ var statusCmd = &cobra.Command{
 
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
 		clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-		for _, cluster := range *clusters {
+		for _, cluster := range clusters {
 			// Combine the cluster name and its data into a single string
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
@@ -116,23 +118,21 @@ var statusCmd = &cobra.Command{
 }
 
 // Helper function to display current HEAD status
-func displayHeadStatus() {
+func displayHeadStatus() error {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
 
-	s := NewStatusStyles()
+	s := styles.NewStatusStyles()
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
-		return
+		return fmt.Errorf(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
 	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
 	if err != nil {
-		fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
-		return
+		return fmt.Errorf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%w)\n"), err)
 	}
 
 	// Parse the HEAD content
@@ -160,6 +160,7 @@ func displayHeadStatus() {
 	}
 
 	fmt.Println(s.HeadStatus.Render(headStatus))
+	return nil
 }
 
 func emptyEnumerator(_ list.Items, _ int) string {

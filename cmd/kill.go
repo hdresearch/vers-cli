@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +22,7 @@ var killCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		targetID := args[0]
-		s := NewKillStyles()
+		s := styles.NewKillStyles()
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()
@@ -32,21 +33,22 @@ var killCmd = &cobra.Command{
 			// Handle cluster deletion
 			if !force {
 				// Get cluster info to show what will be deleted
-				cluster, err := client.API.Cluster.Get(apiCtx, targetID)
+				response, err := client.API.Cluster.Get(apiCtx, targetID)
 				if err != nil {
-					return fmt.Errorf(s.Error.Render("failed to get cluster information: %v"), err)
+					return fmt.Errorf(s.Error.Render("failed to get cluster information: %w"), err)
 				}
+				cluster := response.Data
 
 				// Show warning with cluster details
-				fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs\n"), 
+				fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs\n"),
 					targetID, cluster.VmCount)
-				
+
 				// Ask for confirmation
 				fmt.Print("Are you sure you want to proceed? [y/N]: ")
-				var response string
-				fmt.Scanln(&response)
-				
-				if !strings.EqualFold(response, "y") && !strings.EqualFold(response, "yes") {
+				var input string
+				fmt.Scanln(&input)
+
+				if !strings.EqualFold(input, "y") && !strings.EqualFold(input, "yes") {
 					fmt.Println(s.NoData.Render("Operation cancelled"))
 					return nil
 				}
@@ -55,7 +57,7 @@ var killCmd = &cobra.Command{
 			fmt.Printf(s.Progress.Render("Deleting cluster '%s'...\n"), targetID)
 			_, err := client.API.Cluster.Delete(apiCtx, targetID)
 			if err != nil {
-				return fmt.Errorf(s.Error.Render("failed to delete cluster: %v"), err)
+				return fmt.Errorf(s.Error.Render("failed to delete cluster: %w"), err)
 			}
 			fmt.Printf(s.Success.Render("✓ Cluster '%s' deleted successfully\n"), targetID)
 
@@ -70,11 +72,12 @@ var killCmd = &cobra.Command{
 			deleteParams := vers.APIVmDeleteParams{
 				Recursive: vers.F(false),
 			}
-			err := client.API.Vm.Delete(apiCtx, targetID, deleteParams)
+			response, err := client.API.Vm.Delete(apiCtx, targetID, deleteParams)
 			if err != nil {
-				return fmt.Errorf(s.Error.Render("failed to delete VM: %v"), err)
+				return fmt.Errorf(s.Error.Render("failed to delete VM: %w"), err)
 			}
-			fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), targetID)
+			vm := response.Data
+			fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), vm.ID)
 		}
 
 		return nil
@@ -87,4 +90,4 @@ func init() {
 	// Define flags for the kill command
 	killCmd.Flags().BoolVarP(&force, "force", "f", false, "Force termination without confirmation")
 	killCmd.Flags().BoolVarP(&isCluster, "cluster", "c", false, "Target is a cluster instead of a VM")
-} 
+}

@@ -19,9 +19,8 @@ var treeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var clusterID string
 
-		// Initialize context and client
+		// Initialize context
 		baseCtx := context.Background()
-		client := vers.NewClient()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
@@ -36,13 +35,14 @@ var treeCmd = &cobra.Command{
 			fmt.Printf("Finding cluster for current HEAD VM: %s\n", vmID)
 
 			// Get all clusters and find the one containing our VM
-			clusters, err := client.API.Cluster.List(apiCtx)
+			response, err := client.API.Cluster.List(apiCtx)
+			clusters := response.Data
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
 
 			found := false
-			for _, cluster := range *clusters {
+			for _, cluster := range clusters {
 				// First check if it's the root VM
 				if cluster.RootVmID == vmID {
 					clusterID = cluster.ID
@@ -75,10 +75,11 @@ var treeCmd = &cobra.Command{
 		fmt.Printf("Generating tree for cluster: %s\n", clusterID)
 
 		// Fetch cluster data
-		cluster, err := client.API.Cluster.Get(apiCtx, clusterID)
+		response, err := client.API.Cluster.Get(apiCtx, clusterID)
 		if err != nil {
 			return fmt.Errorf("failed to get information for cluster '%s': %w", clusterID, err)
 		}
+		cluster := response.Data
 
 		// Print cluster information header
 		clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", cluster.ID, cluster.VmCount))
