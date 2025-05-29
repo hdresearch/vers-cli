@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/BurntSushi/toml"
 	"github.com/hdresearch/vers-cli/internal/assets"
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/styles"
@@ -12,12 +14,14 @@ import (
 )
 
 var (
-	projectName    string
-	memSize        int64
-	vcpuCount      int64
-	rootfsName     string
-	kernelName     string
-	dockerfileName string
+	projectName      string
+	memSize          int64
+	vcpuCount        int64
+	rootfsName       string
+	kernelName       string
+	dockerfileName   string
+	fsSizeClusterMib int64
+	fsSizeVmMib      int64
 )
 
 // initCmd represents the init command
@@ -149,29 +153,31 @@ var initCmd = &cobra.Command{
 			}
 
 			// Create the vers.toml content
-			versTomlContent := fmt.Sprintf(`# Vers.toml Configuration
-# Project: %s
+			config := &Config{
+				Machine: MachineConfig{
+					MemSizeMib:       memSize,
+					VcpuCount:        vcpuCount,
+					FsSizeClusterMib: fsSizeClusterMib,
+					FsSizeVmMib:      fsSizeVmMib,
+				},
+				Rootfs: RootfsConfig{
+					Name: rootfsName,
+				},
+				Builder: BuilderConfig{
+					Name:       "none",
+					Dockerfile: "Dockerfile",
+				},
+				Kernel: KernelConfig{
+					Name: kernelName,
+				},
+			}
 
-[machine]
-# Memory size in MiB
-mem_size_mib = %d
-# Number of virtual CPUs
-vcpu_count = %d
-
-[rootfs]
-# Name of the rootfs image
-name = "%s"
-
-[builder]
-# Builder type (currently only 'docker' and 'none' are supported)
-name = "none"
-# Name of the Dockerfile to use for 'docker' builder
-dockerfile = "Dockerfile"
-
-[kernel]
-# Name of the kernel image
-name = "%s"
-`, projectName, memSize, vcpuCount, rootfsName, kernelName)
+			var buf bytes.Buffer
+			encoder := toml.NewEncoder(&buf)
+			if err := encoder.Encode(config); err != nil {
+				return fmt.Errorf("error encoding config: %w", err)
+			}
+			versTomlContent := buf.String()
 
 			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
 				return fmt.Errorf("error creating vers.toml file: %w", err)
@@ -227,4 +233,6 @@ func init() {
 	initCmd.Flags().StringVar(&rootfsName, "rootfs", "", "Name of the rootfs image (defaults to project name)")
 	initCmd.Flags().StringVar(&kernelName, "kernel", "default.bin", "Name of the kernel image")
 	initCmd.Flags().StringVar(&dockerfileName, "dockerfile", "Dockerfile", "Name of the Docker file")
+	initCmd.Flags().Int64Var(&fsSizeClusterMib, "fs-size-cluster", 1024, "Total cluster filesystem size in MiB")
+	initCmd.Flags().Int64Var(&fsSizeVmMib, "fs-size-vm", 512, "VM filesystem size in MiB")
 }
