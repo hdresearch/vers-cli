@@ -20,8 +20,6 @@ var upCmd = &cobra.Command{
 		}
 
 		// Skip build step if builder is "none"
-		fmt.Printf("BLAH BLAH")
-		fmt.Printf("Debugging: %s, %s", config.Rootfs.Name, config.Builder.Name)
 		if config.Builder.Name != "none" {
 			fmt.Println("=== Building rootfs image ===")
 			if err := BuildRootfs(config); err != nil {
