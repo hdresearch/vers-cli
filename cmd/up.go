@@ -19,8 +19,8 @@ var upCmd = &cobra.Command{
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
 
-		// Skip build step if rootfs is "default" or if builder is "none"
-		if config.Rootfs.Name != "default" && config.Builder.Name != "none" {
+		// Skip build step if builder is "none"
+		if config.Builder.Name != "none" {
 			fmt.Println("=== Building rootfs image ===")
 			if err := BuildRootfs(config); err != nil {
 				return fmt.Errorf("build failed: %w", err)
