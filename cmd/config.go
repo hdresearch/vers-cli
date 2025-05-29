@@ -17,8 +17,10 @@ type Config struct {
 }
 
 type MachineConfig struct {
-	MemSizeMib int64 `toml:"mem_size_mib"`
-	VcpuCount  int64 `toml:"vcpu_count"`
+	MemSizeMib       int64 `toml:"mem_size_mib"`
+	VcpuCount        int64 `toml:"vcpu_count"`
+	FsSizeClusterMib int64 `toml:"fs_size_cluster_mib"`
+	FsSizeVmMib      int64 `toml:"fs_size_vm_mib"`
 }
 
 type RootfsConfig struct {

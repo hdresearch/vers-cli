@@ -39,11 +39,16 @@ func StartCluster(config *Config, args []string) error {
 
 	// Create cluster parameters based on config
 	clusterParams := vers.APIClusterNewParams{
-		Create: vers.CreateParam{
-			MemSizeMib: vers.F(config.Machine.MemSizeMib),
-			VcpuCount:  vers.F(config.Machine.VcpuCount),
-			RootfsName: vers.F(config.Rootfs.Name),
-			KernelName: vers.F(config.Kernel.Name),
+		Create: vers.CreateNewClusterParamsParam{
+			ClusterType: vers.F(vers.CreateNewClusterParamsClusterTypeNew),
+			Params: vers.F(vers.CreateNewClusterParamsParamsParam{
+				MemSizeMib:       vers.F(config.Machine.MemSizeMib),
+				VcpuCount:        vers.F(config.Machine.VcpuCount),
+				RootfsName:       vers.F(config.Rootfs.Name),
+				KernelName:       vers.F(config.Kernel.Name),
+				FsSizeClusterMib: vers.F(config.Machine.FsSizeClusterMib),
+				FsSizeVmMib:      vers.F(config.Machine.FsSizeVmMib),
+			}),
 		},
 	}
 
@@ -92,4 +97,7 @@ func init() {
 	runCmd.Flags().Int64("vcpu-count", 0, "Override number of virtual CPUs")
 	runCmd.Flags().String("rootfs", "", "Override rootfs name")
 	runCmd.Flags().String("kernel", "", "Override kernel name")
+	runCmd.Flags().Int64("fs-size-cluster", 0, "Override cluster filesystem size (MiB)")
+	runCmd.Flags().Int64("fs-size-vm", 0, "Override VM filesystem size (MiB)")
+	runCmd.Flags().Int64("size-cluster", 0, "Override total cluster size (MiB)")
 }
