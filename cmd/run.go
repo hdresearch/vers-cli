@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -73,16 +74,41 @@ func StartCluster(config *Config, args []string) error {
 		if _, err := os.Stat(versDir); os.IsNotExist(err) {
 			fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
 		} else {
+			// Ensure refs/heads directory exists
+			refsHeadsDir := filepath.Join(versDir, "refs", "heads")
+			if err := os.MkdirAll(refsHeadsDir, 0755); err != nil {
+				return fmt.Errorf("failed to create refs/heads directory: %w", err)
+			}
+
 			// Update refs/heads/main with VM ID
 			mainRefPath := filepath.Join(versDir, "refs", "heads", "main")
 			if err := os.WriteFile(mainRefPath, []byte(vmID+"\n"), 0644); err != nil {
-				return fmt.Errorf("Warning: Failed to update refs: %w\n", err)
+				return fmt.Errorf("failed to update refs: %w", err)
 			} else {
 				fmt.Printf("Updated VM reference: %s -> %s\n", "refs/heads/main", vmID)
 			}
 
-			// HEAD already points to refs/heads/main from init, so we don't need to update it
-			fmt.Println("HEAD is now pointing to the new VM")
+			// Update HEAD to point to main branch (especially important if HEAD was detached)
+			headFile := filepath.Join(versDir, "HEAD")
+			headData, err := os.ReadFile(headFile)
+			if err != nil {
+				// HEAD file doesn't exist, create it pointing to main
+				if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), 0644); err != nil {
+					return fmt.Errorf("failed to create HEAD file: %w", err)
+				}
+				fmt.Println("HEAD is now pointing to the new VM")
+			} else {
+				headContent := string(headData)
+				if strings.Contains(headContent, "DETACHED_HEAD") || !strings.Contains(headContent, "ref: refs/heads/main") {
+					// HEAD is detached or pointing elsewhere, update it to main
+					if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), 0644); err != nil {
+						return fmt.Errorf("failed to update HEAD: %w", err)
+					}
+					fmt.Println("HEAD updated to point to main branch")
+				} else {
+					fmt.Println("HEAD is now pointing to the new VM")
+				}
+			}
 		}
 	}
 

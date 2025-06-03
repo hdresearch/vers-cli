@@ -55,6 +55,20 @@ var killCmd = &cobra.Command{
 			}
 
 			fmt.Printf(s.Progress.Render("Deleting cluster '%s'...\n"), targetID)
+
+			// Check if deleting this cluster will affect HEAD before deletion
+			headWarning := checkHeadImpact(targetID)
+			if headWarning != "" && !force {
+				fmt.Printf(s.Warning.Render("⚠ Warning: %s\n"), headWarning)
+				fmt.Print("Do you want to continue? [y/N]: ")
+				var input string
+				fmt.Scanln(&input)
+				if !strings.EqualFold(input, "y") && !strings.EqualFold(input, "yes") {
+					fmt.Println(s.NoData.Render("Operation cancelled"))
+					return nil
+				}
+			}
+
 			_, err := client.API.Cluster.Delete(apiCtx, targetID)
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to delete cluster: %w"), err)
@@ -64,7 +78,7 @@ var killCmd = &cobra.Command{
 			// Clean up local repository state after successful cluster deletion
 			// Since cluster deletion removes all VMs in the cluster, we need to clean up
 			// any branches that pointed to those VMs
-			if err := cleanupAfterClusterDeletion(); err != nil {
+			if err := cleanupAfterClusterDeletion(true); err != nil {
 				fmt.Printf(s.Warning.Render("Warning: %s\n"), err)
 			}
 
@@ -205,7 +219,8 @@ func findAvailableBranch(versDir string) string {
 
 // cleanupAfterClusterDeletion handles local repository cleanup after a cluster is deleted
 // Since we don't know which specific VMs were in the cluster, we validate all branches
-func cleanupAfterClusterDeletion() error {
+// If setHeadNull is true, HEAD will be set to detached state instead of switching to another branch
+func cleanupAfterClusterDeletion(setHeadNull bool) error {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
 
@@ -268,20 +283,29 @@ func cleanupAfterClusterDeletion() error {
 
 	// Update HEAD if necessary
 	if needsHeadUpdate {
-		// Try to find another branch to switch to
-		if newBranch := findAvailableBranch(versDir); newBranch != "" {
-			newRef := fmt.Sprintf("ref: refs/heads/%s", newBranch)
-			if err := os.WriteFile(headFile, []byte(newRef+"\n"), 0644); err != nil {
-				return fmt.Errorf("failed to update HEAD to branch '%s'", newBranch)
+		if setHeadNull {
+			// Set HEAD to detached state (null/detached HEAD)
+			detachedMessage := "DETACHED_HEAD"
+			if err := os.WriteFile(headFile, []byte(detachedMessage+"\n"), 0644); err != nil {
+				return fmt.Errorf("failed to set HEAD to detached state")
 			}
-			fmt.Printf("Switched to branch '%s'\n", newBranch)
+			fmt.Printf("HEAD is now in detached state (cluster deletion affected current branch)\n")
 		} else {
-			// No branches available - set HEAD to a placeholder
-			placeholder := "# No branches available - run 'vers checkout -c <branch-name>' to create one"
-			if err := os.WriteFile(headFile, []byte(placeholder+"\n"), 0644); err != nil {
-				return fmt.Errorf("failed to update HEAD")
+			// Try to find another branch to switch to
+			if newBranch := findAvailableBranch(versDir); newBranch != "" {
+				newRef := fmt.Sprintf("ref: refs/heads/%s", newBranch)
+				if err := os.WriteFile(headFile, []byte(newRef+"\n"), 0644); err != nil {
+					return fmt.Errorf("failed to update HEAD to branch '%s'", newBranch)
+				}
+				fmt.Printf("Switched to branch '%s'\n", newBranch)
+			} else {
+				// No branches available - set HEAD to a placeholder
+				placeholder := "# No branches available - run 'vers checkout -c <branch-name>' to create one"
+				if err := os.WriteFile(headFile, []byte(placeholder+"\n"), 0644); err != nil {
+					return fmt.Errorf("failed to update HEAD")
+				}
+				fmt.Println("No branches available. Create a new branch with 'vers checkout -c <branch-name>'")
 			}
-			fmt.Println("No branches available. Create a new branch with 'vers checkout -c <branch-name>'")
 		}
 	}
 
@@ -306,6 +330,53 @@ func vmExists(vmID string) bool {
 
 	_, err := client.API.Vm.Get(apiCtx, vmID)
 	return err == nil
+}
+
+// checkHeadImpact checks if deleting a cluster will affect the current HEAD
+func checkHeadImpact(clusterID string) string {
+	versDir := ".vers"
+	headFile := filepath.Join(versDir, "HEAD")
+
+	// Check if .vers directory exists
+	if _, err := os.Stat(versDir); os.IsNotExist(err) {
+		return "" // No local repo
+	}
+
+	// Read current HEAD
+	headData, err := os.ReadFile(headFile)
+	if err != nil {
+		return ""
+	}
+
+	headContent := string(bytes.TrimSpace(headData))
+
+	// If HEAD points to a branch, check if that branch's VM is in the cluster being deleted
+	if strings.HasPrefix(headContent, "ref: ") {
+		refPath := strings.TrimPrefix(headContent, "ref: ")
+		branchName := strings.TrimPrefix(refPath, "refs/heads/")
+
+		// Read the branch to get its VM ID
+		branchPath := filepath.Join(versDir, refPath)
+		branchData, err := os.ReadFile(branchPath)
+		if err != nil {
+			return ""
+		}
+
+		branchVMID := string(bytes.TrimSpace(branchData))
+
+		// Check if this VM is in the cluster being deleted
+		// We'll use a simple approach - try to get the VM and see if it's in the target cluster
+		baseCtx := context.Background()
+		apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+		defer cancel()
+
+		response, err := client.API.Vm.Get(apiCtx, branchVMID)
+		if err == nil && response.Data.ClusterID == clusterID {
+			return fmt.Sprintf("Current branch '%s' points to a VM in the cluster being deleted. HEAD will become detached.", branchName)
+		}
+	}
+
+	return ""
 }
 
 func init() {
