@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/styles"
@@ -145,17 +144,8 @@ func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool, headVMI
 		stateStyle = styles.ErrorTextStyle
 	}
 
-	// Get short VM ID (last 8 characters) for cleaner display
-	shortID := currentVM.ID
-	if len(shortID) > 12 {
-		parts := strings.Split(shortID, "-")
-		if len(parts) > 1 {
-			shortID = parts[0] + "..." + parts[len(parts)-1][:8]
-		}
-	}
-
 	// Build the VM info string with appropriate styling
-	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(shortID))
+	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(currentVMID))
 	if currentVM.IPAddress != "" {
 		vmInfo += fmt.Sprintf(" (%s)", styles.MutedTextStyle.Render(currentVM.IPAddress))
 	}

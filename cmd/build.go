@@ -44,6 +44,11 @@ func BuildRootfs(config *Config) error {
 		return fmt.Errorf("unsupported builder: %s (only 'docker' is currently supported)", config.Builder.Name)
 	}
 
+	// Don't allow user to build "default"
+	if config.Rootfs.Name == "default" {
+		return fmt.Errorf("If you're trying to upload a custom rootfs, please specify a new name for rootfs.name in vers.toml. Otherwise, set builder.name to 'none'.")
+	}
+
 	// Check for Dockerfile
 	if _, err := os.Stat(config.Builder.Dockerfile); os.IsNotExist(err) {
 		return fmt.Errorf("Dockerfile '%s' not found in current directory", config.Builder.Dockerfile)

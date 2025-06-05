@@ -114,7 +114,7 @@ var killCmd = &cobra.Command{
 			}
 
 			deleteParams := vers.APIVmDeleteParams{
-				Recursive: vers.F(false),
+				Recursive: vers.F(force),
 			}
 			response, err := client.API.Vm.Delete(apiCtx, targetID, deleteParams)
 			if err != nil {
