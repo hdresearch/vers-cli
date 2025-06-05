@@ -26,30 +26,28 @@ func GetOrCreateSSHKey(vmID string, client *vers.Client, apiCtx context.Context)
 
 	// Check if SSH key already exists
 	if _, err := os.Stat(keyPath); err == nil {
-		// Key exists, return the path
-		fmt.Println(s.HeadStatus.Render(fmt.Sprintf("Using existing SSH key from %s", keyPath)))
+		// Key exists, return the path silently (no output for cached keys)
 		return keyPath, nil
 	}
 
+	// Key doesn't exist, need to fetch it
+	fmt.Println(s.HeadStatus.Render("Fetching SSH key..."))
+
 	keysDir := filepath.Dir(keyPath)
 	if err := os.MkdirAll(keysDir, 0755); err != nil {
-		// Return empty path and the error
 		return "", fmt.Errorf(s.NoData.Render("failed to create keys directory: %w"), err)
 	}
 
 	response, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
 	if err != nil {
-		// Return empty path and the error
 		return "", fmt.Errorf(s.NoData.Render("failed to get SSH key: %w"), err)
 	}
 	sshKeyBytes := response.Data
 
 	if err := os.WriteFile(keyPath, []byte(sshKeyBytes), 0600); err != nil {
-		// Return empty path and the error
 		return "", fmt.Errorf(s.NoData.Render("failed to write key file: %w"), err)
 	}
 
-	fmt.Println(s.HeadStatus.Render(fmt.Sprintf("SSH key saved to %s", keyPath)))
-	// Return the path and nil error on success
+	fmt.Println(s.HeadStatus.Render("SSH key saved and ready"))
 	return keyPath, nil
 }

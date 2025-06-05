@@ -39,7 +39,6 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		fmt.Println(s.NoData.Render("Fetching VM information..."))
 		response, err := client.API.Vm.Get(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
@@ -54,17 +53,16 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
-
 		hostIP := auth.GetVersUrl()
 
-		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
-
+		// Get SSH key (will show "Fetching SSH key..." only if not cached)
 		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
+
+		// Single clear connection message
+		fmt.Printf(s.HeadStatus.Render("Connecting to %s:%d...\n"), hostIP, vm.NetworkInfo.SSHPort)
 
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", hostIP),
