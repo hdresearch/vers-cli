@@ -1,0 +1,193 @@
+name: Release
+
+on:
+  # Trigger on manual dispatch with version input
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v1.2.3)"
+        required: true
+        type: string
+
+  # Trigger on push to main and on tag creation
+  push:
+    branches: [main]
+    tags:
+      - "v*.*.*"
+
+env:
+  GO_VERSION: "1.24"
+
+jobs:
+  # Job to create a new tag (only on manual dispatch)
+  tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.version }}"
+          echo "Creating tag: $TAG"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+  # Job to build binaries
+  build:
+    runs-on: ubuntu-latest
+    needs: [tag]
+    if: always() && (needs.tag.result == 'success' || github.event_name != 'workflow_dispatch')
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          # Exclude unsupported combinations
+          - goos: windows
+            goarch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Get build info
+        id: build_info
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          fi
+
+          GIT_COMMIT=$(git rev-parse HEAD)
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "git_commit=$GIT_COMMIT" >> $GITHUB_OUTPUT  
+          echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
+
+          echo "Building version: $VERSION"
+          echo "Git commit: $GIT_COMMIT"
+          echo "Build date: $BUILD_DATE"
+
+      - name: Build binary
+        run: |
+          BINARY_NAME="vers"
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            BINARY_NAME="vers.exe"
+          fi
+
+          LDFLAGS="-s -w \
+            -X 'github.com/hdresearch/vers-cli/cmd.Version=${{ steps.build_info.outputs.version }}' \
+            -X 'github.com/hdresearch/vers-cli/cmd.GitCommit=${{ steps.build_info.outputs.git_commit }}' \
+            -X 'github.com/hdresearch/vers-cli/cmd.BuildDate=${{ steps.build_info.outputs.build_date }}' \
+            -X 'github.com/hdresearch/vers-cli/cmd.Name=vers-cli' \
+            -X 'github.com/hdresearch/vers-cli/cmd.Description=A CLI tool for version management' \
+            -X 'github.com/hdresearch/vers-cli/cmd.Author=the VERS team' \
+            -X 'github.com/hdresearch/vers-cli/cmd.Repository=https://github.com/hdresearch/vers-cli' \
+            -X 'github.com/hdresearch/vers-cli/cmd.License=MIT'"
+
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags "$LDFLAGS" -o "$BINARY_NAME" ./cmd/vers
+
+          # Create archive
+          ARCHIVE_NAME="vers-${{ steps.build_info.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            zip "${ARCHIVE_NAME}.zip" "$BINARY_NAME"
+          else
+            tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: vers-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            vers*
+            !vers-*-*-*
+
+  # Job to create GitHub release (only for tags)
+  release:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p ./release-assets
+          find ./artifacts -name "vers-*" -type f | while read file; do
+            cp "$file" ./release-assets/
+          done
+          ls -la ./release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: ./release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Job to test the built binary
+  test:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux binary
+        uses: actions/download-artifact@v3
+        with:
+          name: vers-linux-amd64
+          path: ./
+
+      - name: Test binary
+        run: |
+          chmod +x ./vers
+          echo "Testing version command:"
+          ./vers --version
+          echo -e "\nTesting metadata command:"
+          ./vers --VVersion
