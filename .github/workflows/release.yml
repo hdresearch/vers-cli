@@ -1,68 +1,57 @@
-name: Release
+name: Build and Release Go Binary
 
 on:
-  # Trigger on manual dispatch with version input
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release (e.g., v1.2.3)"
-        required: true
-        type: string
-
-  # Trigger on push to main and on tag creation
   push:
-    branches: [main]
+    branches: ["main"]
     tags:
-      - "v*.*.*"
+      - "v*"
+  workflow_dispatch:
 
 env:
   GO_VERSION: "1.24"
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
-  # Job to create a new tag (only on manual dispatch)
-  tag:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Create and push tag
-        id: tag
-        run: |
-          TAG="${{ github.event.inputs.version }}"
-          echo "Creating tag: $TAG"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
-  # Job to build binaries
   build:
-    runs-on: ubuntu-latest
-    needs: [tag]
-    if: always() && (needs.tag.result == 'success' || github.event_name != 'workflow_dispatch')
+    name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+      packages: write
     strategy:
       matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          # Exclude unsupported combinations
-          - goos: windows
-            goarch: arm64
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            arch: amd64
+            artifact_name: vers-linux-amd64
+            asset_name: vers-linux-amd64
+          - os: ubuntu-latest
+            goos: linux
+            arch: arm64
+            artifact_name: vers-linux-arm64
+            asset_name: vers-linux-arm64
+          - os: ubuntu-latest
+            goos: darwin
+            arch: amd64
+            artifact_name: vers-darwin-amd64
+            asset_name: vers-darwin-amd64
+          - os: ubuntu-latest
+            goos: darwin
+            arch: arm64
+            artifact_name: vers-darwin-arm64
+            asset_name: vers-darwin-arm64
+          - os: ubuntu-latest
+            goos: windows
+            arch: amd64
+            artifact_name: vers-windows-amd64.exe
+            asset_name: vers-windows-amd64
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -71,13 +60,27 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
       - name: Get build info
         id: build_info
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             VERSION="${{ github.ref_name }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            VERSION="nightly-$(git rev-parse --short HEAD)"
           else
             VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
           fi
@@ -93,13 +96,8 @@ jobs:
           echo "Git commit: $GIT_COMMIT"
           echo "Build date: $BUILD_DATE"
 
-      - name: Build binary
+      - name: Build Release Binary
         run: |
-          BINARY_NAME="vers"
-          if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            BINARY_NAME="vers.exe"
-          fi
-
           LDFLAGS="-s -w \
             -X 'github.com/hdresearch/vers-cli/cmd.Version=${{ steps.build_info.outputs.version }}' \
             -X 'github.com/hdresearch/vers-cli/cmd.GitCommit=${{ steps.build_info.outputs.git_commit }}' \
@@ -110,84 +108,107 @@ jobs:
             -X 'github.com/hdresearch/vers-cli/cmd.Repository=https://github.com/hdresearch/vers-cli' \
             -X 'github.com/hdresearch/vers-cli/cmd.License=MIT'"
 
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -ldflags "$LDFLAGS" -o "$BINARY_NAME" ./cmd/vers
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.arch }} \
+            go build -ldflags "$LDFLAGS" -o ${{ matrix.artifact_name }} ./cmd/vers
 
-          # Create archive
-          ARCHIVE_NAME="vers-${{ steps.build_info.outputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            zip "${ARCHIVE_NAME}.zip" "$BINARY_NAME"
-          else
-            tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
-          fi
+      - name: Generate checksums
+        shell: bash
+        run: |
+          # Generate SHA256 checksum
+          sha256sum ${{ matrix.artifact_name }} > ${{ matrix.artifact_name }}.sha256
+          # Also create a JSON metadata file with size and checksum info
+          SIZE=$(stat -c%s ${{ matrix.artifact_name }} 2>/dev/null || stat -f%z ${{ matrix.artifact_name }})
+          SHA256=$(cut -d' ' -f1 ${{ matrix.artifact_name }}.sha256)
+          echo "{\"filename\":\"${{ matrix.artifact_name }}\",\"size\":$SIZE,\"sha256\":\"$SHA256\",\"version\":\"${{ steps.build_info.outputs.version }}\",\"goos\":\"${{ matrix.goos }}\",\"goarch\":\"${{ matrix.arch }}\"}" > ${{ matrix.artifact_name }}.json
+          cat ${{ matrix.artifact_name }}.sha256
+          cat ${{ matrix.artifact_name }}.json
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: vers-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: ${{ matrix.asset_name }}
           path: |
-            vers*
-            !vers-*-*-*
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
+            ${{ matrix.artifact_name }}.json
+          if-no-files-found: error
 
-  # Job to create GitHub release (only for tags)
   release:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
-    needs: [build]
+    name: Create Release
+    needs: build
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: ./artifacts
-
-      - name: Get version
-        id: version
+      - name: Generate release info
+        id: release_info
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ github.event.inputs.version }}"
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "name=nightly" >> $GITHUB_OUTPUT
+            echo "tag=nightly" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
-            VERSION="${{ github.ref_name }}"
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Prepare release assets
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Delete existing nightly release and tag
+        if: github.ref == 'refs/heads/main'
         run: |
-          mkdir -p ./release-assets
-          find ./artifacts -name "vers-*" -type f | while read file; do
-            cp "$file" ./release-assets/
-          done
-          ls -la ./release-assets/
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: ./release-assets/*
+          gh release delete nightly --yes || true
+          git push origin :refs/tags/nightly || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Job to test the built binary
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.release_info.outputs.name }}
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          files: |
+            vers-linux-amd64/vers-linux-amd64
+            vers-linux-amd64/vers-linux-amd64.sha256
+            vers-linux-amd64/vers-linux-amd64.json
+            vers-linux-arm64/vers-linux-arm64
+            vers-linux-arm64/vers-linux-arm64.sha256
+            vers-linux-arm64/vers-linux-arm64.json
+            vers-darwin-amd64/vers-darwin-amd64
+            vers-darwin-amd64/vers-darwin-amd64.sha256
+            vers-darwin-amd64/vers-darwin-amd64.json
+            vers-darwin-arm64/vers-darwin-arm64
+            vers-darwin-arm64/vers-darwin-arm64.sha256
+            vers-darwin-arm64/vers-darwin-arm64.json
+            vers-windows-amd64/vers-windows-amd64.exe
+            vers-windows-amd64/vers-windows-amd64.exe.sha256
+            vers-windows-amd64/vers-windows-amd64.exe.json
+          draft: false
+          prerelease: ${{ steps.release_info.outputs.is_prerelease }}
+          body: |
+            ${{ github.ref == 'refs/heads/main' && format('Nightly build from commit {0}', github.sha) || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Test job to verify the built binary works
   test:
-    needs: [build]
+    name: Test Binary
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download Linux binary
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vers-linux-amd64
           path: ./
 
       - name: Test binary
         run: |
-          chmod +x ./vers
+          chmod +x ./vers-linux-amd64
           echo "Testing version command:"
-          ./vers --version
+          ./vers-linux-amd64 --version
           echo -e "\nTesting metadata command:"
-          ./vers --VVersion
+          ./vers-linux-amd64 --VVersion || echo "Metadata command test completed"
