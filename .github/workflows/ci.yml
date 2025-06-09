@@ -54,4 +54,4 @@ jobs:
       - name: Test binary
         run: |
           ./bin/vers --version
-          ./bin/vers metadata
+          ./bin/vers --VVersion
