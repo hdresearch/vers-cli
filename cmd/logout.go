@@ -18,18 +18,18 @@ var logoutCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("error checking for API key: %w", err)
 		}
-		
+
 		if !hasKey {
 			fmt.Println("You are not currently logged in")
 			return nil
 		}
-		
+
 		// Clear the API key by saving an empty string
 		err = auth.SaveAPIKey("")
 		if err != nil {
 			return fmt.Errorf("error removing API key: %w", err)
 		}
-		
+
 		fmt.Println("Successfully logged out from Vers")
 		return nil
 	},
@@ -37,4 +37,4 @@ var logoutCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(logoutCmd)
-} 
+}

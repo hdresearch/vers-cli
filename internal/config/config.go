@@ -10,11 +10,11 @@ import (
 
 // Config represents the structure of vers.toml
 type Config struct {
-	Meta    MetaConfig             `toml:"meta"`
-	Build   BuildConfig            `toml:"build"`
-	Deploy  DeployConfig           `toml:"deploy"`
-	Run     RunConfig              `toml:"run"`
-	Env     map[string]string      `toml:"env"`
+	Meta    MetaConfig               `toml:"meta"`
+	Build   BuildConfig              `toml:"build"`
+	Deploy  DeployConfig             `toml:"deploy"`
+	Run     RunConfig                `toml:"run"`
+	Env     map[string]string        `toml:"env"`
 	Machine map[string]MachineConfig `toml:"machine"`
 }
 
@@ -83,4 +83,4 @@ func FindConfig() (string, *Config, error) {
 	}
 
 	return "", nil, fmt.Errorf("vers.toml not found in current directory or any parent directory")
-} 
+}
