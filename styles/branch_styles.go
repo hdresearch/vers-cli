@@ -10,9 +10,9 @@ type BranchStyles struct {
 	Container lipgloss.Style
 
 	// Headers and titles
-	Header      lipgloss.Style
-	SubHeader   lipgloss.Style
-	ListHeader  lipgloss.Style
+	Header     lipgloss.Style
+	SubHeader  lipgloss.Style
+	ListHeader lipgloss.Style
 
 	// Branch and VM identifiers
 	BranchName   lipgloss.Style
@@ -26,11 +26,11 @@ type BranchStyles struct {
 	Error    lipgloss.Style
 
 	// Information and help
-	Info      lipgloss.Style
-	InfoLabel lipgloss.Style
-	InfoValue lipgloss.Style
-	ListItem  lipgloss.Style
-	Tip       lipgloss.Style
+	Info       lipgloss.Style
+	InfoLabel  lipgloss.Style
+	InfoValue  lipgloss.Style
+	ListItem   lipgloss.Style
+	Tip        lipgloss.Style
 	HeadStatus lipgloss.Style
 }
 
@@ -59,7 +59,7 @@ func NewBranchStyles() BranchStyles {
 
 		// Branch and VM styles
 		BranchName: BranchNameStyle,
-		VMID: VmIDStyle,
+		VMID:       VmIDStyle,
 		CurrentState: SecondaryTextStyle.
 			Foreground(TerminalWhite),
 
@@ -94,4 +94,4 @@ func NewBranchStyles() BranchStyles {
 			Foreground(TerminalGray),
 		HeadStatus: HeadStatusStyle,
 	}
-} 
+}
