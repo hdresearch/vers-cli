@@ -40,16 +40,14 @@ var resumeCmd = &cobra.Command{
 		fmt.Printf(s.Progress.Render("Resuming VM '%s'...\n"), vmID)
 
 		// Create resume request using SDK
-		patchRequest := vers.PatchRequestParam{
-			Action: vers.F(vers.PatchRequestActionResume),
-		}
-
-		updateParams := vers.APIVmUpdateStateParams{
-			PatchRequest: patchRequest,
+		updateParams := vers.APIVmUpdateParams{
+			UpdateVm: vers.UpdateVmParam{
+				State: vers.F(vers.UpdateVmStateRunning),
+			},
 		}
 
 		// Make API call to resume the VM
-		response, err := client.API.Vm.UpdateState(apiCtx, vmID, updateParams)
+		response, err := client.API.Vm.Update(apiCtx, vmID, updateParams)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to resume VM '%s': %w"), vmID, err)
 		}

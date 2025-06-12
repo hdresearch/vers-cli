@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
 var fromBranch string
-var branchName string
+var branchName string // TODO: Remove!
+var alias string
 
 // branchCmd represents the branch command
 var branchCmd = &cobra.Command{
@@ -87,7 +89,14 @@ var branchCmd = &cobra.Command{
 		defer cancel()
 
 		fmt.Println(s.Progress.Render("Creating branch..."))
-		response, err := client.API.Vm.Branch(apiCtx, vmName)
+		body := vers.APIVmBranchParams{
+			BranchRequest: vers.BranchRequestParam{},
+		}
+		if alias != "" {
+			body.BranchRequest.Alias = vers.F(alias)
+		}
+
+		response, err := client.API.Vm.Branch(apiCtx, vmName, body)
 		if err != nil {
 			return fmt.Errorf(s.Error.Render("failed to create branch of vm '%s': %w"), vmName, err)
 		}
@@ -173,6 +182,6 @@ func init() {
 
 	// Define flags for the branch command
 	branchCmd.Flags().StringVarP(&fromBranch, "from", "f", "", "Source branch or commit (default: current state)")
-	branchCmd.Flags().StringVarP(&branchName, "name", "n", "", "Name for the new branch")
+	branchCmd.Flags().StringVarP(&alias, "alias", "n", "", "Alias for the new VM")
 	branchCmd.Flags().BoolP("checkout", "c", false, "Checkout the new branch after creation")
 }

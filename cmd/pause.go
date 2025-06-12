@@ -40,16 +40,14 @@ var pauseCmd = &cobra.Command{
 		fmt.Printf(s.Progress.Render("Pausing VM '%s'...\n"), vmID)
 
 		// Create pause request using SDK
-		patchRequest := vers.PatchRequestParam{
-			Action: vers.F(vers.PatchRequestActionPause),
-		}
-
-		updateParams := vers.APIVmUpdateStateParams{
-			PatchRequest: patchRequest,
+		updateParams := vers.APIVmUpdateParams{
+			UpdateVm: vers.UpdateVmParam{
+				State: vers.F(vers.UpdateVmStatePaused),
+			},
 		}
 
 		// Make API call to pause the VM
-		response, err := client.API.Vm.UpdateState(apiCtx, vmID, updateParams)
+		response, err := client.API.Vm.Update(apiCtx, vmID, updateParams)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), vmID, err)
 		}
