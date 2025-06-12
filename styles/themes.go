@@ -39,14 +39,14 @@ var (
 
 	// Version Control Styles
 	HeadStatusStyle = BaseTextStyle.
-		Foreground(Primary).
-		Italic(true).
-		Padding(1, 0)
+			Foreground(Primary).
+			Italic(true).
+			Padding(1, 0)
 
 	BranchNameStyle = BaseTextStyle.
-		Bold(true).
-		Foreground(Primary)
+			Bold(true).
+			Foreground(Primary)
 
 	VmIDStyle = BaseTextStyle.
-		Background(TerminalSilver)
+			Background(TerminalSilver)
 )

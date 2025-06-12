@@ -42,3 +42,4 @@ id_rsa
 vers.toml
 
 .vers
+.actrc

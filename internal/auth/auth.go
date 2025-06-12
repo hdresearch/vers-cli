@@ -140,7 +140,11 @@ func GetClientOptions() []option.RequestOption {
 
 	// Set the base URL with protocol
 	clientOptions = append(clientOptions, option.WithBaseURL(fullUrl))
-	fmt.Println("Using API endpoint: ", fullUrl)
+
+	// This will be handled by the calling function that has access to verbose flag
+	if os.Getenv("VERS_VERBOSE") == "true" {
+		fmt.Printf("[DEBUG] Using API endpoint: %s\n", fullUrl)
+	}
 
 	return clientOptions
 }
