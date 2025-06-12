@@ -69,7 +69,8 @@ var killCmd = &cobra.Command{
 				}
 			}
 
-			_, err := client.API.Cluster.Delete(apiCtx, targetID)
+			err := client.API.Cluster.Delete(apiCtx, targetID)
+
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to delete cluster: %w"), err)
 			}
