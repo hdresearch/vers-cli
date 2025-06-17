@@ -18,7 +18,8 @@ var token string
 // validateAPIKey validates the API key against vers-lb
 // TODO: Remove backward compatibility after migration period (target: later this week should be fine honestly, just don't want to spring this out of nowhere)
 func validateAPIKey(apiKey string) error {
-	validateURL := "https://api.vers.sh/keys/validate"
+	baseURL := auth.GetVersUrlWithProtocol()
+	validateURL := baseURL + "/keys/validate"
 
 	payload := map[string]string{
 		"api_key": apiKey,

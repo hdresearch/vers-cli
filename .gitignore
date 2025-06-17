@@ -43,3 +43,5 @@ vers.toml
 
 .vers
 .actrc
+# Added by goreleaser init:
+dist/
