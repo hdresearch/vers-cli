@@ -11,7 +11,10 @@ import (
 	"github.com/hdresearch/vers-sdk-go/option"
 )
 
-const DEFAULT_VERS_URL = "13.219.19.157"
+// TODO: Remove backward compatibility after migration period (target: later this week will probably be fine tbh)
+// During migration: support both old IP and new domain
+const DEFAULT_VERS_URL = "api.vers.sh"
+const LEGACY_VERS_URL = "13.219.19.157" // Keep for reference during migration
 
 // Config represents the structure of the .versrc file
 type Config struct {
@@ -125,26 +128,53 @@ func GetVersUrl() string {
 		}
 		return versUrl
 	}
-	return DEFAULT_VERS_URL // Default public IP
+	return DEFAULT_VERS_URL
 }
 
 // GetClientOptions returns the options for the SDK client
+// TODO: Simplify after migration period - remove protocol detection logic
 func GetClientOptions() []option.RequestOption {
 	clientOptions := []option.RequestOption{}
 
 	// Get the raw URL (no protocol)
 	versUrl := GetVersUrl()
 
-	// Add the HTTP protocol for SDK requests
-	fullUrl := "http://" + versUrl
+	// BACKWARD COMPATIBILITY: Support both old IP-based and new domain-based URLs
+	// TODO: Remove this logic after migration period, always use HTTPS
+	var fullUrl string
+	if versUrl == "api.vers.sh" {
+		fullUrl = "https://" + versUrl
+	} else if versUrl == LEGACY_VERS_URL {
+		// Legacy IP still uses HTTP
+		fullUrl = "https://" + versUrl
+		if os.Getenv("VERS_VERBOSE") == "true" {
+			fmt.Printf("[DEPRECATED] Using legacy endpoint: %s. Please update to use new API keys from https://vers.sh\n", fullUrl)
+		}
+	} else {
+		// For custom URLs (dev environments), default to HTTP
+		fullUrl = "https://" + versUrl
+	}
 
 	// Set the base URL with protocol
 	clientOptions = append(clientOptions, option.WithBaseURL(fullUrl))
 
-	// This will be handled by the calling function that has access to verbose flag
 	if os.Getenv("VERS_VERBOSE") == "true" {
 		fmt.Printf("[DEBUG] Using API endpoint: %s\n", fullUrl)
 	}
 
 	return clientOptions
+}
+
+// CheckForLegacyKey shows a deprecation notice for legacy keys
+// TODO: Remove after migration period
+func CheckForLegacyKey() {
+	config, err := LoadConfig()
+	if err != nil {
+		return
+	}
+
+	// Show deprecation notice if using legacy endpoint
+	if config.APIKey != "" && GetVersUrl() == LEGACY_VERS_URL {
+		fmt.Println("Notice: You're using a legacy API endpoint. Consider generating a new key at https://vers.sh for improved security and features.")
+	}
 }
