@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"time"
@@ -56,7 +57,20 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-		hostIP := auth.GetVersUrl()
+		// Get the node's public IP from response headers (preferred)
+		// Fall back to load balancer URL if header not present
+		var hostIP string
+
+		// Try to get node IP from headers using raw HTTP request
+		if nodeIP, err := getNodeIPForVM(vmID); err == nil {
+			hostIP = nodeIP
+		} else {
+			// Fallback to load balancer URL
+			hostIP = auth.GetVersUrl()
+			if os.Getenv("VERS_DEBUG") == "true" {
+				fmt.Printf("[DEBUG] Failed to get node IP, using fallback: %v\n", err)
+			}
+		}
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
@@ -89,6 +103,47 @@ var connectCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+// getNodeIPForVM makes a raw HTTP request to get the node IP from headers
+func getNodeIPForVM(vmID string) (string, error) {
+	// Get API key for authentication
+	apiKey, err := auth.GetAPIKey()
+	if err != nil {
+		return "", fmt.Errorf("failed to get API key: %w", err)
+	}
+
+	// Construct the URL using the same base URL logic
+	baseURL := "https://" + auth.GetVersUrl()
+	if auth.GetVersUrl() != "api.vers.sh" {
+		baseURL = "http://" + auth.GetVersUrl()
+	}
+	url := baseURL + "/api/vm/" + vmID
+
+	// Create HTTP request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add authentication header
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	// Make the request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Get the node IP from headers
+	nodeIP := resp.Header.Get("X-Node-IP")
+	if nodeIP != "" && nodeIP != "unknown" {
+		return nodeIP, nil
+	}
+
+	return "", fmt.Errorf("no node IP found in response headers")
 }
 
 func init() {
