@@ -33,7 +33,7 @@ var renameCmd = &cobra.Command{
 
 			// Create cluster rename request
 			updateParams := vers.APIClusterUpdateParams{
-				UpdateCluster: vers.UpdateClusterParam{
+				ClusterPatchParams: vers.ClusterPatchParams{
 					Alias: vers.F(newAlias),
 				},
 			}
@@ -50,7 +50,7 @@ var renameCmd = &cobra.Command{
 
 			// Create VM rename request
 			updateParams := vers.APIVmUpdateParams{
-				UpdateVm: vers.UpdateVmParam{
+				VmPatchParams: vers.VmPatchParams{
 					Alias: vers.F(newAlias),
 				},
 			}
