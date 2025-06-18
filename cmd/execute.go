@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -115,10 +116,23 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
-		hostIP := auth.GetVersUrl()
+		// Get the node's public IP from response headers (preferred)
+		// Fall back to load balancer URL if header not present
+		var hostIP string
 
-		// // Debug info about connection
-		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
+		// Try to get node IP from headers using raw HTTP request
+		if nodeIP, err := utils.GetNodeIPForVM(vmID); err == nil {
+			hostIP = nodeIP
+		} else {
+			// Fallback to load balancer URL
+			hostIP = auth.GetVersUrl()
+			if os.Getenv("VERS_DEBUG") == "true" {
+				fmt.Printf("[DEBUG] Failed to get node IP, using fallback: %v\n", err)
+			}
+		}
+
+		// Debug info about connection
+		fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
 
 		// Create the SSH command with the provided command string
 		sshCmd := exec.Command("ssh",

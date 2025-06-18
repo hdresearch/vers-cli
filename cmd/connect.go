@@ -3,12 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -62,7 +62,7 @@ var connectCmd = &cobra.Command{
 		var hostIP string
 
 		// Try to get node IP from headers using raw HTTP request
-		if nodeIP, err := getNodeIPForVM(vmID); err == nil {
+		if nodeIP, err := utils.GetNodeIPForVM(vmID); err == nil {
 			hostIP = nodeIP
 		} else {
 			// Fallback to load balancer URL
@@ -103,51 +103,6 @@ var connectCmd = &cobra.Command{
 
 		return nil
 	},
-}
-
-// getNodeIPForVM makes a raw HTTP request to get the node IP from headers
-func getNodeIPForVM(vmID string) (string, error) {
-	// Get API key for authentication
-	apiKey, err := auth.GetAPIKey()
-	if err != nil {
-		return "", fmt.Errorf("failed to get API key: %w", err)
-	}
-
-	// Construct the URL using the same base URL logic as the SDK
-	versUrl := auth.GetVersUrl()
-	var baseURL string
-	if versUrl == "api.vers.sh" {
-		baseURL = "https://" + versUrl
-	} else {
-		// For local development or other environments, use HTTP
-		baseURL = "http://" + versUrl
-	}
-	url := baseURL + "/api/vm/" + vmID
-
-	// Create HTTP request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add authentication header
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	// Make the request
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Get the node IP from headers
-	nodeIP := resp.Header.Get("X-Node-IP")
-	if nodeIP != "" && nodeIP != "unknown" {
-		return nodeIP, nil
-	}
-
-	return "", fmt.Errorf("no node IP found in response headers")
 }
 
 func init() {
