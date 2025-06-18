@@ -163,14 +163,13 @@ func GetVersUrlHost() (string, error) {
 
 // GetClientOptions returns the options for the SDK client
 // TODO: Simplify after migration period - remove protocol detection logic
-func GetClientOptions() []option.RequestOption {
+func GetClientOptions() ([]option.RequestOption, error) {
 	clientOptions := []option.RequestOption{}
 
 	// Get the full URL with appropriate protocol
 	fullUrl, err := GetVersUrl()
 	if err != nil {
-		fmt.Printf("[ERROR] %v\n", err)
-		return nil
+		return nil, err
 	}
 
 	// BACKWARD COMPATIBILITY: Show deprecation notice for legacy endpoint
@@ -188,7 +187,7 @@ func GetClientOptions() []option.RequestOption {
 		fmt.Printf("[DEBUG] Using API endpoint: %s\n", fullUrl)
 	}
 
-	return clientOptions
+	return clientOptions, nil
 }
 
 // CheckForLegacyKey shows a deprecation notice for legacy keys
