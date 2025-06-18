@@ -61,7 +61,7 @@ var killCmd = &cobra.Command{
 			}
 
 			// Print result
-			if len(result.Data.Vms.DeletedIDs) > 0 || result.Data.FsError != "" {
+			if len(result.Data.Vms.Errors) > 0 || result.Data.FsError != "" {
 				fmt.Println(s.Warning.Render("Some resources failed to delete:"))
 				// Print FS error if exists
 				if result.Data.FsError != "" {
@@ -92,7 +92,7 @@ var killCmd = &cobra.Command{
 			}
 
 			// Print result
-			if len(result.Data.DeletedIDs) > 0 {
+			if len(result.Data.Errors) > 0 {
 				fmt.Println(s.Warning.Render("One or more VMs failed to delete:"))
 				for _, error := range result.Data.Errors {
 					fmt.Printf(s.Warning.Render("  • %s: %s\n"), error.ID, error.Error)
