@@ -192,22 +192,43 @@ jobs:
             ${{ github.ref == 'refs/heads/main' && format('Nightly build from commit {0}', github.sha) || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#   # Test job to verify the built binary works
-#   test:
-#     name: Test Binary
-#     needs: build
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Download Linux binary
-#         uses: actions/download-artifact@v4
-#         with:
-#           name: vers-linux-amd64
-#           path: ./
 
-#       - name: Test binary
-#         run: |
-#           chmod +x ./vers-linux-amd64
-#           echo "Testing version command:"
-#           ./vers-linux-amd64 --version
-#           echo -e "\nTesting metadata command:"
-#           ./vers-linux-amd64 --VVersion || echo "Metadata command test completed"
+  test:
+    name: Test Binary
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vers-linux-amd64
+          path: ./
+
+      - name: Test binary
+        run: |
+          chmod +x ./vers-linux-amd64
+          echo "Testing version command:"
+          ./vers-linux-amd64 --version
+          echo -e "\nTesting metadata command:"
+          ./vers-linux-amd64 --VVersion || echo "Metadata command test completed"
+
+  # homebrew:
+  #   name: Update Homebrew Tap
+  #   needs: release
+  #   runs-on: ubuntu-latest
+  #   if: startsWith(github.ref, 'refs/tags/')
+  #   steps:
+  #     - name: Update Homebrew tap
+  #       uses: mislav/bump-homebrew-formula-action@v3
+  #       with:
+  #         formula-name: vers-cli
+  #         formula-path: Formula/vers-cli.rb
+  #         homebrew-tap: hdresearch/homebrew-vers-cli
+  #         base-branch: main
+  #         download-url: https://github.com/hdresearch/vers-cli/releases/download/${{ github.ref_name }}/vers-darwin-amd64
+  #         commit-message: |
+  #           vers-cli ${{ github.ref_name }}
+
+  #           Created by bump-homebrew-formula-action
+  #       env:
+  #         COMMITTER_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
