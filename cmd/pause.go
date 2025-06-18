@@ -41,8 +41,8 @@ var pauseCmd = &cobra.Command{
 
 		// Create pause request using SDK
 		updateParams := vers.APIVmUpdateParams{
-			UpdateVm: vers.UpdateVmParam{
-				State: vers.F(vers.UpdateVmStatePaused),
+			VmPatchParams: vers.VmPatchParams{
+				State: vers.F(vers.VmPatchParamsStatePaused),
 			},
 		}
 

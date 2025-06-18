@@ -83,14 +83,30 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 
 	fmt.Printf(s.Progress.Render("Deleting cluster '%s'...\n"), target)
 
-	err := client.API.Cluster.Delete(ctx, target)
+	// Use the improved API call with detailed error handling from main branch
+	result, err := client.API.Cluster.Delete(ctx, target)
 	if err != nil {
 		return fmt.Errorf(s.Error.Render("failed to delete cluster: %w"), err)
 	}
 
-	fmt.Printf(s.Success.Render("✓ Cluster '%s' deleted successfully\n"), target)
+	// Enhanced error reporting from main branch
+	if len(result.Data.Vms.Errors) > 0 || result.Data.FsError != "" {
+		fmt.Println(s.Warning.Render("Some resources failed to delete:"))
 
-	// Clean up HEAD if it was pointing to a VM in this cluster
+		// Print FS error if exists
+		if result.Data.FsError != "" {
+			fmt.Printf(s.Warning.Render("  • %s\n"), result.Data.FsError)
+		}
+
+		// Print VM errors
+		for _, error := range result.Data.Vms.Errors {
+			fmt.Printf(s.Warning.Render("  • %s: %s\n"), error.ID, error.Error)
+		}
+	} else {
+		fmt.Printf(s.Success.Render("✓ Cluster '%s' deleted successfully\n"), result.Data.ClusterID)
+	}
+
+	// Clean up HEAD if it was pointing to a VM in this cluster (your simplified approach)
 	cleanupHeadAfterDeletion()
 
 	return nil
@@ -126,26 +142,29 @@ func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 		Recursive: vers.F(force),
 	}
 
-	response, err := client.API.Vm.Delete(ctx, target, deleteParams)
+	// Use the improved API call with detailed error handling from main branch
+	result, err := client.API.Vm.Delete(ctx, target, deleteParams)
 	if err != nil {
 		return fmt.Errorf(s.Error.Render("failed to delete VM: %w"), err)
 	}
 
-	vm := response.Data
-	displayName := vm.Alias
-	if displayName == "" {
-		displayName = vm.ID
+	// Enhanced error reporting from main branch
+	if len(result.Data.Errors) > 0 {
+		fmt.Println(s.Warning.Render("One or more VMs failed to delete:"))
+		for _, error := range result.Data.Errors {
+			fmt.Printf(s.Warning.Render("  • %s: %s\n"), error.ID, error.Error)
+		}
+	} else {
+		fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), target)
 	}
 
-	fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), displayName)
-
-	// Clean up HEAD if it was pointing to this VM
+	// Clean up HEAD if it was pointing to this VM (your simplified approach)
 	cleanupHeadAfterDeletion()
 
 	return nil
 }
 
-// checkHeadImpactSimple checks if deletion will affect HEAD
+// checkHeadImpactSimple checks if deletion will affect HEAD (your simplified approach)
 func checkHeadImpactSimple(target string, isCluster bool) string {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
@@ -184,7 +203,7 @@ func checkHeadImpactSimple(target string, isCluster bool) string {
 	return ""
 }
 
-// cleanupHeadAfterDeletion clears HEAD if the VM it points to no longer exists
+// cleanupHeadAfterDeletion clears HEAD if the VM it points to no longer exists (your simplified approach)
 func cleanupHeadAfterDeletion() {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
