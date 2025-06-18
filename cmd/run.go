@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -82,50 +81,21 @@ func StartCluster(config *Config, args []string) error {
 		clusterInfo.RootVmID,
 	)
 
-	// Store VM ID in version control system
-	vmID := clusterInfo.RootVmID
-	if vmID != "" {
-		// Check if .vers directory exists
-		versDir := ".vers"
-		if _, err := os.Stat(versDir); os.IsNotExist(err) {
-			fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
-		} else {
-			// Ensure refs/heads directory exists
-			refsHeadsDir := filepath.Join(versDir, "refs", "heads")
-			if err := os.MkdirAll(refsHeadsDir, 0755); err != nil {
-				return fmt.Errorf("failed to create refs/heads directory: %w", err)
-			}
+	// Update HEAD to point to the new VM
+	vmTarget := clusterInfo.RootVmID
+	if vmAlias != "" {
+		vmTarget = vmAlias // Use alias if provided
+	}
 
-			// Update refs/heads/main with VM ID
-			mainRefPath := filepath.Join(versDir, "refs", "heads", "main")
-			if err := os.WriteFile(mainRefPath, []byte(vmID+"\n"), 0644); err != nil {
-				return fmt.Errorf("failed to update refs: %w", err)
-			} else {
-				fmt.Printf("Updated VM reference: %s -> %s\n", "refs/heads/main", vmID)
-			}
-
-			// Update HEAD to point to main branch (especially important if HEAD was detached)
-			headFile := filepath.Join(versDir, "HEAD")
-			headData, err := os.ReadFile(headFile)
-			if err != nil {
-				// HEAD file doesn't exist, create it pointing to main
-				if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), 0644); err != nil {
-					return fmt.Errorf("failed to create HEAD file: %w", err)
-				}
-				fmt.Println("HEAD is now pointing to the new VM")
-			} else {
-				headContent := string(headData)
-				if strings.Contains(headContent, "DETACHED_HEAD") || !strings.Contains(headContent, "ref: refs/heads/main") {
-					// HEAD is detached or pointing elsewhere, update it to main
-					if err := os.WriteFile(headFile, []byte("ref: refs/heads/main\n"), 0644); err != nil {
-						return fmt.Errorf("failed to update HEAD: %w", err)
-					}
-					fmt.Println("HEAD updated to point to main branch")
-				} else {
-					fmt.Println("HEAD is now pointing to the new VM")
-				}
-			}
+	versDir := ".vers"
+	if _, err := os.Stat(versDir); os.IsNotExist(err) {
+		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
+	} else {
+		headFile := filepath.Join(versDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
+			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
+		fmt.Printf("HEAD now points to: %s\n", vmTarget)
 	}
 
 	return nil

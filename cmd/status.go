@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -20,8 +19,6 @@ var statusCmd = &cobra.Command{
 	Short: "Get status of clusters or VMs",
 	Long:  `Displays the status of all clusters or details of a specific cluster if specified with -cluster or -c flag.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Display current HEAD information
-
 		clusterID, _ := cmd.Flags().GetString("cluster")
 
 		baseCtx := context.Background()
@@ -29,6 +26,9 @@ var statusCmd = &cobra.Command{
 		defer cancel()
 
 		s := styles.NewStatusStyles()
+
+		// Display current HEAD information
+		displayHeadStatus()
 
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
@@ -41,8 +41,6 @@ var statusCmd = &cobra.Command{
 				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %w"), clusterID, err)
 			}
 			cluster := response.Data
-
-			displayHeadStatus()
 
 			fmt.Println(s.VMListHeader.Render("Cluster details:"))
 			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
@@ -94,8 +92,6 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
-		displayHeadStatus()
-
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
 		clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 		for _, cluster := range clusters {
@@ -126,40 +122,42 @@ func displayHeadStatus() error {
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		return fmt.Errorf(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
+		fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)"))
+		return nil
 	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
 	if err != nil {
-		return fmt.Errorf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%w)\n"), err)
+		fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
+		return nil
 	}
 
-	// Parse the HEAD content
-	headContent := string(bytes.TrimSpace(headData))
+	// HEAD directly contains a VM ID or alias
+	headContent := strings.TrimSpace(string(headData))
 
-	// Check if HEAD is a symbolic ref or direct ref
-	var headStatus string
-	if strings.HasPrefix(headContent, "ref: ") {
-		// It's a symbolic ref, extract the branch name
-		refPath := strings.TrimPrefix(headContent, "ref: ")
-		branchName := strings.TrimPrefix(refPath, "refs/heads/")
+	if headContent == "" {
+		fmt.Println(s.HeadStatus.Render("HEAD status: Empty (create a VM with 'vers run')"))
+		return nil
+	}
 
-		// Read the actual reference file to get VM ID
-		refFile := filepath.Join(versDir, refPath)
-		vmID := "unknown"
+	// Try to get VM details to show alias if available
+	baseCtx := context.Background()
+	apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer cancel()
 
-		if refData, err := os.ReadFile(refFile); err == nil {
-			vmID = string(bytes.TrimSpace(refData))
-		}
-
-		headStatus = fmt.Sprintf(s.HeadStatus.Render("HEAD status: On branch '%s' (VM: %s)"), branchName, vmID)
+	response, err := client.API.Vm.Get(apiCtx, headContent)
+	if err != nil {
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headContent)
 	} else {
-		// HEAD directly contains a VM ID (detached HEAD state)
-		headStatus = fmt.Sprintf("HEAD status: Detached HEAD at VM '%s'", headContent)
+		vm := response.Data
+		displayName := vm.Alias
+		if displayName == "" {
+			displayName = vm.ID
+		}
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), displayName, vm.State)
 	}
-
-	fmt.Println(s.HeadStatus.Render(headStatus))
+	fmt.Println()
 	return nil
 }
 
