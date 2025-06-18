@@ -55,7 +55,7 @@ var killCmd = &cobra.Command{
 			}
 
 			fmt.Printf(s.Progress.Render("Deleting cluster '%s'...\n"), targetID)
-			err := client.API.Cluster.Delete(apiCtx, targetID)
+			_, err := client.API.Cluster.Delete(apiCtx, targetID)
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to delete cluster: %w"), err)
 			}
@@ -77,7 +77,11 @@ var killCmd = &cobra.Command{
 				return fmt.Errorf(s.Error.Render("failed to delete VM: %w"), err)
 			}
 			vm := response.Data
-			fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), vm.ID)
+			if len(vm.DeletedIDs) > 0 {
+				fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), vm.DeletedIDs[0])
+			} else {
+				fmt.Printf(s.Success.Render("✓ VM deleted successfully\n"))
+			}
 		}
 
 		return nil

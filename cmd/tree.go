@@ -109,9 +109,9 @@ var treeCmd = &cobra.Command{
 }
 
 // printVMTree recursively prints a tree view of VMs
-func printVMTree(vms []vers.Vm, currentVMID, prefix string, isLast bool, headVMID string) {
+func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string) {
 	// Find the current VM in the list
-	var currentVM *vers.Vm
+	var currentVM *vers.VmDto
 	for i := range vms {
 		if vms[i].ID == currentVMID {
 			currentVM = &vms[i]
