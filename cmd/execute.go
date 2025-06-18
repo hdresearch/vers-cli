@@ -119,7 +119,6 @@ var executeCmd = &cobra.Command{
 		// Get the node's public IP from response headers (preferred)
 		// Fall back to load balancer URL if header not present
 		var hostIP string
-
 		// Try to get node IP from headers using raw HTTP request
 		if nodeIP, err := utils.GetNodeIPForVM(vmID); err == nil {
 			hostIP = nodeIP
