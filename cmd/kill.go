@@ -40,8 +40,9 @@ var killCmd = &cobra.Command{
 				cluster := response.Data
 
 				// Show warning with cluster details
-				fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs\n"),
+				fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs"),
 					targetID, cluster.VmCount)
+				fmt.Println()
 
 				// Ask for confirmation
 				fmt.Print("Are you sure you want to proceed? [y/N]: ")
