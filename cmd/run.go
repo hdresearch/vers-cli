@@ -11,6 +11,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	clusterAlias string
+	vmAlias      string
+)
+
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run [cluster]",
@@ -37,18 +42,29 @@ func StartCluster(config *Config, args []string) error {
 	apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 	defer cancel()
 
-	// Create cluster parameters based on config
+	// Create base parameters
+	params := vers.CreateNewClusterParamsParamsParam{
+		MemSizeMib:       vers.F(config.Machine.MemSizeMib),
+		VcpuCount:        vers.F(config.Machine.VcpuCount),
+		RootfsName:       vers.F(config.Rootfs.Name),
+		KernelName:       vers.F(config.Kernel.Name),
+		FsSizeClusterMib: vers.F(config.Machine.FsSizeClusterMib),
+		FsSizeVmMib:      vers.F(config.Machine.FsSizeVmMib),
+	}
+
+	// Add aliases if provided
+	if clusterAlias != "" {
+		params.ClusterAlias = vers.F(clusterAlias)
+	}
+	if vmAlias != "" {
+		params.VmAlias = vers.F(vmAlias)
+	}
+
+	// Create cluster parameters with modified params
 	clusterParams := vers.APIClusterNewParams{
 		Create: vers.CreateNewClusterParamsParam{
 			ClusterType: vers.F(vers.CreateNewClusterParamsClusterTypeNew),
-			Params: vers.F(vers.CreateNewClusterParamsParamsParam{
-				MemSizeMib:       vers.F(config.Machine.MemSizeMib),
-				VcpuCount:        vers.F(config.Machine.VcpuCount),
-				RootfsName:       vers.F(config.Rootfs.Name),
-				KernelName:       vers.F(config.Kernel.Name),
-				FsSizeClusterMib: vers.F(config.Machine.FsSizeClusterMib),
-				FsSizeVmMib:      vers.F(config.Machine.FsSizeVmMib),
-			}),
+			Params:      vers.F(params),
 		},
 	}
 
@@ -100,4 +116,6 @@ func init() {
 	runCmd.Flags().Int64("fs-size-cluster", 0, "Override cluster filesystem size (MiB)")
 	runCmd.Flags().Int64("fs-size-vm", 0, "Override VM filesystem size (MiB)")
 	runCmd.Flags().Int64("size-cluster", 0, "Override total cluster size (MiB)")
+	runCmd.Flags().StringVarP(&clusterAlias, "cluster-alias", "n", "", "Set an alias for the cluster")
+	runCmd.Flags().StringVarP(&vmAlias, "vm-alias", "N", "", "Set an alias for the root VM")
 }
