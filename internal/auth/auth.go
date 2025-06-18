@@ -13,8 +13,15 @@ import (
 
 // TODO: Remove backward compatibility after migration period (target: later this week will probably be fine tbh)
 // During migration: support both old IP and new domain
-const DEFAULT_VERS_URL = "api.vers.sh"
 const LEGACY_VERS_URL = "13.219.19.157" // Keep for reference during migration
+
+// getDefaultVersUrl returns the default VERS URL, checking for DEFAULT_VERS_URL env var first
+func getDefaultVersUrl() string {
+	if defaultUrl := os.Getenv("DEFAULT_VERS_URL"); defaultUrl != "" {
+		return defaultUrl
+	}
+	return "api.vers.sh"
+}
 
 // Config represents the structure of the .versrc file
 type Config struct {
@@ -80,8 +87,14 @@ func SaveConfig(config *Config) error {
 	return nil
 }
 
-// GetAPIKey retrieves the API key from the config file
+// GetAPIKey retrieves the API key from environment variable or config file
 func GetAPIKey() (string, error) {
+	// First check environment variable
+	if apiKey := os.Getenv("VERS_API_KEY"); apiKey != "" {
+		return apiKey, nil
+	}
+
+	// Fallback to config file
 	config, err := LoadConfig()
 	if err != nil {
 		return "", err
@@ -100,8 +113,14 @@ func SaveAPIKey(apiKey string) error {
 	return SaveConfig(config)
 }
 
-// HasAPIKey checks if an API key is present
+// HasAPIKey checks if an API key is present in environment variable or config file
 func HasAPIKey() (bool, error) {
+	// First check environment variable
+	if apiKey := os.Getenv("VERS_API_KEY"); apiKey != "" {
+		return true, nil
+	}
+
+	// Fallback to config file
 	config, err := LoadConfig()
 	if err != nil {
 		return false, err
@@ -128,7 +147,28 @@ func GetVersUrl() string {
 		}
 		return versUrl
 	}
-	return DEFAULT_VERS_URL
+	return getDefaultVersUrl()
+}
+
+// GetVersUrlWithProtocol returns the full URL with appropriate protocol
+func GetVersUrlWithProtocol() string {
+	originalUrl := os.Getenv("VERS_URL")
+
+	// If user provided a protocol explicitly, respect it
+	if originalUrl != "" && (strings.HasPrefix(originalUrl, "http://") || strings.HasPrefix(originalUrl, "https://")) {
+		return originalUrl
+	}
+
+	// Otherwise, determine protocol based on hostname
+	baseURL := GetVersUrl()
+	var protocol string
+	if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") || strings.HasPrefix(baseURL, "192.168.") || strings.HasPrefix(baseURL, "10.") {
+		protocol = "http"
+	} else {
+		protocol = "https"
+	}
+
+	return protocol + "://" + baseURL
 }
 
 // GetClientOptions returns the options for the SDK client
@@ -136,23 +176,15 @@ func GetVersUrl() string {
 func GetClientOptions() []option.RequestOption {
 	clientOptions := []option.RequestOption{}
 
-	// Get the raw URL (no protocol)
-	versUrl := GetVersUrl()
+	// Get the full URL with appropriate protocol
+	fullUrl := GetVersUrlWithProtocol()
 
-	// BACKWARD COMPATIBILITY: Support both old IP-based and new domain-based URLs
-	// TODO: Remove this logic after migration period, always use HTTPS
-	var fullUrl string
-	if versUrl == "api.vers.sh" {
-		fullUrl = "https://" + versUrl
-	} else if versUrl == LEGACY_VERS_URL {
-		// Legacy IP still uses HTTP
-		fullUrl = "https://" + versUrl
+	// BACKWARD COMPATIBILITY: Show deprecation notice for legacy endpoint
+	// TODO: Remove this logic after migration period
+	if GetVersUrl() == LEGACY_VERS_URL {
 		if os.Getenv("VERS_VERBOSE") == "true" {
 			fmt.Printf("[DEPRECATED] Using legacy endpoint: %s. Please update to use new API keys from https://vers.sh\n", fullUrl)
 		}
-	} else {
-		// For custom URLs (dev environments), default to HTTP
-		fullUrl = "https://" + versUrl
 	}
 
 	// Set the base URL with protocol
