@@ -41,8 +41,8 @@ var resumeCmd = &cobra.Command{
 
 		// Create resume request using SDK
 		updateParams := vers.APIVmUpdateParams{
-			UpdateVm: vers.UpdateVmParam{
-				State: vers.F(vers.UpdateVmStateRunning),
+			VmPatchParams: vers.VmPatchParams{
+				State: vers.F(vers.VmPatchParamsStateRunning),
 			},
 		}
 
