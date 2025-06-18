@@ -115,7 +115,10 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
-		hostIP := auth.GetVersUrl()
+		hostIP, err := auth.GetVersUrlHost()
+		if err != nil {
+			return fmt.Errorf("failed to get host IP: %w", err)
+		}
 
 		// // Debug info about connection
 		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)

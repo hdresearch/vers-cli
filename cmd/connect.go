@@ -66,7 +66,10 @@ var connectCmd = &cobra.Command{
 			hostIP = nodeIP
 		} else {
 			// Fallback to load balancer URL
-			hostIP = auth.GetVersUrl()
+			hostIP, err = auth.GetVersUrlHost()
+			if err != nil {
+				return fmt.Errorf("failed to get host IP: %w", err)
+			}
 			if os.Getenv("VERS_DEBUG") == "true" {
 				fmt.Printf("[DEBUG] Failed to get node IP, using fallback: %v\n", err)
 			}
@@ -114,13 +117,9 @@ func getNodeIPForVM(vmID string) (string, error) {
 	}
 
 	// Construct the URL using the same base URL logic as the SDK
-	versUrl := auth.GetVersUrl()
-	var baseURL string
-	if versUrl == "api.vers.sh" {
-		baseURL = "https://" + versUrl
-	} else {
-		// For local development or other environments, use HTTP
-		baseURL = "http://" + versUrl
+	baseURL, err := auth.GetVersUrl()
+	if err != nil {
+		return "", fmt.Errorf("failed to get base URL: %w", err)
 	}
 	url := baseURL + "/api/vm/" + vmID
 

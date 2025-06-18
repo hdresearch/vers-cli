@@ -138,7 +138,10 @@ interaction capabilities, and more.`,
 		// Set the API key in the environment for the SDK
 		os.Setenv("VERS_API_KEY", apiKey)
 
-		clientOptions := auth.GetClientOptions()
+		clientOptions, err := auth.GetClientOptions()
+		if err != nil {
+			return fmt.Errorf("error getting client options: %w", err)
+		}
 
 		// Initialize the client *only* if we have an API key
 		client = vers.NewClient(clientOptions...)

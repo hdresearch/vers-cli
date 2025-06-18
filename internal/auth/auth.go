@@ -14,14 +14,7 @@ import (
 // TODO: Remove backward compatibility after migration period (target: later this week will probably be fine tbh)
 // During migration: support both old IP and new domain
 const LEGACY_VERS_URL = "13.219.19.157" // Keep for reference during migration
-
-// getDefaultVersUrl returns the default VERS URL, checking for DEFAULT_VERS_URL env var first
-func getDefaultVersUrl() string {
-	if defaultUrl := os.Getenv("DEFAULT_VERS_URL"); defaultUrl != "" {
-		return defaultUrl
-	}
-	return "api.vers.sh"
-}
+const DEFAULT_VERS_URL = "https://api.vers.sh"
 
 // Config represents the structure of the .versrc file
 type Config struct {
@@ -135,53 +128,53 @@ func PromptForLogin() error {
 	return nil
 }
 
-// GetVersUrl returns the raw hostname/IP without protocol
-func GetVersUrl() string {
+// GetVersUrl returns the full URL with protocol validation
+func GetVersUrl() (string, error) {
 	versUrl := os.Getenv("VERS_URL")
+
+	// If VERS_URL is set, it must include protocol
 	if versUrl != "" {
-		// Strip any protocol if present
-		if strings.HasPrefix(versUrl, "http://") {
-			versUrl = strings.TrimPrefix(versUrl, "http://")
-		} else if strings.HasPrefix(versUrl, "https://") {
-			versUrl = strings.TrimPrefix(versUrl, "https://")
+		if strings.HasPrefix(versUrl, "http://") || strings.HasPrefix(versUrl, "https://") {
+			return versUrl, nil
 		}
-		return versUrl
+		return "", fmt.Errorf("VERS_URL must include protocol (http:// or https://), got: %s", versUrl)
 	}
-	return getDefaultVersUrl()
+
+	// Default to https with default URL
+	return DEFAULT_VERS_URL, nil
 }
 
-// GetVersUrlWithProtocol returns the full URL with appropriate protocol
-func GetVersUrlWithProtocol() string {
-	originalUrl := os.Getenv("VERS_URL")
-
-	// If user provided a protocol explicitly, respect it
-	if originalUrl != "" && (strings.HasPrefix(originalUrl, "http://") || strings.HasPrefix(originalUrl, "https://")) {
-		return originalUrl
+// GetVersUrlHost returns just the hostname/IP from the URL (for SSH connections)
+func GetVersUrlHost() (string, error) {
+	fullUrl, err := GetVersUrl()
+	if err != nil {
+		return "", err
 	}
 
-	// Otherwise, determine protocol based on hostname
-	baseURL := GetVersUrl()
-	var protocol string
-	if strings.Contains(baseURL, "localhost") || strings.Contains(baseURL, "127.0.0.1") || strings.HasPrefix(baseURL, "192.168.") || strings.HasPrefix(baseURL, "10.") {
-		protocol = "http"
-	} else {
-		protocol = "https"
+	// Strip protocol to get just hostname/IP
+	if strings.HasPrefix(fullUrl, "http://") {
+		return strings.TrimPrefix(fullUrl, "http://"), nil
+	} else if strings.HasPrefix(fullUrl, "https://") {
+		return strings.TrimPrefix(fullUrl, "https://"), nil
 	}
 
-	return protocol + "://" + baseURL
+	return fullUrl, nil
 }
 
 // GetClientOptions returns the options for the SDK client
 // TODO: Simplify after migration period - remove protocol detection logic
-func GetClientOptions() []option.RequestOption {
+func GetClientOptions() ([]option.RequestOption, error) {
 	clientOptions := []option.RequestOption{}
 
 	// Get the full URL with appropriate protocol
-	fullUrl := GetVersUrlWithProtocol()
+	fullUrl, err := GetVersUrl()
+	if err != nil {
+		return nil, err
+	}
 
 	// BACKWARD COMPATIBILITY: Show deprecation notice for legacy endpoint
 	// TODO: Remove this logic after migration period
-	if GetVersUrl() == LEGACY_VERS_URL {
+	if versUrlHost, _ := GetVersUrlHost(); versUrlHost == LEGACY_VERS_URL {
 		if os.Getenv("VERS_VERBOSE") == "true" {
 			fmt.Printf("[DEPRECATED] Using legacy endpoint: %s. Please update to use new API keys from https://vers.sh\n", fullUrl)
 		}
@@ -194,7 +187,7 @@ func GetClientOptions() []option.RequestOption {
 		fmt.Printf("[DEBUG] Using API endpoint: %s\n", fullUrl)
 	}
 
-	return clientOptions
+	return clientOptions, nil
 }
 
 // CheckForLegacyKey shows a deprecation notice for legacy keys
@@ -206,7 +199,9 @@ func CheckForLegacyKey() {
 	}
 
 	// Show deprecation notice if using legacy endpoint
-	if config.APIKey != "" && GetVersUrl() == LEGACY_VERS_URL {
-		fmt.Println("Notice: You're using a legacy API endpoint. Consider generating a new key at https://vers.sh for improved security and features.")
+	if config.APIKey != "" {
+		if versUrlHost, _ := GetVersUrlHost(); versUrlHost == LEGACY_VERS_URL {
+			fmt.Println("Notice: You're using a legacy API endpoint. Consider generating a new key at https://vers.sh for improved security and features.")
+		}
 	}
 }
