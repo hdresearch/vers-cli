@@ -113,10 +113,14 @@ func getNodeIPForVM(vmID string) (string, error) {
 		return "", fmt.Errorf("failed to get API key: %w", err)
 	}
 
-	// Construct the URL using the same base URL logic
-	baseURL := "https://" + auth.GetVersUrl()
-	if auth.GetVersUrl() != "api.vers.sh" {
-		baseURL = "http://" + auth.GetVersUrl()
+	// Construct the URL using the same base URL logic as the SDK
+	versUrl := auth.GetVersUrl()
+	var baseURL string
+	if versUrl == "api.vers.sh" {
+		baseURL = "https://" + versUrl
+	} else {
+		// For local development or other environments, use HTTP
+		baseURL = "http://" + versUrl
 	}
 	url := baseURL + "/api/vm/" + vmID
 
