@@ -272,9 +272,9 @@ func setupIntegrationClient(t *testing.T) {
 	os.Setenv("VERS_API_KEY", apiKey)
 
 	// Get client options
-	clientOptions := auth.GetClientOptions()
-	if clientOptions == nil {
-		t.Fatalf("Failed to get client options")
+	clientOptions, err := auth.GetClientOptions()
+	if err != nil {
+		t.Fatalf("Failed to get client options: %v", err)
 	}
 
 	// Initialize global client
