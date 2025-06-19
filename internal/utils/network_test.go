@@ -58,7 +58,7 @@ func TestGetNodeIPForVM_Success(t *testing.T) {
 	}()
 
 	// Set test environment variables
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("VERS_API_KEY", "test-api-key")
 
 	// Test the function
@@ -95,7 +95,7 @@ func TestGetNodeIPForVM_NoNodeIPHeader(t *testing.T) {
 	}()
 
 	// Set test environment variables
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("VERS_API_KEY", "test-api-key")
 
 	// Test the function
@@ -135,7 +135,7 @@ func TestGetNodeIPForVM_UnknownNodeIP(t *testing.T) {
 	}()
 
 	// Set test environment variables
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("VERS_API_KEY", "test-api-key")
 
 	// Test the function
@@ -172,7 +172,7 @@ func TestGetNodeIPForVM_HTTPError(t *testing.T) {
 	}()
 
 	// Set test environment variables
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("VERS_API_KEY", "test-api-key")
 
 	// Test the function
@@ -234,7 +234,7 @@ func TestGetNodeIPForVM_NoAPIKey(t *testing.T) {
 
 	// Remove API key, set test URL, and isolate config with temp home
 	os.Unsetenv("VERS_API_KEY")
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("HOME", tmpDir) // This will make auth.GetAPIKey look for config in empty temp dir
 
 	// Test the function
@@ -319,7 +319,7 @@ func TestGetNodeIPForVM_RequestTimeout(t *testing.T) {
 	}()
 
 	// Set test environment variables
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("VERS_API_KEY", "test-api-key")
 
 	// Test the function
@@ -365,7 +365,7 @@ func BenchmarkGetNodeIPForVM(b *testing.B) {
 	}()
 
 	// Set test environment variables
-	os.Setenv("VERS_URL", strings.TrimPrefix(server.URL, "http://"))
+	os.Setenv("VERS_URL", server.URL)
 	os.Setenv("VERS_API_KEY", "test-api-key")
 
 	b.ResetTimer()

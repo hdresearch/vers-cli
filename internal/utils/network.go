@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
@@ -22,11 +23,17 @@ func GetNodeIPForVM(vmID string) (string, error) {
 		return "", fmt.Errorf("failed to get Vers URL: %w", err)
 	}
 	var baseURL string
-	if versUrl == "api.vers.sh" {
-		baseURL = "https://" + versUrl
+
+	// Check if URL already has protocol
+	if strings.HasPrefix(versUrl, "http://") || strings.HasPrefix(versUrl, "https://") {
+		baseURL = versUrl
 	} else {
-		// For local development or other environments, use HTTP
-		baseURL = "http://" + versUrl
+		// Legacy: add protocol if missing
+		if versUrl == "api.vers.sh" {
+			baseURL = "https://" + versUrl
+		} else {
+			baseURL = "http://" + versUrl
+		}
 	}
 	url := baseURL + "/api/vm/" + vmID
 
