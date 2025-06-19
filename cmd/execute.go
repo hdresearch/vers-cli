@@ -124,7 +124,10 @@ var executeCmd = &cobra.Command{
 			hostIP = nodeIP
 		} else {
 			// Fallback to load balancer URL
-			hostIP = auth.GetVersUrl()
+			hostIP, err = auth.GetVersUrl()
+			if err != nil {
+				return fmt.Errorf("failed to get Vers URL: %w", err)
+			}
 			if os.Getenv("VERS_DEBUG") == "true" {
 				fmt.Printf("[DEBUG] Failed to get node IP, using fallback: %v\n", err)
 			}
