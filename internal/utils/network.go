@@ -28,12 +28,7 @@ func GetNodeIPForVM(vmID string) (string, error) {
 	if strings.HasPrefix(versUrl, "http://") || strings.HasPrefix(versUrl, "https://") {
 		baseURL = versUrl
 	} else {
-		// Legacy: add protocol if missing
-		if versUrl == "api.vers.sh" {
-			baseURL = "https://" + versUrl
-		} else {
-			baseURL = "http://" + versUrl
-		}
+		baseURL = "http://" + versUrl
 	}
 	url := baseURL + "/api/vm/" + vmID
 
