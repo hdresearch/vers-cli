@@ -123,8 +123,8 @@ var executeCmd = &cobra.Command{
 		if nodeIP, err := utils.GetNodeIPForVM(vmID); err == nil {
 			hostIP = nodeIP
 		} else {
-			// Fallback to load balancer URL
-			hostIP, err = auth.GetVersUrl()
+			// Fallback to environment host, and then default host
+			hostIP, err = auth.GetVersUrlHost()
 			if err != nil {
 				return fmt.Errorf("failed to get Vers URL: %w", err)
 			}
