@@ -95,11 +95,10 @@ var executeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		response, err := client.API.Vm.Get(apiCtx, vmID)
+		vm, nodeIP, err := GetVmAndNodeIP(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
-		vm := response.Data
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -115,9 +114,19 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
-		hostIP, err := auth.GetVersUrlHost()
-		if err != nil {
-			return fmt.Errorf("failed to get host IP: %w", err)
+		// Use the node IP from headers or fallback to load balancer
+		var hostIP string
+		if nodeIP != "" {
+			hostIP = nodeIP
+		} else {
+			// Fallback to load balancer URL
+			hostIP, err = auth.GetVersUrlHost()
+			if err != nil {
+				return fmt.Errorf("failed to get host IP: %w", err)
+			}
+			if os.Getenv("VERS_DEBUG") == "true" {
+				fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", hostIP)
+			}
 		}
 
 		// // Debug info about connection

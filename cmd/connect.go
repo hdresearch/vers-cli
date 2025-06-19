@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -41,11 +43,11 @@ var connectCmd = &cobra.Command{
 		defer cancel()
 
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
-		response, err := client.API.Vm.Get(apiCtx, vmID)
+
+		vm, nodeIP, err := GetVmAndNodeIP(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
-		vm := response.Data
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -57,12 +59,9 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-		// Get the node's public IP from response headers (preferred)
-		// Fall back to load balancer URL if header not present
+		// Use the node IP from headers or fallback to load balancer
 		var hostIP string
-
-		// Try to get node IP from headers using raw HTTP request
-		if nodeIP, err := getNodeIPForVM(vmID); err == nil {
+		if nodeIP != "" {
 			hostIP = nodeIP
 		} else {
 			// Fallback to load balancer URL
@@ -71,7 +70,7 @@ var connectCmd = &cobra.Command{
 				return fmt.Errorf("failed to get host IP: %w", err)
 			}
 			if os.Getenv("VERS_DEBUG") == "true" {
-				fmt.Printf("[DEBUG] Failed to get node IP, using fallback: %v\n", err)
+				fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", hostIP)
 			}
 		}
 
@@ -108,45 +107,26 @@ var connectCmd = &cobra.Command{
 	},
 }
 
-// getNodeIPForVM makes a raw HTTP request to get the node IP from headers
-func getNodeIPForVM(vmID string) (string, error) {
-	// Get API key for authentication
-	apiKey, err := auth.GetAPIKey()
+// GetVmAndNodeIP retrieves VM information and the node IP from headers in a single request
+func GetVmAndNodeIP(ctx context.Context, vmID string) (vers.APIVmGetResponseData, string, error) {
+	// Use the lower-level client method to get both response data AND headers
+	var rawResponse *http.Response
+	err := client.Get(ctx, "/api/vm/"+vmID, nil, &rawResponse)
 	if err != nil {
-		return "", fmt.Errorf("failed to get API key: %w", err)
+		return vers.APIVmGetResponseData{}, "", err
+	}
+	defer rawResponse.Body.Close()
+
+	// Parse the response body using the SDK types
+	var response vers.APIVmGetResponse
+	if err := json.NewDecoder(rawResponse.Body).Decode(&response); err != nil {
+		return vers.APIVmGetResponseData{}, "", fmt.Errorf("failed to decode VM response: %w", err)
 	}
 
-	// Construct the URL using the same base URL logic as the SDK
-	baseURL, err := auth.GetVersUrl()
-	if err != nil {
-		return "", fmt.Errorf("failed to get base URL: %w", err)
-	}
-	url := baseURL + "/api/vm/" + vmID
+	// Extract the node IP from headers
+	nodeIP := rawResponse.Header.Get("X-Node-IP")
 
-	// Create HTTP request
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add authentication header
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	// Make the request
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Get the node IP from headers
-	nodeIP := resp.Header.Get("X-Node-IP")
-	if nodeIP != "" && nodeIP != "unknown" {
-		return nodeIP, nil
-	}
-
-	return "", fmt.Errorf("no node IP found in response headers")
+	return response.Data, nodeIP, nil
 }
 
 func init() {
