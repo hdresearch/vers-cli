@@ -59,23 +59,8 @@ var connectCmd = &cobra.Command{
 
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
 
-		// Use the node IP from headers or fallback to load balancer
-		var hostIP string
-		if nodeIP != "" {
-			hostIP = nodeIP
-		} else {
-			// Fallback to load balancer URL
-			hostIP, err = auth.GetVersUrlHost()
-			if err != nil {
-				return fmt.Errorf("failed to get host IP: %w", err)
-			}
-			if os.Getenv("VERS_DEBUG") == "true" {
-				fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", hostIP)
-			}
-		}
-
 		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), hostIP, vm.NetworkInfo.SSHPort)
+		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), nodeIP, vm.NetworkInfo.SSHPort)
 
 		keyPath, err := auth.GetOrCreateSSHKey(vm.ID, client, apiCtx)
 		if err != nil {
@@ -83,7 +68,7 @@ var connectCmd = &cobra.Command{
 		}
 
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", hostIP),
+			fmt.Sprintf("root@%s", nodeIP),
 			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
@@ -126,7 +111,21 @@ func GetVmAndNodeIP(ctx context.Context, vmID string) (vers.APIVmGetResponseData
 	// Extract the node IP from headers
 	nodeIP := rawResponse.Header.Get("X-Node-IP")
 
-	return response.Data, nodeIP, nil
+	// Use the node IP from headers or fallback to env override, and then static load balancer host
+	var hostIP string
+	if nodeIP != "" {
+		hostIP = nodeIP
+	} else {
+		hostIP, err = auth.GetVersUrlHost()
+		if err != nil {
+			return vers.APIVmGetResponseData{}, "", fmt.Errorf("failed to get host IP: %w", err)
+		}
+		if os.Getenv("VERS_DEBUG") == "true" {
+			fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", hostIP)
+		}
+	}
+
+	return response.Data, hostIP, nil
 }
 
 func init() {

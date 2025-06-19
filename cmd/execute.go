@@ -114,27 +114,12 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
-		// Use the node IP from headers or fallback to load balancer
-		var hostIP string
-		if nodeIP != "" {
-			hostIP = nodeIP
-		} else {
-			// Fallback to load balancer URL
-			hostIP, err = auth.GetVersUrlHost()
-			if err != nil {
-				return fmt.Errorf("failed to get host IP: %w", err)
-			}
-			if os.Getenv("VERS_DEBUG") == "true" {
-				fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", hostIP)
-			}
-		}
-
 		// // Debug info about connection
 		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
 
 		// Create the SSH command with the provided command string
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", hostIP),
+			fmt.Sprintf("root@%s", nodeIP),
 			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
