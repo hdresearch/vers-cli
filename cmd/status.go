@@ -15,9 +15,9 @@ import (
 
 // statusCmd represents the status command
 var statusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   "status [vm-id]",
 	Short: "Get status of clusters or VMs",
-	Long:  `Displays the status of all clusters or details of a specific cluster if specified with -cluster or -c flag.`,
+	Long:  `Displays the status of all clusters by default. Use -c flag for specific cluster details, or provide a VM ID as argument for VM-specific status.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		clusterID, _ := cmd.Flags().GetString("cluster")
 
@@ -34,7 +34,7 @@ var statusCmd = &cobra.Command{
 		if clusterID != "" {
 			fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterID) + "\n")
 
-			// Call the Get cluster endpoint with the cluster ID
+			// Fetch cluster info
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
 			response, err := client.API.Cluster.Get(apiCtx, clusterID)
 			if err != nil {
@@ -45,7 +45,7 @@ var statusCmd = &cobra.Command{
 			fmt.Println(s.VMListHeader.Render("Cluster details:"))
 			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
-			// Format cluster info similar to the default view
+			// Format cluster info
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
 				s.ClusterName.Render("Cluster: "+cluster.ID),
@@ -78,7 +78,39 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
-		// If no cluster ID provided, list all clusters
+		// If VM ID is provided as argument, show status for that specific VM
+		if len(args) > 0 {
+			vmID := args[0]
+			fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmID) + "\n")
+
+			fmt.Println(s.NoData.Render("Fetching VM information..."))
+			response, err := client.API.Vm.Get(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for VM '%s': %w"), vmID, err)
+			}
+			vm := response.Data
+
+			displayHeadStatus()
+
+			fmt.Println(s.VMListHeader.Render("VM details:"))
+			vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
+
+			vmInfo := fmt.Sprintf(
+				"%s\n%s\n%s",
+				s.ClusterName.Render("VM: "+s.VMID.Render(vm.ID)),
+				s.ClusterData.Render("State: "+string(vm.State)),
+				s.ClusterData.Render("Cluster: "+vm.ClusterID),
+			)
+			vmList.Items(vmInfo)
+			fmt.Println(vmList)
+
+			tip := "\nTip: To view the cluster containing this VM, run: vers status -c " + vm.ClusterID
+			fmt.Println(s.Tip.Render(tip))
+
+			return nil
+		}
+
+		// If no cluster ID or VM ID provided, list all clusters
 		fmt.Println(s.NoData.Render("Fetching list of clusters..."))
 
 		response, err := client.API.Cluster.List(apiCtx)
@@ -106,7 +138,8 @@ var statusCmd = &cobra.Command{
 		}
 		fmt.Println(clusterList)
 
-		tip := "\nTip: To view the list of VMs in a specific cluster, use: vers status -c <cluster-id>"
+		tip := "\nTip: To view VMs in a specific cluster, use: vers status -c <cluster-id>\n" +
+			"To view a specific VM, use: vers status <vm-id>"
 		fmt.Println(s.Tip.Render(tip))
 
 		return nil

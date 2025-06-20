@@ -66,14 +66,25 @@ func writeCommitToLogFile(versDir string, vmID string, commit logCommitEntry) er
 
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
-	Use:   "commit",
+	Use:   "commit [vm-id]",
 	Short: "Commit the current state of the environment",
-	Long:  `Save the current state of the Vers environment as a commit.`,
+	Long:  `Save the current state of the Vers environment as a commit. If no VM ID is provided, commits the current HEAD VM.`,
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get the current HEAD VM ID
-		vmID, err := getCurrentHeadVM()
-		if err != nil {
-			return fmt.Errorf("failed to get current VM: %w", err)
+		var vmID string
+		var err error
+
+		// Check if VM ID was provided as an argument
+		if len(args) > 0 {
+			vmID = args[0]
+			fmt.Printf("Using provided VM ID: %s\n", vmID)
+		} else {
+			// Get the current HEAD VM ID
+			vmID, err = getCurrentHeadVM()
+			if err != nil {
+				return fmt.Errorf("failed to get current VM: %w", err)
+			}
+			fmt.Printf("Using current HEAD VM: %s\n", vmID)
 		}
 
 		fmt.Printf("Creating commit for VM '%s'\n", vmID)
