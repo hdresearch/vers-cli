@@ -16,35 +16,166 @@ import (
 var (
 	force     bool
 	isCluster bool
+	killAll   bool
 )
 
 // killCmd represents the kill command
 var killCmd = &cobra.Command{
 	Use:   "kill [vm-id|vm-alias|cluster-id|cluster-alias]",
 	Short: "Delete a VM or cluster",
-	Long: `Delete a VM or cluster by ID or alias. Use -c flag for clusters.
+	Long: `Delete a VM or cluster by ID or alias. Use -c flag for clusters, or -a flag to delete all clusters.
 	
 Examples:
   vers kill vm-123abc          # Delete VM by ID
   vers kill my-dev-vm          # Delete VM by alias
   vers kill -c cluster-456def  # Delete cluster by ID
-  vers kill -c my-cluster      # Delete cluster by alias`,
-	Args: cobra.ExactArgs(1),
+  vers kill -c my-cluster      # Delete cluster by alias
+  vers kill -a                 # Delete ALL clusters (use with caution!)
+  vers kill -a --force         # Delete ALL clusters without confirmation`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		// If --all flag is used, no arguments should be provided
+		if killAll {
+			if len(args) > 0 {
+				return fmt.Errorf("cannot specify target when using --all flag")
+			}
+			return nil
+		}
+		// Otherwise, exactly one argument is required
+		return cobra.ExactArgs(1)(cmd, args)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		target := args[0]
 		s := styles.NewKillStyles()
 
 		// Initialize context
 		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second) // Longer timeout for bulk operations
 		defer cancel()
 
+		// Handle kill all clusters
+		if killAll {
+			return deleteAllClusters(apiCtx, &s)
+		}
+
+		// Handle single target deletion
+		target := args[0]
 		if isCluster {
 			return deleteCluster(apiCtx, target, &s)
 		} else {
 			return deleteVM(apiCtx, target, &s)
 		}
 	},
+}
+
+func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
+	fmt.Println(s.Progress.Render("Fetching all clusters..."))
+
+	// Get list of all clusters
+	response, err := client.API.Cluster.List(ctx)
+	if err != nil {
+		return fmt.Errorf(s.Error.Render("failed to list clusters: %w"), err)
+	}
+	clusters := response.Data
+
+	if len(clusters) == 0 {
+		fmt.Println(s.NoData.Render("No clusters found to delete."))
+		return nil
+	}
+
+	// Show warning about what will be deleted
+	if !force {
+		fmt.Printf(s.Warning.Render("⚠️  DANGER: You are about to delete ALL %d clusters and their VMs:\n\n"), len(clusters))
+
+		for i, cluster := range clusters {
+			displayName := cluster.Alias
+			if displayName == "" {
+				displayName = cluster.ID
+			}
+			fmt.Printf(s.Warning.Render("  %d. Cluster '%s' (%d VMs)\n"), i+1, displayName, cluster.VmCount)
+		}
+
+		fmt.Print(s.Warning.Render("\n⚠️  This action is IRREVERSIBLE and will delete ALL your data!\n"))
+
+		// Ask for explicit confirmation
+		fmt.Print(s.Warning.Render("Type 'DELETE ALL' to confirm: "))
+		var input string
+		fmt.Scanln(&input)
+
+		if input != "DELETE ALL" {
+			fmt.Println(s.NoData.Render("Operation cancelled - input did not match 'DELETE ALL'"))
+			return nil
+		}
+	}
+
+	fmt.Printf(s.Progress.Render("Deleting %d clusters...\n"), len(clusters))
+
+	// Track results
+	var successCount, failCount int
+	var errors []string
+
+	// Delete each cluster
+	for i, cluster := range clusters {
+		displayName := cluster.Alias
+		if displayName == "" {
+			displayName = cluster.ID
+		}
+
+		fmt.Printf(s.Progress.Render("[%d/%d] Deleting cluster '%s'...\n"), i+1, len(clusters), displayName)
+
+		result, err := client.API.Cluster.Delete(ctx, cluster.ID)
+		if err != nil {
+			failCount++
+			errorMsg := fmt.Sprintf("Cluster '%s': %v", displayName, err)
+			errors = append(errors, errorMsg)
+			fmt.Printf(s.Error.Render("  ❌ Failed: %s\n"), err)
+			continue
+		}
+
+		// Check for partial failures
+		if len(result.Data.Vms.Errors) > 0 || result.Data.FsError != "" {
+			failCount++
+			errorDetails := []string{}
+
+			if result.Data.FsError != "" {
+				errorDetails = append(errorDetails, result.Data.FsError)
+			}
+
+			for _, vmError := range result.Data.Vms.Errors {
+				errorDetails = append(errorDetails, fmt.Sprintf("%s: %s", vmError.ID, vmError.Error))
+			}
+
+			errorMsg := fmt.Sprintf("Cluster '%s' partially failed: %s", displayName, strings.Join(errorDetails, "; "))
+			errors = append(errors, errorMsg)
+			fmt.Printf(s.Warning.Render("  ⚠️  Partially failed: %s\n"), strings.Join(errorDetails, "; "))
+		} else {
+			successCount++
+			fmt.Print(s.Success.Render("  ✓ Deleted successfully\n"))
+		}
+	}
+
+	// Summary
+	fmt.Print(s.Progress.Render("\n=== Deletion Summary ===\n"))
+	fmt.Printf(s.Success.Render("✓ Successfully deleted: %d clusters\n"), successCount)
+
+	if failCount > 0 {
+		fmt.Printf(s.Error.Render("❌ Failed to delete: %d clusters\n"), failCount)
+		fmt.Print(s.Warning.Render("\nError details:\n"))
+		for _, error := range errors {
+			fmt.Printf(s.Warning.Render("  • %s\n"), error)
+		}
+	}
+
+	// Clean up HEAD since we deleted everything
+	if successCount > 0 {
+		cleanupHeadAfterDeletion()
+		fmt.Print(s.NoData.Render("\nHEAD cleared (all clusters deleted)\n"))
+	}
+
+	if failCount > 0 {
+		return fmt.Errorf("some clusters failed to delete - see details above")
+	}
+
+	fmt.Print(s.Success.Render("\n🎉 All clusters deleted successfully!\n"))
+	return nil
 }
 
 func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) error {
@@ -244,4 +375,5 @@ func init() {
 	// Define flags for the kill command
 	killCmd.Flags().BoolVarP(&force, "force", "f", false, "Force termination without confirmation")
 	killCmd.Flags().BoolVarP(&isCluster, "cluster", "c", false, "Target is a cluster instead of a VM")
+	killCmd.Flags().BoolVarP(&killAll, "all", "a", false, "Delete ALL clusters (use with extreme caution)")
 }
