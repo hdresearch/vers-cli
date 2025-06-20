@@ -1,28 +1,27 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
+	"syscall"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var token string
 
-// validateAPIKey validates the API key against vers-lb
-// TODO: Remove backward compatibility after migration period (target: later this week should be fine honestly, just don't want to spring this out of nowhere)
+// validateAPIKey validates the API key against the validation endpoint
 func validateAPIKey(apiKey string) error {
 	baseURL, err := auth.GetVersUrl()
 	if err != nil {
 		return fmt.Errorf("error getting API URL: %w", err)
 	}
-	validateURL := baseURL + "/keys/validate"
+	validateURL := baseURL + "/api/validate"
 
 	payload := map[string]string{
 		"api_key": apiKey,
@@ -44,62 +43,71 @@ func validateAPIKey(apiKey string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		// BACKWARD COMPATIBILITY: If validation fails due to network/server issues,
-		// allow the key to be saved anyway (old behavior)
-		// TODO: Remove this fallback after migration period
-		fmt.Printf("Warning: Could not validate API key against server (%v), but saving anyway for backward compatibility\n", err)
-		return nil
+		return fmt.Errorf("could not validate API key: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 401 {
-		// BACKWARD COMPATIBILITY: If the key is invalid on the new system,
-		// still allow it to be saved (it might be an old-format key)
-		// TODO: Remove this fallback after migration period
-		fmt.Println("Warning: API key not recognized by new validation system, but saving anyway for backward compatibility")
-		return nil
+		return fmt.Errorf("invalid API key - please check your key and try again")
 	}
 
 	if resp.StatusCode != 200 {
-		// BACKWARD COMPATIBILITY: For other errors, still allow saving
-		// TODO: Remove this fallback after migration period
-		fmt.Printf("Warning: Validation returned status %d, but saving anyway for backward compatibility\n", resp.StatusCode)
-		return nil
+		return fmt.Errorf("validation failed with status %d - please try again", resp.StatusCode)
 	}
 
-	// Key validated successfully against new system
+	// Key validated successfully
 	fmt.Println("API key validated successfully")
 	return nil
+}
+
+// secureReadAPIKey reads the API key from stdin without echoing it to the terminal
+func secureReadAPIKey() (string, error) {
+	fmt.Print("Enter your API key (input will be hidden): ")
+
+	// Read password without echoing
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("error reading API key: %w", err)
+	}
+
+	// Print a newline since ReadPassword doesn't echo one
+	fmt.Println()
+
+	apiKey := strings.TrimSpace(string(bytePassword))
+	if apiKey == "" {
+		return "", fmt.Errorf("API key cannot be empty")
+	}
+
+	return apiKey, nil
 }
 
 // loginCmd represents the login command
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with the Vers platform",
-	Long:  `Login to the Vers platform using your API token.`,
+	Long: `Login to the Vers platform using your API token.
+
+When you run this command without the --token flag, you'll be prompted 
+to enter your API key securely (input will be hidden for security).
+
+You can get your API key from: https://vers.sh/dashboard`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if token == "" {
-			fmt.Print("Enter your API key: ")
-			reader := bufio.NewReader(os.Stdin)
-			input, err := reader.ReadString('\n')
+			var err error
+			token, err = secureReadAPIKey()
 			if err != nil {
-				return fmt.Errorf("error reading input: %w", err)
-			}
-			token = strings.TrimSpace(input)
-			if token == "" {
-				return fmt.Errorf("API key cannot be empty, no changes made")
+				return err
 			}
 		}
 
-		// Attempt to validate the API key against vers-lb
-		// This is non-blocking for backward compatibility
+		// Validate the API key - validation must succeed to continue
+		fmt.Println("Validating API key...")
 		err := validateAPIKey(token)
 		if err != nil {
-			// This should never happen with current implementation, but just in case
-			return fmt.Errorf("unexpected validation error: %w", err)
+			return err // Stop here if validation fails
 		}
 
-		// Save the API key (validated or not, for backward compatibility)
+		// Save the API key only if validation succeeded
 		err = auth.SaveAPIKey(token)
 		if err != nil {
 			return fmt.Errorf("error saving API key: %w", err)
