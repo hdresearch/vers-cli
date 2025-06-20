@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -28,7 +27,7 @@ type LogStyles struct {
 	VMID      lipgloss.Style
 	NoData    lipgloss.Style
 	Divider   lipgloss.Style
-	Branch    lipgloss.Style
+	Alias     lipgloss.Style
 }
 
 // NewLogStyles initializes and returns all styles used in the log command
@@ -46,53 +45,8 @@ func NewLogStyles() LogStyles {
 		VMID:      styles.VmIDStyle,
 		NoData:    styles.MutedTextStyle.Padding(1, 0),
 		Divider:   styles.MutedTextStyle.SetString("────────────────────────────────────────────────"),
-		Branch:    styles.BaseTextStyle.Foreground(styles.TerminalPurple),
+		Alias:     styles.BaseTextStyle.Foreground(styles.TerminalPurple),
 	}
-}
-
-// logCommitEntry represents commit information
-type logCommitEntry struct {
-	ID        string
-	Message   string
-	Timestamp int64
-	Tag       string
-	Author    string
-	VMID      string
-	Branch    string
-}
-
-// readRefsHeads reads all branches from the .vers/refs/heads directory
-func readRefsHeads(versDir string) (map[string]string, error) {
-	branches := make(map[string]string)
-	refsHeadsDir := filepath.Join(versDir, "refs", "heads")
-
-	// Check if directory exists
-	if _, err := os.Stat(refsHeadsDir); os.IsNotExist(err) {
-		return branches, nil
-	}
-
-	entries, err := os.ReadDir(refsHeadsDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read branches directory: %w", err)
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue // Skip directories
-		}
-
-		branchName := entry.Name()
-		branchPath := filepath.Join(refsHeadsDir, branchName)
-		branchData, err := os.ReadFile(branchPath)
-		if err != nil {
-			continue // Skip if can't read
-		}
-
-		vmID := string(bytes.TrimSpace(branchData))
-		branches[vmID] = branchName
-	}
-
-	return branches, nil
 }
 
 // readCommitLogFile reads commit information from a JSON log file
@@ -167,12 +121,6 @@ var logCmd = &cobra.Command{
 			vmID = args[0]
 		}
 
-		// Get branch information
-		branches, err := readRefsHeads(versDir)
-		if err != nil {
-			return fmt.Errorf("Warning: Failed to read branch information: %w\n", err)
-		}
-
 		// Initialize SDK client and context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
@@ -190,7 +138,7 @@ var logCmd = &cobra.Command{
 		commits, err := readCommitLogFile(versDir, vmID)
 		if err != nil {
 			commits = []logCommitEntry{}
-			return fmt.Errorf("Warning: %w\n", err)
+			fmt.Printf("Warning: %v\n", err)
 		}
 
 		// Check if we need to add a new commit record for this VM
@@ -205,9 +153,6 @@ var logCmd = &cobra.Command{
 		// If we don't have a commit record for this VM and we successfully got VM details,
 		// create a new commit info record using data from the API
 		if !foundCurrentVM {
-			// Determine branch name if known
-			branchName := branches[vmID]
-
 			// Create a simple message from VM ID if no other information is available
 			message := fmt.Sprintf("VM %s", vmID)
 
@@ -223,7 +168,7 @@ var logCmd = &cobra.Command{
 				Timestamp: time.Now().Unix(), // Use current time as we don't have the exact commit time
 				Author:    "unknown",         // No author info from API
 				VMID:      vmID,
-				Branch:    branchName,
+				Alias:     vm.Alias,
 			}
 
 			// Add to our commits list
@@ -231,7 +176,7 @@ var logCmd = &cobra.Command{
 
 			// Save updated commits list
 			if err := writeCommitLogFile(versDir, vmID, commits); err != nil {
-				return fmt.Errorf("Warning: Failed to update commit log: %w\n", err)
+				fmt.Printf("Warning: Failed to update commit log: %v\n", err)
 			}
 		}
 
@@ -252,6 +197,7 @@ var logCmd = &cobra.Command{
 					Timestamp: time.Now().Add(-48 * time.Hour).Unix(),
 					Author:    "user@example.com",
 					VMID:      "vm-ancestor-123",
+					Alias:     "initial-vm",
 				},
 				{
 					ID:        "c234567890abcdef",
@@ -260,7 +206,7 @@ var logCmd = &cobra.Command{
 					Tag:       "v0.1.0",
 					Author:    "user@example.com",
 					VMID:      "vm-parent-456",
-					Branch:    "feature-x",
+					Alias:     "feature-x",
 				},
 				{
 					ID:        "c345678901abcdef",
@@ -268,7 +214,7 @@ var logCmd = &cobra.Command{
 					Timestamp: time.Now().Unix(),
 					Author:    "user@example.com",
 					VMID:      vmID,
-					Branch:    branches[vmID],
+					Alias:     vm.Alias,
 				},
 			}
 		}
@@ -286,8 +232,8 @@ var logCmd = &cobra.Command{
 			if commit.Tag != "" {
 				fmt.Printf("%s\n", s.Tag.Render(commit.Tag))
 			}
-			if commit.Branch != "" {
-				fmt.Printf("%s %s\n", s.Branch.Render("Branch:"), commit.Branch)
+			if commit.Alias != "" {
+				fmt.Printf("%s %s\n", s.Alias.Render("Alias:"), commit.Alias)
 			}
 			fmt.Printf("%s %s\n", s.Author.Render("Author:"), commit.Author)
 			fmt.Printf("%s %s\n", s.Date.Render("Date:"), timestamp)

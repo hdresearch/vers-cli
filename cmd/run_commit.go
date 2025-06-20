@@ -87,25 +87,21 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 		clusterInfo.RootVmID,
 	)
 
-	// Store VM ID in version control system
-	vmID := clusterInfo.RootVmID
-	if vmID != "" {
-		// Check if .vers directory exists
-		versDir := ".vers"
-		if _, err := os.Stat(versDir); os.IsNotExist(err) {
-			fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
-		} else {
-			// Update refs/heads/main with VM ID
-			mainRefPath := filepath.Join(versDir, "refs", "heads", "main")
-			if err := os.WriteFile(mainRefPath, []byte(vmID+"\n"), 0644); err != nil {
-				return fmt.Errorf("Warning: Failed to update refs: %w\n", err)
-			} else {
-				fmt.Printf("Updated VM reference: %s -> %s\n", "refs/heads/main", vmID)
-			}
+	// Update HEAD to point to the new VM (simplified architecture)
+	vmTarget := clusterInfo.RootVmID
+	if commitVmAlias != "" {
+		vmTarget = commitVmAlias // Use alias if provided
+	}
 
-			// HEAD already points to refs/heads/main from init, so we don't need to update it
-			fmt.Println("HEAD is now pointing to the VM from commit", commitKey)
+	versDir := ".vers"
+	if _, err := os.Stat(versDir); os.IsNotExist(err) {
+		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
+	} else {
+		headFile := filepath.Join(versDir, "HEAD")
+		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
+			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
+		fmt.Printf("HEAD now points to: %s (from commit %s)\n", vmTarget, commitKey)
 	}
 
 	return nil
