@@ -1,16 +1,16 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
+	"syscall"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var token string
@@ -60,26 +60,48 @@ func validateAPIKey(apiKey string) error {
 	return nil
 }
 
+// secureReadAPIKey reads the API key from stdin without echoing it to the terminal
+func secureReadAPIKey() (string, error) {
+	fmt.Print("Enter your API key (input will be hidden): ")
+
+	// Read password without echoing
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("error reading API key: %w", err)
+	}
+
+	// Print a newline since ReadPassword doesn't echo one
+	fmt.Println()
+
+	apiKey := strings.TrimSpace(string(bytePassword))
+	if apiKey == "" {
+		return "", fmt.Errorf("API key cannot be empty")
+	}
+
+	return apiKey, nil
+}
+
 // loginCmd represents the login command
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with the Vers platform",
-	Long:  `Login to the Vers platform using your API token.`,
+	Long: `Login to the Vers platform using your API token.
+
+When you run this command without the --token flag, you'll be prompted 
+to enter your API key securely (input will be hidden for security).
+
+You can get your API key from: https://vers.sh/dashboard`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if token == "" {
-			fmt.Print("Enter your API key: ")
-			reader := bufio.NewReader(os.Stdin)
-			input, err := reader.ReadString('\n')
+			var err error
+			token, err = secureReadAPIKey()
 			if err != nil {
-				return fmt.Errorf("error reading input: %w", err)
-			}
-			token = strings.TrimSpace(input)
-			if token == "" {
-				return fmt.Errorf("API key cannot be empty")
+				return err
 			}
 		}
 
 		// Validate the API key - validation must succeed to continue
+		fmt.Println("Validating API key...")
 		err := validateAPIKey(token)
 		if err != nil {
 			return err // Stop here if validation fails
