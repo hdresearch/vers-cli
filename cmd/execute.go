@@ -95,11 +95,10 @@ var executeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		response, err := client.API.Vm.Get(apiCtx, vmID)
+		vm, nodeIP, err := GetVmAndNodeIP(apiCtx, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
-		vm := response.Data
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -115,17 +114,12 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
-		hostIP, err := auth.GetVersUrlHost()
-		if err != nil {
-			return fmt.Errorf("failed to get host IP: %w", err)
-		}
-
 		// // Debug info about connection
 		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
 
 		// Create the SSH command with the provided command string
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", hostIP),
+			fmt.Sprintf("root@%s", nodeIP),
 			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
