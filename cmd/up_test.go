@@ -276,6 +276,9 @@ func setupIntegrationClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get client options: %v", err)
 	}
+	if clientOptions == nil {
+		t.Fatalf("Failed to get client options")
+	}
 
 	// Initialize global client
 	client = vers.NewClient(clientOptions...)
