@@ -23,17 +23,17 @@ var (
 
 // killCmd represents the kill command
 var killCmd = &cobra.Command{
-	Use:   "kill [vm-id|vm-alias|cluster-id|cluster-alias]",
-	Short: "Delete a VM or cluster",
-	Long: `Delete a VM or cluster by ID or alias. Use -c flag for clusters, or -a flag to delete all clusters.
+	Use:   "kill [vm-id|vm-alias|cluster-id|cluster-alias]...",
+	Short: "Delete one or more VMs or clusters",
+	Long: `Delete one or more VMs or clusters by ID or alias. Use -c flag for clusters, or -a flag to delete all clusters.
 	
 Examples:
-  vers kill vm-123abc          # Delete VM by ID
-  vers kill my-dev-vm          # Delete VM by alias
-  vers kill -c cluster-456def  # Delete cluster by ID
-  vers kill -c my-cluster      # Delete cluster by alias
-  vers kill -a                 # Delete ALL clusters (use with caution!)
-  vers kill -a --force         # Delete ALL clusters without confirmation`,
+  vers kill vm-123abc                    # Delete single VM by ID
+  vers kill my-dev-vm my-test-vm         # Delete multiple VMs by alias
+  vers kill -c cluster-456def            # Delete single cluster by ID
+  vers kill -c my-cluster other-cluster  # Delete multiple clusters by alias
+  vers kill -a                           # Delete ALL clusters (use with caution!)
+  vers kill -a --force                   # Delete ALL clusters without confirmation`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		// If --all flag is used, no arguments should be provided
 		if killAll {
@@ -42,8 +42,11 @@ Examples:
 			}
 			return nil
 		}
-		// Otherwise, exactly one argument is required
-		return cobra.ExactArgs(1)(cmd, args)
+		// Otherwise, at least one argument is required
+		if len(args) == 0 {
+			return fmt.Errorf("requires at least 1 arg(s), received 0")
+		}
+		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s := styles.NewKillStyles()
@@ -58,14 +61,290 @@ Examples:
 			return deleteAllClusters(apiCtx, &s)
 		}
 
-		// Handle single target deletion
-		target := args[0]
+		// Handle multiple target deletion
+		targets := args
 		if isCluster {
-			return deleteCluster(apiCtx, target, &s)
+			return deleteMultipleClusters(apiCtx, targets, &s)
 		} else {
-			return deleteVM(apiCtx, target, &s)
+			return deleteMultipleVMs(apiCtx, targets, &s)
 		}
 	},
+}
+
+func deleteMultipleClusters(ctx context.Context, targets []string, s *styles.KillStyles) error {
+	if len(targets) == 1 {
+		// Single cluster - use existing logic
+		return deleteCluster(ctx, targets[0], s)
+	}
+
+	// Multiple clusters
+	fmt.Printf(s.Progress.Render("Processing %d clusters for deletion...\n"), len(targets))
+
+	// Validate all clusters exist first (if not force)
+	var clustersToDelete []struct {
+		Target      string
+		DisplayName string
+		VmCount     int
+	}
+
+	if !force {
+		for _, target := range targets {
+			response, err := client.API.Cluster.Get(ctx, target)
+			if err != nil {
+				return fmt.Errorf(s.Error.Render("failed to get cluster information for '%s': %w"), target, err)
+			}
+			cluster := response.Data
+
+			displayName := cluster.Alias
+			if displayName == "" {
+				displayName = cluster.ID
+			}
+
+			clustersToDelete = append(clustersToDelete, struct {
+				Target      string
+				DisplayName string
+				VmCount     int
+			}{
+				Target:      target,
+				DisplayName: displayName,
+				VmCount:     int(cluster.VmCount),
+			})
+		}
+
+		// Show warning about what will be deleted
+		fmt.Printf(s.Warning.Render("Warning: You are about to delete %d clusters:\n"), len(clustersToDelete))
+		fmt.Println()
+
+		for i, cluster := range clustersToDelete {
+			listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, cluster.DisplayName, cluster.VmCount)
+			fmt.Println(s.Warning.Render(listItem))
+		}
+
+		fmt.Println()
+		fmt.Println(s.Warning.Render("This action is IRREVERSIBLE and will delete ALL specified clusters and their data!"))
+
+		// Ask for confirmation
+		if !askConfirmation() {
+			fmt.Println(s.NoData.Render("Operation cancelled"))
+			return nil
+		}
+	}
+
+	// Check for HEAD impact
+	headImpacted := false
+	for _, target := range targets {
+		if headWarning := checkHeadImpactSimple(target, true); headWarning != "" && !force {
+			if !headImpacted {
+				fmt.Println(s.Warning.Render("Warning: Some clusters contain the current HEAD VM"))
+				headImpacted = true
+			}
+		}
+	}
+
+	if headImpacted && !force {
+		if !askConfirmation() {
+			fmt.Println(s.NoData.Render("Operation cancelled"))
+			return nil
+		}
+	}
+
+	// Delete each cluster
+	var successCount, failCount int
+	var errors []string
+
+	for i, target := range targets {
+		displayName := target
+		if !force && i < len(clustersToDelete) {
+			displayName = clustersToDelete[i].DisplayName
+		}
+
+		clusterProgressMsg := fmt.Sprintf("[%d/%d] Deleting cluster '%s'...", i+1, len(targets), displayName)
+		fmt.Println(s.Progress.Render(clusterProgressMsg))
+
+		result, err := client.API.Cluster.Delete(ctx, target)
+		if err != nil {
+			failCount++
+			errorMsg := fmt.Sprintf("Cluster '%s': %v", displayName, err)
+			errors = append(errors, errorMsg)
+
+			failMsg := fmt.Sprintf("  Failed: %s", err)
+			fmt.Println(s.Error.Render(failMsg))
+			continue
+		}
+
+		// Check for partial failures using util file
+		if errorSummary := utils.GetClusterDeleteErrorSummary(result); errorSummary != "" {
+			failCount++
+			errorMsg := fmt.Sprintf("Cluster '%s' partially failed: %s", displayName, errorSummary)
+			errors = append(errors, errorMsg)
+
+			partialFailMsg := fmt.Sprintf("  Partially failed: %s", errorSummary)
+			fmt.Println(s.Warning.Render(partialFailMsg))
+		} else {
+			successCount++
+			fmt.Println(s.Success.Render("  ✓ Deleted successfully"))
+		}
+	}
+
+	// Summary
+	fmt.Println()
+	fmt.Println(s.Progress.Render("=== Deletion Summary ==="))
+
+	successMsg := fmt.Sprintf("✓ Successfully deleted: %d clusters", successCount)
+	fmt.Println(s.Success.Render(successMsg))
+
+	if failCount > 0 {
+		failMsg := fmt.Sprintf("Failed to delete: %d clusters", failCount)
+		fmt.Println(s.Error.Render(failMsg))
+
+		fmt.Println()
+		fmt.Println(s.Warning.Render("Error details:"))
+		for _, error := range errors {
+			errorDetail := fmt.Sprintf("  • %s", error)
+			fmt.Println(s.Warning.Render(errorDetail))
+		}
+	}
+
+	// Clean up HEAD
+	if successCount > 0 {
+		cleanupHeadAfterDeletion()
+		fmt.Println()
+		fmt.Println(s.NoData.Render("HEAD cleared (clusters deleted)"))
+	}
+
+	if failCount > 0 {
+		return fmt.Errorf("some clusters failed to delete - see details above")
+	}
+
+	if len(targets) > 1 {
+		fmt.Println()
+		fmt.Println(s.Success.Render("All specified clusters deleted successfully!"))
+	}
+
+	return nil
+}
+
+func deleteMultipleVMs(ctx context.Context, targets []string, s *styles.KillStyles) error {
+	if len(targets) == 1 {
+		// Single VM - use existing logic
+		return deleteVM(ctx, targets[0], s)
+	}
+
+	// Multiple VMs
+	fmt.Printf(s.Progress.Render("Processing %d VMs for deletion...\n"), len(targets))
+
+	// Show confirmation for multiple VM deletion
+	if !force {
+		fmt.Printf(s.Warning.Render("Warning: You are about to delete %d VMs:\n"), len(targets))
+		fmt.Println()
+
+		for i, target := range targets {
+			listItem := fmt.Sprintf("  %d. VM '%s'", i+1, target)
+			fmt.Println(s.Warning.Render(listItem))
+		}
+
+		fmt.Println()
+		fmt.Println(s.Warning.Render("This action is IRREVERSIBLE and will delete ALL specified VMs!"))
+
+		if !askConfirmation() {
+			fmt.Println(s.NoData.Render("Operation cancelled"))
+			return nil
+		}
+	}
+
+	// Check for HEAD impact
+	headImpacted := false
+	for _, target := range targets {
+		if headWarning := checkHeadImpactSimple(target, false); headWarning != "" && !force {
+			if !headImpacted {
+				fmt.Println(s.Warning.Render("Warning: Some VMs are the current HEAD"))
+				headImpacted = true
+			}
+		}
+	}
+
+	if headImpacted && !force {
+		if !askConfirmation() {
+			fmt.Println(s.NoData.Render("Operation cancelled"))
+			return nil
+		}
+	}
+
+	// Delete each VM
+	var successCount, failCount int
+	var errors []string
+
+	for i, target := range targets {
+		var progressMsg string
+		if force {
+			progressMsg = fmt.Sprintf("[%d/%d] Force deleting VM '%s'...", i+1, len(targets), target)
+		} else {
+			progressMsg = fmt.Sprintf("[%d/%d] Deleting VM '%s'...", i+1, len(targets), target)
+		}
+		fmt.Println(s.Progress.Render(progressMsg))
+
+		deleteParams := vers.APIVmDeleteParams{
+			Recursive: vers.F(force),
+		}
+
+		result, err := client.API.Vm.Delete(ctx, target, deleteParams)
+		if err != nil {
+			failCount++
+			errorMsg := fmt.Sprintf("VM '%s': %v", target, err)
+			errors = append(errors, errorMsg)
+
+			failMsg := fmt.Sprintf("  Failed: %s", err)
+			fmt.Println(s.Error.Render(failMsg))
+			continue
+		}
+
+		// Handle errors using utility
+		if utils.HandleVmDeleteErrors(result, s) {
+			failCount++
+			errorMsg := fmt.Sprintf("VM '%s': deletion had errors", target)
+			errors = append(errors, errorMsg)
+		} else {
+			successCount++
+			fmt.Println(s.Success.Render("  ✓ Deleted successfully"))
+		}
+	}
+
+	// Summary
+	fmt.Println()
+	fmt.Println(s.Progress.Render("=== Deletion Summary ==="))
+
+	successMsg := fmt.Sprintf("✓ Successfully deleted: %d VMs", successCount)
+	fmt.Println(s.Success.Render(successMsg))
+
+	if failCount > 0 {
+		failMsg := fmt.Sprintf("Failed to delete: %d VMs", failCount)
+		fmt.Println(s.Error.Render(failMsg))
+
+		fmt.Println()
+		fmt.Println(s.Warning.Render("Error details:"))
+		for _, error := range errors {
+			errorDetail := fmt.Sprintf("  • %s", error)
+			fmt.Println(s.Warning.Render(errorDetail))
+		}
+	}
+
+	// Clean up HEAD
+	if successCount > 0 {
+		cleanupHeadAfterDeletion()
+		fmt.Println()
+		fmt.Println(s.NoData.Render("HEAD cleared (VMs deleted)"))
+	}
+
+	if failCount > 0 {
+		return fmt.Errorf("some VMs failed to delete - see details above")
+	}
+
+	if len(targets) > 1 {
+		fmt.Println()
+		fmt.Println(s.Success.Render("All specified VMs deleted successfully!"))
+	}
+
+	return nil
 }
 
 func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
@@ -96,7 +375,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 				displayName = cluster.ID
 			}
 			// Format the list item, then render and print
-			listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, displayName, cluster.VmCount)
+			listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, displayName, int(cluster.VmCount))
 			fmt.Println(s.Warning.Render(listItem))
 		}
 
@@ -220,7 +499,7 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 		}
 
 		// Format warning message, then render and print
-		warningMsg := fmt.Sprintf("Warning: You are about to delete cluster '%s' containing %d VMs", displayName, cluster.VmCount)
+		warningMsg := fmt.Sprintf("Warning: You are about to delete cluster '%s' containing %d VMs", displayName, int(cluster.VmCount))
 		fmt.Println(s.Warning.Render(warningMsg))
 
 		// Ask for confirmation
