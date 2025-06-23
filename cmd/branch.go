@@ -102,6 +102,6 @@ func init() {
 	rootCmd.AddCommand(branchCmd)
 
 	// Define flags for the branch command
-	branchCmd.Flags().StringVarP(&alias, "alias", "a", "", "Alias for the new VM")
+	branchCmd.Flags().StringVarP(&alias, "alias", "n", "", "Alias for the new VM")
 	branchCmd.Flags().BoolP("checkout", "c", false, "Switch to the new VM after creation")
 }
