@@ -86,7 +86,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 	// Show warning about what will be deleted
 	if !force {
 		// Format the header message first, then render and print
-		headerMsg := fmt.Sprintf("⚠️  DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusters))
+		headerMsg := fmt.Sprintf("DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusters))
 		fmt.Println(s.Warning.Render(headerMsg))
 		fmt.Println() // Empty line for spacing
 
@@ -101,7 +101,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 		}
 
 		fmt.Println() // Empty line for spacing
-		fmt.Println(s.Warning.Render("⚠️  This action is IRREVERSIBLE and will delete ALL your data!"))
+		fmt.Println(s.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!"))
 		fmt.Println()
 
 		// Ask for explicit confirmation
@@ -147,7 +147,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 			errors = append(errors, errorMsg)
 
 			// Format error message, then render and print
-			failMsg := fmt.Sprintf("  ❌ Failed: %s", err)
+			failMsg := fmt.Sprintf("Failed: %s", err)
 			fmt.Println(s.Error.Render(failMsg))
 			continue
 		}
@@ -159,7 +159,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 			errors = append(errors, errorMsg)
 
 			// Format partial failure message
-			partialFailMsg := fmt.Sprintf("  ⚠️  Partially failed: %s", errorSummary)
+			partialFailMsg := fmt.Sprintf("Partially failed: %s", errorSummary)
 			fmt.Println(s.Warning.Render(partialFailMsg))
 		} else {
 			successCount++
@@ -177,7 +177,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 
 	if failCount > 0 {
 		// Format failure count message
-		failMsg := fmt.Sprintf("❌ Failed to delete: %d clusters", failCount)
+		failMsg := fmt.Sprintf("Failed to delete: %d clusters", failCount)
 		fmt.Println(s.Error.Render(failMsg))
 
 		fmt.Println()
@@ -200,7 +200,7 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 	}
 
 	fmt.Println()
-	fmt.Println(s.Success.Render("🎉 All clusters deleted successfully!"))
+	fmt.Println(s.Success.Render("All clusters deleted successfully!"))
 	return nil
 }
 
@@ -220,7 +220,7 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 		}
 
 		// Format warning message, then render and print
-		warningMsg := fmt.Sprintf("⚠ Warning: You are about to delete cluster '%s' containing %d VMs", displayName, cluster.VmCount)
+		warningMsg := fmt.Sprintf("Warning: You are about to delete cluster '%s' containing %d VMs", displayName, cluster.VmCount)
 		fmt.Println(s.Warning.Render(warningMsg))
 
 		// Ask for confirmation
@@ -232,7 +232,7 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 
 	// Check if this will affect HEAD before deletion
 	if headWarning := checkHeadImpactSimple(target, true); headWarning != "" && !force {
-		warningMsg := fmt.Sprintf("⚠ Warning: %s", headWarning)
+		warningMsg := fmt.Sprintf("Warning: %s", headWarning)
 		fmt.Println(s.Warning.Render(warningMsg))
 		if !askConfirmation() {
 			fmt.Println(s.NoData.Render("Operation cancelled"))
@@ -269,7 +269,7 @@ func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 	// Show confirmation for VM deletion
 	if !force {
 		// Format warning message
-		warningMsg := fmt.Sprintf("⚠ Warning: You are about to delete VM '%s'", target)
+		warningMsg := fmt.Sprintf("Warning: You are about to delete VM '%s'", target)
 		fmt.Println(s.Warning.Render(warningMsg))
 
 		if !askConfirmation() {
@@ -280,7 +280,7 @@ func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 
 	// Check if this will affect HEAD before deletion
 	if headWarning := checkHeadImpactSimple(target, false); headWarning != "" && !force {
-		warningMsg := fmt.Sprintf("⚠ Warning: %s", headWarning)
+		warningMsg := fmt.Sprintf("Warning: %s", headWarning)
 		fmt.Println(s.Warning.Render(warningMsg))
 		if !askConfirmation() {
 			fmt.Println(s.NoData.Render("Operation cancelled"))
