@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -16,12 +15,10 @@ import (
 
 // statusCmd represents the status command
 var statusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   "status [vm-id]",
 	Short: "Get status of clusters or VMs",
-	Long:  `Displays the status of all clusters or details of a specific cluster if specified with -cluster or -c flag.`,
+	Long:  `Displays the status of all clusters by default. Use -c flag for specific cluster details, or provide a VM ID as argument for VM-specific status.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Display current HEAD information
-
 		clusterID, _ := cmd.Flags().GetString("cluster")
 
 		baseCtx := context.Background()
@@ -30,11 +27,14 @@ var statusCmd = &cobra.Command{
 
 		s := styles.NewStatusStyles()
 
+		// Display current HEAD information
+		displayHeadStatus()
+
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
 			fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterID) + "\n")
 
-			// Call the Get cluster endpoint with the cluster ID
+			// Fetch cluster info
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
 			response, err := client.API.Cluster.Get(apiCtx, clusterID)
 			if err != nil {
@@ -42,12 +42,10 @@ var statusCmd = &cobra.Command{
 			}
 			cluster := response.Data
 
-			displayHeadStatus()
-
 			fmt.Println(s.VMListHeader.Render("Cluster details:"))
 			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
-			// Format cluster info similar to the default view
+			// Format cluster info
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
 				s.ClusterName.Render("Cluster: "+cluster.ID),
@@ -80,7 +78,39 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
-		// If no cluster ID provided, list all clusters
+		// If VM ID is provided as argument, show status for that specific VM
+		if len(args) > 0 {
+			vmID := args[0]
+			fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmID) + "\n")
+
+			fmt.Println(s.NoData.Render("Fetching VM information..."))
+			response, err := client.API.Vm.Get(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for VM '%s': %w"), vmID, err)
+			}
+			vm := response.Data
+
+			displayHeadStatus()
+
+			fmt.Println(s.VMListHeader.Render("VM details:"))
+			vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
+
+			vmInfo := fmt.Sprintf(
+				"%s\n%s\n%s",
+				s.ClusterName.Render("VM: "+s.VMID.Render(vm.ID)),
+				s.ClusterData.Render("State: "+string(vm.State)),
+				s.ClusterData.Render("Cluster: "+vm.ClusterID),
+			)
+			vmList.Items(vmInfo)
+			fmt.Println(vmList)
+
+			tip := "\nTip: To view the cluster containing this VM, run: vers status -c " + vm.ClusterID
+			fmt.Println(s.Tip.Render(tip))
+
+			return nil
+		}
+
+		// If no cluster ID or VM ID provided, list all clusters
 		fmt.Println(s.NoData.Render("Fetching list of clusters..."))
 
 		response, err := client.API.Cluster.List(apiCtx)
@@ -93,8 +123,6 @@ var statusCmd = &cobra.Command{
 			fmt.Println(s.NoData.Render("No clusters found."))
 			return nil
 		}
-
-		displayHeadStatus()
 
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
 		clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
@@ -110,7 +138,8 @@ var statusCmd = &cobra.Command{
 		}
 		fmt.Println(clusterList)
 
-		tip := "\nTip: To view the list of VMs in a specific cluster, use: vers status -c <cluster-id>"
+		tip := "\nTip: To view VMs in a specific cluster, use: vers status -c <cluster-id>\n" +
+			"To view a specific VM, use: vers status <vm-id>"
 		fmt.Println(s.Tip.Render(tip))
 
 		return nil
@@ -126,40 +155,42 @@ func displayHeadStatus() error {
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		return fmt.Errorf(s.HeadStatus.Render("HEAD status: Not a vers repository (or run 'vers init' first)"))
+		fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)"))
+		return nil
 	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
 	if err != nil {
-		return fmt.Errorf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%w)\n"), err)
+		fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
+		return nil
 	}
 
-	// Parse the HEAD content
-	headContent := string(bytes.TrimSpace(headData))
+	// HEAD directly contains a VM ID or alias
+	headContent := strings.TrimSpace(string(headData))
 
-	// Check if HEAD is a symbolic ref or direct ref
-	var headStatus string
-	if strings.HasPrefix(headContent, "ref: ") {
-		// It's a symbolic ref, extract the branch name
-		refPath := strings.TrimPrefix(headContent, "ref: ")
-		branchName := strings.TrimPrefix(refPath, "refs/heads/")
+	if headContent == "" {
+		fmt.Println(s.HeadStatus.Render("HEAD status: Empty (create a VM with 'vers run')"))
+		return nil
+	}
 
-		// Read the actual reference file to get VM ID
-		refFile := filepath.Join(versDir, refPath)
-		vmID := "unknown"
+	// Try to get VM details to show alias if available
+	baseCtx := context.Background()
+	apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer cancel()
 
-		if refData, err := os.ReadFile(refFile); err == nil {
-			vmID = string(bytes.TrimSpace(refData))
-		}
-
-		headStatus = fmt.Sprintf(s.HeadStatus.Render("HEAD status: On branch '%s' (VM: %s)"), branchName, vmID)
+	response, err := client.API.Vm.Get(apiCtx, headContent)
+	if err != nil {
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headContent)
 	} else {
-		// HEAD directly contains a VM ID (detached HEAD state)
-		headStatus = fmt.Sprintf("HEAD status: Detached HEAD at VM '%s'", headContent)
+		vm := response.Data
+		displayName := vm.Alias
+		if displayName == "" {
+			displayName = vm.ID
+		}
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), displayName, vm.State)
 	}
-
-	fmt.Println(s.HeadStatus.Render(headStatus))
+	fmt.Println()
 	return nil
 }
 

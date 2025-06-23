@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -30,31 +31,11 @@ func getCurrentHeadVM() (string, error) {
 		return "", fmt.Errorf("error reading HEAD: %w", err)
 	}
 
-	// Parse the HEAD content
-	headContent := string(strings.TrimSpace(string(headData)))
-	var vmID string
-
-	// Check if HEAD is a symbolic ref or direct ref
-	if strings.HasPrefix(headContent, "ref: ") {
-		// It's a symbolic ref, extract the path
-		refPath := strings.TrimPrefix(headContent, "ref: ")
-
-		// Read the actual reference file
-		refFile := filepath.Join(versDir, refPath)
-		refData, err := os.ReadFile(refFile)
-		if err != nil {
-			return "", fmt.Errorf("error reading reference '%s': %w", refPath, err)
-		}
-
-		// Get the VM ID from the reference file
-		vmID = string(strings.TrimSpace(string(refData)))
-	} else {
-		// HEAD directly contains a VM ID
-		vmID = headContent
-	}
+	// HEAD directly contains a VM ID or alias
+	vmID := strings.TrimSpace(string(headData))
 
 	if vmID == "" {
-		return "", fmt.Errorf("could not determine current VM ID from HEAD")
+		return "", fmt.Errorf("HEAD is empty. Create a VM first with 'vers run'")
 	}
 
 	return vmID, nil
@@ -95,7 +76,7 @@ var executeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		vm, nodeIP, err := GetVmAndNodeIP(apiCtx, vmID)
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
@@ -113,9 +94,6 @@ var executeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
-
-		// // Debug info about connection
-		// fmt.Printf(s.HeadStatus.Render("Executing command via SSH on %s (VM %s)\n"), hostIP, vmID)
 
 		// Create the SSH command with the provided command string
 		sshCmd := exec.Command("ssh",

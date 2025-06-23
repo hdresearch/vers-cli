@@ -1,19 +1,28 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
 var tag string
+
+// logCommitEntry represents commit information (shared with log.go)
+type logCommitEntry struct {
+	ID        string
+	Message   string
+	Timestamp int64
+	Tag       string
+	Author    string
+	VMID      string
+	Alias     string
+}
 
 // writeCommitToLogFile writes commit information to a JSON log file
 func writeCommitToLogFile(versDir string, vmID string, commit logCommitEntry) error {
@@ -55,33 +64,27 @@ func writeCommitToLogFile(versDir string, vmID string, commit logCommitEntry) er
 	return nil
 }
 
-// getActiveBranchName gets the current branch name from the HEAD file
-func getActiveBranchName(versDir string) string {
-	headFile := filepath.Join(versDir, "HEAD")
-	headData, err := os.ReadFile(headFile)
-	if err != nil {
-		return ""
-	}
-
-	// Use bytes.TrimSpace to trim the raw bytes, then convert to string
-	headContent := string(bytes.TrimSpace(headData))
-	if strings.HasPrefix(headContent, "ref: refs/heads/") {
-		return strings.TrimPrefix(headContent, "ref: refs/heads/")
-	}
-
-	return ""
-}
-
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
-	Use:   "commit",
+	Use:   "commit [vm-id]",
 	Short: "Commit the current state of the environment",
-	Long:  `Save the current state of the Vers environment as a commit.`,
+	Long:  `Save the current state of the Vers environment as a commit. If no VM ID is provided, commits the current HEAD VM.`,
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Get the current HEAD VM ID
-		vmID, err := getCurrentHeadVM()
-		if err != nil {
-			return fmt.Errorf("failed to get current VM: %w", err)
+		var vmID string
+		var err error
+
+		// Check if VM ID was provided as an argument
+		if len(args) > 0 {
+			vmID = args[0]
+			fmt.Printf("Using provided VM ID: %s\n", vmID)
+		} else {
+			// Get the current HEAD VM ID
+			vmID, err = getCurrentHeadVM()
+			if err != nil {
+				return fmt.Errorf("failed to get current VM: %w", err)
+			}
+			fmt.Printf("Using current HEAD VM: %s\n", vmID)
 		}
 
 		fmt.Printf("Creating commit for VM '%s'\n", vmID)
@@ -93,6 +96,13 @@ var commitCmd = &cobra.Command{
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
+
+		// Get VM details for alias information
+		vmResponse, err := client.API.Vm.Get(apiCtx, vmID)
+		if err != nil {
+			return fmt.Errorf("failed to get VM details: %w", err)
+		}
+		vm := vmResponse.Data
 
 		// Call the SDK to commit the VM state
 		fmt.Println("Creating commit...")
@@ -108,22 +118,20 @@ var commitCmd = &cobra.Command{
 		// Store commit information in .vers directory
 		versDir := ".vers"
 		if _, err := os.Stat(versDir); !os.IsNotExist(err) {
-			// Get current branch name
-			branchName := getActiveBranchName(versDir)
-
 			// Create commit info
 			commitInfo := logCommitEntry{
 				ID:        commitResult.ID,
+				Message:   fmt.Sprintf("Commit %s", commitResult.ID),
 				Timestamp: time.Now().Unix(),
 				Tag:       tag,
 				Author:    "user", // Could be improved to use actual user info
 				VMID:      vmID,
-				Branch:    branchName,
+				Alias:     vm.Alias,
 			}
 
 			// Save commit info
 			if err := writeCommitToLogFile(versDir, vmID, commitInfo); err != nil {
-				return fmt.Errorf("Warning: Failed to store commit information: %w\n", err)
+				fmt.Printf("Warning: Failed to store commit information: %v\n", err)
 			}
 		}
 
