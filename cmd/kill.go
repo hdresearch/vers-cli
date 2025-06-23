@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
@@ -130,22 +131,12 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 			continue
 		}
 
-		// Check for partial failures
-		if len(result.Data.Vms.Errors) > 0 || result.Data.FsError != "" {
+		// Check for partial failures using util file
+		if errorSummary := utils.GetClusterDeleteErrorSummary(result); errorSummary != "" {
 			failCount++
-			errorDetails := []string{}
-
-			if result.Data.FsError != "" {
-				errorDetails = append(errorDetails, result.Data.FsError)
-			}
-
-			for _, vmError := range result.Data.Vms.Errors {
-				errorDetails = append(errorDetails, fmt.Sprintf("%s: %s", vmError.ID, vmError.Error))
-			}
-
-			errorMsg := fmt.Sprintf("Cluster '%s' partially failed: %s", displayName, strings.Join(errorDetails, "; "))
+			errorMsg := fmt.Sprintf("Cluster '%s' partially failed: %s", displayName, errorSummary)
 			errors = append(errors, errorMsg)
-			fmt.Printf(s.Warning.Render("  ⚠️  Partially failed: %s\n"), strings.Join(errorDetails, "; "))
+			fmt.Printf(s.Warning.Render("  ⚠️  Partially failed: %s\n"), errorSummary)
 		} else {
 			successCount++
 			fmt.Print(s.Success.Render("  ✓ Deleted successfully\n"))
@@ -220,19 +211,9 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 		return fmt.Errorf(s.Error.Render("failed to delete cluster: %w"), err)
 	}
 
-	// Enhanced error reporting from main branch
-	if len(result.Data.Vms.Errors) > 0 || result.Data.FsError != "" {
-		fmt.Println(s.Warning.Render("Some resources failed to delete:"))
-
-		// Print FS error if exists
-		if result.Data.FsError != "" {
-			fmt.Printf(s.Warning.Render("  • %s\n"), result.Data.FsError)
-		}
-
-		// Print VM errors
-		for _, error := range result.Data.Vms.Errors {
-			fmt.Printf(s.Warning.Render("  • %s: %s\n"), error.ID, error.Error)
-		}
+	// Handle errors using utility
+	if utils.HandleClusterDeleteErrors(result, s) {
+		// Errors were printed by the utility
 	} else {
 		fmt.Printf(s.Success.Render("✓ Cluster '%s' deleted successfully\n"), result.Data.ClusterID)
 	}
@@ -279,12 +260,9 @@ func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 		return fmt.Errorf(s.Error.Render("failed to delete VM: %w"), err)
 	}
 
-	// Enhanced error reporting from main branch
-	if len(result.Data.Errors) > 0 {
-		fmt.Println(s.Warning.Render("One or more VMs failed to delete:"))
-		for _, error := range result.Data.Errors {
-			fmt.Printf(s.Warning.Render("  • %s: %s\n"), error.ID, error.Error)
-		}
+	// Handle errors using utility
+	if utils.HandleVmDeleteErrors(result, s) {
+		// Errors were printed by the utility
 	} else {
 		fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), target)
 	}
