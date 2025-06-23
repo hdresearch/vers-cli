@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -84,22 +85,35 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 
 	// Show warning about what will be deleted
 	if !force {
-		fmt.Printf(s.Warning.Render("⚠️  DANGER: You are about to delete ALL %d clusters and their VMs:\n\n"), len(clusters))
+		// Format the header message first, then render and print
+		headerMsg := fmt.Sprintf("⚠️  DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusters))
+		fmt.Println(s.Warning.Render(headerMsg))
+		fmt.Println() // Empty line for spacing
 
 		for i, cluster := range clusters {
 			displayName := cluster.Alias
 			if displayName == "" {
 				displayName = cluster.ID
 			}
-			fmt.Printf(s.Warning.Render("  %d. Cluster '%s' (%d VMs)\n"), i+1, displayName, cluster.VmCount)
+			// Format the list item, then render and print
+			listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, displayName, cluster.VmCount)
+			fmt.Println(s.Warning.Render(listItem))
 		}
 
-		fmt.Print(s.Warning.Render("\n⚠️  This action is IRREVERSIBLE and will delete ALL your data!\n"))
+		fmt.Println() // Empty line for spacing
+		fmt.Println(s.Warning.Render("⚠️  This action is IRREVERSIBLE and will delete ALL your data!"))
+		fmt.Println()
 
 		// Ask for explicit confirmation
-		fmt.Print(s.Warning.Render("Type 'DELETE ALL' to confirm: "))
-		var input string
-		fmt.Scanln(&input)
+		fmt.Printf(s.Warning.Render("Type 'DELETE ALL' to confirm: "))
+
+		reader := bufio.NewReader(os.Stdin)
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println(s.NoData.Render("Error reading input"))
+			return nil
+		}
+		input = strings.TrimSpace(input)
 
 		if input != "DELETE ALL" {
 			fmt.Println(s.NoData.Render("Operation cancelled - input did not match 'DELETE ALL'"))
@@ -107,7 +121,9 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 		}
 	}
 
-	fmt.Printf(s.Progress.Render("Deleting %d clusters...\n"), len(clusters))
+	// Format progress message, then render and print
+	progressMsg := fmt.Sprintf("Deleting %d clusters...", len(clusters))
+	fmt.Println(s.Progress.Render(progressMsg))
 
 	// Track results
 	var successCount, failCount int
@@ -120,14 +136,19 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 			displayName = cluster.ID
 		}
 
-		fmt.Printf(s.Progress.Render("[%d/%d] Deleting cluster '%s'...\n"), i+1, len(clusters), displayName)
+		// Format progress message for each cluster
+		clusterProgressMsg := fmt.Sprintf("[%d/%d] Deleting cluster '%s'...", i+1, len(clusters), displayName)
+		fmt.Println(s.Progress.Render(clusterProgressMsg))
 
 		result, err := client.API.Cluster.Delete(ctx, cluster.ID)
 		if err != nil {
 			failCount++
 			errorMsg := fmt.Sprintf("Cluster '%s': %v", displayName, err)
 			errors = append(errors, errorMsg)
-			fmt.Printf(s.Error.Render("  ❌ Failed: %s\n"), err)
+
+			// Format error message, then render and print
+			failMsg := fmt.Sprintf("  ❌ Failed: %s", err)
+			fmt.Println(s.Error.Render(failMsg))
 			continue
 		}
 
@@ -136,36 +157,50 @@ func deleteAllClusters(ctx context.Context, s *styles.KillStyles) error {
 			failCount++
 			errorMsg := fmt.Sprintf("Cluster '%s' partially failed: %s", displayName, errorSummary)
 			errors = append(errors, errorMsg)
-			fmt.Printf(s.Warning.Render("  ⚠️  Partially failed: %s\n"), errorSummary)
+
+			// Format partial failure message
+			partialFailMsg := fmt.Sprintf("  ⚠️  Partially failed: %s", errorSummary)
+			fmt.Println(s.Warning.Render(partialFailMsg))
 		} else {
 			successCount++
-			fmt.Print(s.Success.Render("  ✓ Deleted successfully\n"))
+			fmt.Println(s.Success.Render("  ✓ Deleted successfully"))
 		}
 	}
 
 	// Summary
-	fmt.Print(s.Progress.Render("\n=== Deletion Summary ===\n"))
-	fmt.Printf(s.Success.Render("✓ Successfully deleted: %d clusters\n"), successCount)
+	fmt.Println()
+	fmt.Println(s.Progress.Render("=== Deletion Summary ==="))
+
+	// Format success count message
+	successMsg := fmt.Sprintf("✓ Successfully deleted: %d clusters", successCount)
+	fmt.Println(s.Success.Render(successMsg))
 
 	if failCount > 0 {
-		fmt.Printf(s.Error.Render("❌ Failed to delete: %d clusters\n"), failCount)
-		fmt.Print(s.Warning.Render("\nError details:\n"))
+		// Format failure count message
+		failMsg := fmt.Sprintf("❌ Failed to delete: %d clusters", failCount)
+		fmt.Println(s.Error.Render(failMsg))
+
+		fmt.Println()
+		fmt.Println(s.Warning.Render("Error details:"))
 		for _, error := range errors {
-			fmt.Printf(s.Warning.Render("  • %s\n"), error)
+			errorDetail := fmt.Sprintf("  • %s", error)
+			fmt.Println(s.Warning.Render(errorDetail))
 		}
 	}
 
 	// Clean up HEAD since we deleted everything
 	if successCount > 0 {
 		cleanupHeadAfterDeletion()
-		fmt.Print(s.NoData.Render("\nHEAD cleared (all clusters deleted)\n"))
+		fmt.Println()
+		fmt.Println(s.NoData.Render("HEAD cleared (all clusters deleted)"))
 	}
 
 	if failCount > 0 {
 		return fmt.Errorf("some clusters failed to delete - see details above")
 	}
 
-	fmt.Print(s.Success.Render("\n🎉 All clusters deleted successfully!\n"))
+	fmt.Println()
+	fmt.Println(s.Success.Render("🎉 All clusters deleted successfully!"))
 	return nil
 }
 
@@ -184,8 +219,9 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 			displayName = cluster.ID
 		}
 
-		fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete cluster '%s' containing %d VMs\n"),
-			displayName, cluster.VmCount)
+		// Format warning message, then render and print
+		warningMsg := fmt.Sprintf("⚠ Warning: You are about to delete cluster '%s' containing %d VMs", displayName, cluster.VmCount)
+		fmt.Println(s.Warning.Render(warningMsg))
 
 		// Ask for confirmation
 		if !askConfirmation() {
@@ -196,14 +232,17 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 
 	// Check if this will affect HEAD before deletion
 	if headWarning := checkHeadImpactSimple(target, true); headWarning != "" && !force {
-		fmt.Printf(s.Warning.Render("⚠ Warning: %s\n"), headWarning)
+		warningMsg := fmt.Sprintf("⚠ Warning: %s", headWarning)
+		fmt.Println(s.Warning.Render(warningMsg))
 		if !askConfirmation() {
 			fmt.Println(s.NoData.Render("Operation cancelled"))
 			return nil
 		}
 	}
 
-	fmt.Printf(s.Progress.Render("Deleting cluster '%s'...\n"), target)
+	// Format deletion progress message
+	deletionMsg := fmt.Sprintf("Deleting cluster '%s'...", target)
+	fmt.Println(s.Progress.Render(deletionMsg))
 
 	// Use the improved API call with detailed error handling from main branch
 	result, err := client.API.Cluster.Delete(ctx, target)
@@ -215,10 +254,12 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 	if utils.HandleClusterDeleteErrors(result, s) {
 		// Errors were printed by the utility
 	} else {
-		fmt.Printf(s.Success.Render("✓ Cluster '%s' deleted successfully\n"), result.Data.ClusterID)
+		// Format success message
+		successMsg := fmt.Sprintf("✓ Cluster '%s' deleted successfully", result.Data.ClusterID)
+		fmt.Println(s.Success.Render(successMsg))
 	}
 
-	// Clean up HEAD if it was pointing to a VM in this cluster (your simplified approach)
+	// Clean up HEAD if it was pointing to a VM in this cluster
 	cleanupHeadAfterDeletion()
 
 	return nil
@@ -227,7 +268,9 @@ func deleteCluster(ctx context.Context, target string, s *styles.KillStyles) err
 func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 	// Show confirmation for VM deletion
 	if !force {
-		fmt.Printf(s.Warning.Render("⚠ Warning: You are about to delete VM '%s'\n"), target)
+		// Format warning message
+		warningMsg := fmt.Sprintf("⚠ Warning: You are about to delete VM '%s'", target)
+		fmt.Println(s.Warning.Render(warningMsg))
 
 		if !askConfirmation() {
 			fmt.Println(s.NoData.Render("Operation cancelled"))
@@ -237,18 +280,22 @@ func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 
 	// Check if this will affect HEAD before deletion
 	if headWarning := checkHeadImpactSimple(target, false); headWarning != "" && !force {
-		fmt.Printf(s.Warning.Render("⚠ Warning: %s\n"), headWarning)
+		warningMsg := fmt.Sprintf("⚠ Warning: %s", headWarning)
+		fmt.Println(s.Warning.Render(warningMsg))
 		if !askConfirmation() {
 			fmt.Println(s.NoData.Render("Operation cancelled"))
 			return nil
 		}
 	}
 
+	// Format deletion message based on force flag
+	var deletionMsg string
 	if force {
-		fmt.Printf(s.Progress.Render("Force deleting VM '%s'...\n"), target)
+		deletionMsg = fmt.Sprintf("Force deleting VM '%s'...", target)
 	} else {
-		fmt.Printf(s.Progress.Render("Deleting VM '%s'...\n"), target)
+		deletionMsg = fmt.Sprintf("Deleting VM '%s'...", target)
 	}
+	fmt.Println(s.Progress.Render(deletionMsg))
 
 	deleteParams := vers.APIVmDeleteParams{
 		Recursive: vers.F(force),
@@ -264,16 +311,18 @@ func deleteVM(ctx context.Context, target string, s *styles.KillStyles) error {
 	if utils.HandleVmDeleteErrors(result, s) {
 		// Errors were printed by the utility
 	} else {
-		fmt.Printf(s.Success.Render("✓ VM '%s' deleted successfully\n"), target)
+		// Format success message
+		successMsg := fmt.Sprintf("✓ VM '%s' deleted successfully", target)
+		fmt.Println(s.Success.Render(successMsg))
 	}
 
-	// Clean up HEAD if it was pointing to this VM (your simplified approach)
+	// Clean up HEAD if it was pointing to this VM
 	cleanupHeadAfterDeletion()
 
 	return nil
 }
 
-// checkHeadImpactSimple checks if deletion will affect HEAD (your simplified approach)
+// checkHeadImpactSimple checks if deletion will affect HEAD
 func checkHeadImpactSimple(target string, isCluster bool) string {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
@@ -312,7 +361,7 @@ func checkHeadImpactSimple(target string, isCluster bool) string {
 	return ""
 }
 
-// cleanupHeadAfterDeletion clears HEAD if the VM it points to no longer exists (your simplified approach)
+// cleanupHeadAfterDeletion clears HEAD if the VM it points to no longer exists
 func cleanupHeadAfterDeletion() {
 	versDir := ".vers"
 	headFile := filepath.Join(versDir, "HEAD")
@@ -336,14 +385,20 @@ func cleanupHeadAfterDeletion() {
 	if err != nil {
 		// VM no longer exists, clear HEAD
 		os.WriteFile(headFile, []byte(""), 0644)
-		fmt.Printf("HEAD cleared (VM no longer exists)\n")
+		fmt.Println("HEAD cleared (VM no longer exists)")
 	}
 }
 
 func askConfirmation() bool {
-	fmt.Print("Are you sure you want to proceed? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
+	fmt.Printf("Are you sure you want to proceed? [y/N]: ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	input = strings.TrimSpace(input)
+
 	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
 }
 
