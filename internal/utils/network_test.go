@@ -1,12 +1,16 @@
 package utils
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-sdk-go"
 )
 
 // Mock server setup helpers
@@ -31,38 +35,73 @@ func setupMockServer(tb testing.TB, nodeIP string, statusCode int) *httptest.Ser
 		}
 
 		w.WriteHeader(statusCode)
-		w.Write([]byte(`{"data": {"id": "test-vm", "state": "Running"}}`))
+		// Return proper VM response structure
+		w.Write([]byte(`{
+			"data": {
+				"id": "test-vm-123",
+				"state": "Running",
+				"network_info": {
+					"ssh_port": 22
+				}
+			}
+		}`))
 	}))
 }
 
-func TestGetNodeIPForVM_Success(t *testing.T) {
+// setupTestEnvironment sets up a clean test environment
+func setupTestEnvironment(serverURL string) (restore func()) {
+	// Save original environment
+	originalVals := map[string]string{
+		"VERS_URL":      os.Getenv("VERS_URL"),
+		"VERS_API_KEY":  os.Getenv("VERS_API_KEY"),
+		"VERS_BASE_URL": os.Getenv("VERS_BASE_URL"),
+	}
+
+	// Set test environment
+	os.Setenv("VERS_URL", serverURL)
+	os.Setenv("VERS_API_KEY", "test-api-key")
+	os.Setenv("VERS_BASE_URL", serverURL)
+
+	return func() {
+		for key, val := range originalVals {
+			if val != "" {
+				os.Setenv(key, val)
+			} else {
+				os.Unsetenv(key)
+			}
+		}
+	}
+}
+
+// setupTestClient creates a test client using the auth package (which respects env vars)
+func setupTestClient() (*vers.Client, error) {
+	clientOptions, err := auth.GetClientOptions()
+	if err != nil {
+		return vers.NewClient(), nil
+	}
+	return vers.NewClient(clientOptions...), nil
+}
+
+func TestGetVmAndNodeIP_Success(t *testing.T) {
 	// Setup mock server with valid node IP
 	expectedIP := "192.168.1.100"
 	server := setupMockServer(t, expectedIP, http.StatusOK)
 	defer server.Close()
 
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Set test environment variables
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("VERS_API_KEY", "test-api-key")
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
 
 	// Test the function
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 
 	// Assertions
 	if err != nil {
@@ -71,112 +110,99 @@ func TestGetNodeIPForVM_Success(t *testing.T) {
 	if nodeIP != expectedIP {
 		t.Errorf("Expected node IP %s, got %s", expectedIP, nodeIP)
 	}
+	if vm.ID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
+	}
+	if vm.State != "Running" {
+		t.Errorf("Expected VM state Running, got %s", vm.State)
+	}
 }
 
-func TestGetNodeIPForVM_NoNodeIPHeader(t *testing.T) {
+func TestGetVmAndNodeIP_NoNodeIPHeader(t *testing.T) {
 	// Setup mock server without node IP header
 	server := setupMockServer(t, "", http.StatusOK)
 	defer server.Close()
 
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Set test environment variables
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("VERS_API_KEY", "test-api-key")
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
 
 	// Test the function
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 
-	// Assertions
-	if err == nil {
-		t.Fatal("Expected error when no node IP header is present")
+	// Assertions - should succeed with fallback IP
+	if err != nil {
+		t.Fatalf("Expected no error with fallback, got: %v", err)
 	}
-	if nodeIP != "" {
-		t.Errorf("Expected empty node IP, got %s", nodeIP)
+	if nodeIP == "" {
+		t.Error("Expected fallback node IP, got empty string")
 	}
-	if !strings.Contains(err.Error(), "no node IP found in response headers") {
-		t.Errorf("Expected specific error message, got: %v", err)
+	if vm.ID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
 	}
+	// Should use fallback host from auth.GetVersUrlHost()
+	t.Logf("Fallback node IP used: %s", nodeIP)
 }
 
-func TestGetNodeIPForVM_UnknownNodeIP(t *testing.T) {
+func TestGetVmAndNodeIP_UnknownNodeIP(t *testing.T) {
 	// Setup mock server with "unknown" node IP
 	server := setupMockServer(t, "unknown", http.StatusOK)
 	defer server.Close()
 
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Set test environment variables
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("VERS_API_KEY", "test-api-key")
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
 
 	// Test the function
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 
-	// Assertions
-	if err == nil {
-		t.Fatal("Expected error when node IP is 'unknown'")
+	// Assertions - should succeed with fallback IP since "unknown" is treated as empty
+	if err != nil {
+		t.Fatalf("Expected no error with fallback, got: %v", err)
 	}
-	if nodeIP != "" {
-		t.Errorf("Expected empty node IP, got %s", nodeIP)
+	if nodeIP == "" {
+		t.Error("Expected fallback node IP, got empty string")
+	}
+	if vm.ID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
 	}
 }
 
-func TestGetNodeIPForVM_HTTPError(t *testing.T) {
+func TestGetVmAndNodeIP_HTTPError(t *testing.T) {
 	// Setup mock server that returns error
 	server := setupMockServer(t, "", http.StatusInternalServerError)
 	defer server.Close()
 
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Set test environment variables
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("VERS_API_KEY", "test-api-key")
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
 
 	// Test the function
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 
 	// Assertions
 	if err == nil {
@@ -185,146 +211,84 @@ func TestGetNodeIPForVM_HTTPError(t *testing.T) {
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
+	if vm.ID != "" {
+		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
+	}
 }
 
-func TestGetNodeIPForVM_NoAPIKey(t *testing.T) {
-	// Setup mock server that checks for proper authorization
+func TestGetVmAndNodeIP_InvalidJSON(t *testing.T) {
+	// Setup mock server that returns invalid JSON
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify the request has proper authorization
 		authHeader := r.Header.Get("Authorization")
-
-		// Check if auth header is missing, empty, or has no token after "Bearer"
-		if authHeader == "" || authHeader == "Bearer" || authHeader == "Bearer " {
-			// Return unauthorized for empty or malformed auth
+		if !strings.HasPrefix(authHeader, "Bearer ") {
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error": "unauthorized"}`))
 			return
 		}
 
 		w.Header().Set("X-Node-IP", "192.168.1.100")
 		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`invalid json response`))
 	}))
 	defer server.Close()
 
-	// Set up test environment without API key
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalHome := os.Getenv("HOME")
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Create a temporary home directory to isolate config file
-	tmpDir := t.TempDir()
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
 
-	defer func() {
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalHome != "" {
-			os.Setenv("HOME", originalHome)
-		} else {
-			os.Unsetenv("HOME")
-		}
-	}()
-
-	// Remove API key, set test URL, and isolate config with temp home
-	os.Unsetenv("VERS_API_KEY")
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("HOME", tmpDir) // This will make auth.GetAPIKey look for config in empty temp dir
+	ctx := context.Background()
 
 	// Test the function
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 
-	// Assertions - should succeed with empty API key but fail at HTTP level due to authorization
+	// Assertions
 	if err == nil {
-		t.Fatal("Expected error when no API key is available (should fail at HTTP level)")
+		t.Fatal("Expected error when response contains invalid JSON")
+	}
+	if !strings.Contains(err.Error(), "failed to decode VM response") {
+		t.Errorf("Expected JSON decode error, got: %v", err)
 	}
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
-	// The error should be about the HTTP request failing (401 Unauthorized)
-	if !strings.Contains(err.Error(), "no node IP found in response headers") {
-		t.Errorf("Expected node IP header error due to 401 response, got: %v", err)
+	if vm.ID != "" {
+		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
 	}
 }
 
-func TestGetNodeIPForVM_ProductionURL(t *testing.T) {
-	// Test with production URL format (should use HTTPS)
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Node-IP", "10.0.0.1")
+func TestGetVmAndNodeIP_ContextTimeout(t *testing.T) {
+	// Setup a server that delays response beyond timeout
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Delay longer than our context timeout
+		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"data": {"id": "test-vm"}}`))
 	}))
 	defer server.Close()
 
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Set production-like environment
-	os.Setenv("VERS_URL", "api.vers.sh")
-	os.Setenv("VERS_API_KEY", "test-api-key")
-
-	// Note: This test will fail in real scenarios because we can't easily mock
-	// the production endpoint, but it demonstrates the test structure
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
-
-	// We expect this to fail in test environment, but we can check error handling
-	if err != nil && !strings.Contains(err.Error(), "failed to make request") {
-		t.Logf("Expected request error in test environment: %v", err)
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
 	}
-	_ = nodeIP // Just to use the variable
-}
 
-func TestGetNodeIPForVM_RequestTimeout(t *testing.T) {
-	// Setup a server that delays response beyond timeout
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Delay longer than our timeout
-		time.Sleep(35 * time.Second)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
-
-	// Set test environment variables
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("VERS_API_KEY", "test-api-key")
+	// Create context with short timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 
 	// Test the function
 	start := time.Now()
-	nodeIP, err := GetNodeIPForVM("test-vm-id")
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 	duration := time.Since(start)
 
 	// Assertions
@@ -334,43 +298,150 @@ func TestGetNodeIPForVM_RequestTimeout(t *testing.T) {
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
-	if duration > 35*time.Second {
-		t.Error("Request should have timed out before 35 seconds")
+	if vm.ID != "" {
+		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
 	}
-	if !strings.Contains(err.Error(), "failed to make request") {
-		t.Errorf("Expected request error, got: %v", err)
+	if duration > 1*time.Second {
+		t.Error("Request should have timed out quickly")
+	}
+}
+
+func TestGetVmAndNodeIP_FallbackBehavior(t *testing.T) {
+	// Setup mock server without node IP header to test fallback
+	server := setupMockServer(t, "", http.StatusOK)
+	defer server.Close()
+
+	// Setup test environment with debug mode
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
+
+	// Enable debug mode
+	originalDebug := os.Getenv("VERS_DEBUG")
+	os.Setenv("VERS_DEBUG", "true")
+	defer func() {
+		if originalDebug != "" {
+			os.Setenv("VERS_DEBUG", originalDebug)
+		} else {
+			os.Unsetenv("VERS_DEBUG")
+		}
+	}()
+
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test the function
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
+
+	// Assertions
+	if err != nil {
+		t.Fatalf("Expected no error with fallback, got: %v", err)
+	}
+	if nodeIP == "" {
+		t.Error("Expected fallback node IP, got empty string")
+	}
+	if vm.ID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
+	}
+	// In debug mode, a debug message should be printed
+	t.Logf("Fallback node IP used: %s", nodeIP)
+}
+
+func TestGetVmAndNodeIP_AuthFailure(t *testing.T) {
+	// Setup mock server that checks for proper authorization
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Always return unauthorized
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error": "unauthorized"}`))
+	}))
+	defer server.Close()
+
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
+
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test the function
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
+
+	// Assertions
+	if err == nil {
+		t.Fatal("Expected error when authentication fails")
+	}
+	if nodeIP != "" {
+		t.Errorf("Expected empty node IP, got %s", nodeIP)
+	}
+	if vm.ID != "" {
+		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
+	}
+}
+
+// Integration test with real API (only runs when explicitly requested)
+func TestGetVmAndNodeIP_Integration(t *testing.T) {
+	// Skip if we're in short test mode
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	// Check if we have real authentication
+	hasAPIKey, err := auth.HasAPIKey()
+	if err != nil || !hasAPIKey {
+		t.Skip("Skipping integration test: No API key available")
+	}
+
+	// Use real configuration
+	clientOptions, err := auth.GetClientOptions()
+	if err != nil {
+		t.Fatalf("Failed to get client options: %v", err)
+	}
+
+	client := vers.NewClient(clientOptions...)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Try with a non-existent VM ID - we expect this to fail gracefully
+	_, _, err = GetVmAndNodeIP(ctx, client, "nonexistent-vm-id-12345")
+
+	// We expect an error (VM not found), but not a panic or crash
+	if err == nil {
+		t.Log("Unexpected success with nonexistent VM ID")
+	} else {
+		t.Logf("Expected error with nonexistent VM: %v", err)
 	}
 }
 
 // Benchmark test
-func BenchmarkGetNodeIPForVM(b *testing.B) {
+func BenchmarkGetVmAndNodeIP(b *testing.B) {
 	// Setup mock server
 	server := setupMockServer(b, "192.168.1.100", http.StatusOK)
 	defer server.Close()
 
-	// Set up test environment
-	originalVersUrl := os.Getenv("VERS_URL")
-	originalApiKey := os.Getenv("VERS_API_KEY")
-	defer func() {
-		if originalVersUrl != "" {
-			os.Setenv("VERS_URL", originalVersUrl)
-		} else {
-			os.Unsetenv("VERS_URL")
-		}
-		if originalApiKey != "" {
-			os.Setenv("VERS_API_KEY", originalApiKey)
-		} else {
-			os.Unsetenv("VERS_API_KEY")
-		}
-	}()
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
 
-	// Set test environment variables
-	os.Setenv("VERS_URL", server.URL)
-	os.Setenv("VERS_API_KEY", "test-api-key")
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		b.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := GetNodeIPForVM("test-vm-id")
+		_, _, err := GetVmAndNodeIP(ctx, client, "test-vm-123")
 		if err != nil {
 			b.Fatalf("Benchmark failed: %v", err)
 		}
