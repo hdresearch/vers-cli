@@ -29,20 +29,6 @@ func AskConfirmation(prompt ...string) bool {
 	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
 }
 
-// AskStyledConfirmation asks for y/N confirmation with styled prompt
-func AskStyledConfirmation(prompt string, s *styles.KillStyles) bool {
-	fmt.Printf(s.Warning.Render(prompt + " [y/N]: "))
-
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-	input = strings.TrimSpace(input)
-
-	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
-}
-
 // AskSpecialConfirmation asks for an exact text match confirmation
 func AskSpecialConfirmation(requiredText string, s *styles.KillStyles) bool {
 	prompt := fmt.Sprintf("Type '%s' to confirm: ", requiredText)
