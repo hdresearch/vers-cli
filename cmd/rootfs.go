@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -54,15 +56,15 @@ var rootfsDeleteCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rootfsName := args[0]
+		s := styles.NewKillStyles() // Reuse kill styles for consistency
 
 		// Confirm deletion if not forced
 		force, _ := cmd.Flags().GetBool("force")
 		if !force {
-			fmt.Printf("Are you sure you want to delete rootfs '%s'? This action cannot be undone. (y/n): ", rootfsName)
-			var response string
-			fmt.Scanln(&response)
-			if response != "y" && response != "Y" {
-				fmt.Println("Deletion cancelled.")
+			// Use the shared confirmation utility with custom message
+			msg := fmt.Sprintf("Are you sure you want to delete rootfs '%s'? This action cannot be undone.", rootfsName)
+			if !utils.AskStyledConfirmation(msg, &s) {
+				utils.OperationCancelled(&s)
 				return nil
 			}
 		}
@@ -71,14 +73,19 @@ var rootfsDeleteCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		fmt.Printf("Deleting rootfs '%s'...\n", rootfsName)
+		// Show progress message
+		utils.ProgressCounter(1, 1, "Deleting rootfs", rootfsName, &s)
+
 		response, err := client.API.Rootfs.Delete(apiCtx, rootfsName)
 		if err != nil {
 			return fmt.Errorf("failed to delete rootfs '%s': %w", rootfsName, err)
 		}
 		data := response.Data
 
-		fmt.Printf("Successfully deleted rootfs '%s'.\n", data.RootfsName)
+		// Show success message
+		successMsg := fmt.Sprintf("Successfully deleted rootfs '%s'", data.RootfsName)
+		utils.SuccessMessage(successMsg, &s)
+
 		return nil
 	},
 }

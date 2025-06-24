@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ var pauseCmd = &cobra.Command{
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
 			var err error
-			vmID, err = getCurrentHeadVM()
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
@@ -37,7 +38,8 @@ var pauseCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		fmt.Printf(s.Progress.Render("Pausing VM '%s'...\n"), vmID)
+		// Use utils for progress message
+		utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
 
 		// Create pause request using SDK
 		updateParams := vers.APIVmUpdateParams{
@@ -52,7 +54,10 @@ var pauseCmd = &cobra.Command{
 			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), vmID, err)
 		}
 
-		fmt.Printf(s.Success.Render("✓ VM '%s' paused successfully\n"), response.Data.ID)
+		// Use utils for success message
+		successMsg := fmt.Sprintf("VM '%s' paused successfully", response.Data.ID)
+		utils.SuccessMessage(successMsg, &s)
+
 		fmt.Printf(s.HeadStatus.Render("VM state: %s\n"), response.Data.State)
 		return nil
 	},

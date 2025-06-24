@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -112,7 +113,7 @@ var logCmd = &cobra.Command{
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
 			var err error
-			vmID, err = getCurrentHeadVM()
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}

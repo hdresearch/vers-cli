@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -95,12 +96,9 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Confirm upgrade
-	fmt.Printf("\nUpgrade from %s to %s? [y/N]: ", Version, latest.TagName)
-	var response string
-	fmt.Scanln(&response)
-
-	if strings.ToLower(response) != "y" && strings.ToLower(response) != "yes" {
+	// Confirm upgrade using shared confirmation utility
+	fmt.Printf("\nUpgrade from %s to %s?\n", Version, latest.TagName)
+	if !confirmation.AskConfirmation() {
 		fmt.Println("Upgrade cancelled.")
 		return nil
 	}

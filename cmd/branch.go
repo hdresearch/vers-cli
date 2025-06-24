@@ -3,10 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
@@ -22,16 +21,19 @@ var branchCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmName string
-		s := styles.NewBranchStyles()
+		// Use KillStyles for consistency with other commands
+		s := styles.NewKillStyles()
+		// Keep BranchStyles for the specific formatting we need
+		branchS := styles.NewBranchStyles()
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
 			var err error
-			vmName, err = getCurrentHeadVM()
+			vmName, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmName) + "\n")
+			fmt.Printf(branchS.Tip.Render("Using current HEAD VM: ") + branchS.VMID.Render(vmName) + "\n")
 		} else {
 			vmName = args[0]
 		}
@@ -40,7 +42,8 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		fmt.Println(s.Progress.Render("Creating new VM from: " + vmName))
+		// Use utils for progress message
+		utils.ProgressCounter(1, 1, "Creating new VM from", vmName, &s)
 
 		body := vers.APIVmBranchParams{
 			VmBranchParams: vers.VmBranchParams{},
@@ -55,34 +58,32 @@ var branchCmd = &cobra.Command{
 		}
 		branchInfo := response.Data
 
-		// Success message
-		fmt.Printf(s.Success.Render("✓ New VM created successfully!") + "\n")
+		// Use utils for success message
+		utils.SuccessMessage("New VM created successfully!", &s)
 
-		// VM details
-		fmt.Printf(s.ListHeader.Render("New VM details:") + "\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(branchInfo.ID)) + "\n")
+		// VM details - keep the nice formatting from BranchStyles
+		fmt.Printf(branchS.ListHeader.Render("New VM details:") + "\n")
+		fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("VM ID")+": "+branchS.VMID.Render(branchInfo.ID)) + "\n")
 
 		if branchInfo.Alias != "" {
-			fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(branchInfo.Alias)) + "\n")
+			fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("Alias")+": "+branchS.BranchName.Render(branchInfo.Alias)) + "\n")
 		}
 
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress)) + "\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
+		fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("IP Address")+": "+branchS.CurrentState.Render(branchInfo.IPAddress)) + "\n")
+		fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("State")+": "+branchS.CurrentState.Render(string(branchInfo.State))) + "\n\n")
 
 		// Check if user wants to switch to the new VM
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
-			versDir := ".vers"
-			headFile := filepath.Join(versDir, "HEAD")
-
 			target := branchInfo.ID
 			if branchInfo.Alias != "" {
 				target = branchInfo.Alias
 			}
 
-			if err := os.WriteFile(headFile, []byte(target+"\n"), 0644); err != nil {
-				fmt.Printf(s.Warning.Render("⚠ Warning: Failed to update HEAD: %v\n"), err)
+			// Use utils for HEAD management
+			if err := utils.SetHead(target); err != nil {
+				utils.WarningMessage(fmt.Sprintf("Failed to update HEAD: %v", err), &s)
 			} else {
-				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(target) + "\n")
+				fmt.Printf(branchS.Success.Render("✓ HEAD now points to: ") + branchS.BranchName.Render(target) + "\n")
 			}
 		} else {
 			// Show tip about switching
@@ -90,8 +91,8 @@ var branchCmd = &cobra.Command{
 			if switchTarget == "" {
 				switchTarget = branchInfo.ID
 			}
-			fmt.Printf(s.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
-			fmt.Printf(s.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
+			fmt.Printf(branchS.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
+			fmt.Printf(branchS.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
 		}
 
 		return nil

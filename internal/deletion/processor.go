@@ -218,7 +218,7 @@ func (p *Processor) confirmHeadImpact(targets []Target) bool {
 		}
 	}
 
-	if !p.checkBatchImpact(context.Background(), vmIDs, clusterIDs) {
+	if !p.checkBatchImpact(vmIDs, clusterIDs) {
 		return true // No impact, proceed
 	}
 
@@ -420,7 +420,7 @@ func (p *Processor) cleanupHead() {
 	}
 }
 
-func (p *Processor) checkBatchImpact(ctx context.Context, vmIDs, clusterIDs []string) bool {
+func (p *Processor) checkBatchImpact(vmIDs, clusterIDs []string) bool {
 	// Check if any VM or cluster affects HEAD
 	for _, vmID := range vmIDs {
 		if p.checkHeadImpact(vmID, false) {

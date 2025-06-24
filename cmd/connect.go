@@ -26,7 +26,7 @@ var connectCmd = &cobra.Command{
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
 			var err error
-			vmID, err = getCurrentHeadVM()
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
