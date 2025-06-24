@@ -81,7 +81,8 @@ var branchCmd = &cobra.Command{
 
 			// Use utils for HEAD management
 			if err := utils.SetHead(target); err != nil {
-				utils.WarningMessage(fmt.Sprintf("Failed to update HEAD: %v", err), &s)
+				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
+				fmt.Println(s.Warning.Render(warningMsg))
 			} else {
 				fmt.Printf(branchS.Success.Render("✓ HEAD now points to: ") + branchS.BranchName.Render(target) + "\n")
 			}

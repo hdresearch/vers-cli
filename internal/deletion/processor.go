@@ -43,7 +43,9 @@ func (p *Processor) DeleteTargets(ctx context.Context, targetIDs []string, targe
 	}
 
 	if len(targets) > 1 {
-		utils.ProcessingMessage(len(targets), string(targetType)+"s", p.styles)
+		// Inline ProcessingMessage
+		msg := fmt.Sprintf("Processing %d %ss...", len(targets), string(targetType))
+		fmt.Println(p.styles.Progress.Render(msg))
 	}
 
 	// Get confirmations
@@ -111,7 +113,10 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 		return err
 	}
 
-	utils.AllSuccessMessage("clusters", p.styles)
+	// Inline AllSuccessMessage
+	fmt.Println()
+	msg := fmt.Sprintf("All clusters processed successfully!")
+	fmt.Println(p.styles.Success.Render(msg))
 	return nil
 }
 
@@ -191,7 +196,11 @@ func (p *Processor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	fmt.Println(p.styles.Warning.Render(headerMsg))
 	fmt.Println()
 
-	utils.PrintClusterList(clusters, p.styles)
+	// Inline PrintClusterList
+	for i, cluster := range clusters {
+		listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, cluster.DisplayName, cluster.VmCount)
+		fmt.Println(p.styles.Warning.Render(listItem))
+	}
 
 	fmt.Println()
 	fmt.Println(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!"))
@@ -223,7 +232,9 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 			failCount++
 			errorMsg := fmt.Sprintf("%s '%s': %v", strings.Title(string(target.Type)), target.DisplayName, err)
 			errors = append(errors, errorMsg)
-			utils.ErrorMessage("Failed: "+err.Error(), p.styles)
+
+			failMsg := fmt.Sprintf("FAILED: %s", err.Error())
+			fmt.Println(p.styles.Error.Render(failMsg))
 		} else {
 			successCount++
 			utils.SuccessMessage("Deleted successfully", p.styles)
@@ -245,7 +256,10 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 	if successCount > 0 {
 		utils.CleanupAfterDeletion(ctx, p.client)
 		if targetType == TargetTypeCluster && len(targets) > 1 {
-			utils.HeadClearedMessage("clusters deleted", p.styles)
+			// Inline HeadClearedMessage
+			fmt.Println()
+			msg := fmt.Sprintf("HEAD cleared (clusters deleted)")
+			fmt.Println(p.styles.NoData.Render(msg))
 		}
 	}
 
