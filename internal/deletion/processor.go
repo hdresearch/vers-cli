@@ -3,10 +3,7 @@ package deletion
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
@@ -46,18 +43,18 @@ func (p *Processor) DeleteTargets(ctx context.Context, targetIDs []string, targe
 	}
 
 	if len(targets) > 1 {
-		fmt.Printf(p.styles.Progress.Render("Processing %d %ss for deletion...\n"), len(targets), string(targetType))
+		utils.ProcessingMessage(len(targets), string(targetType)+"s", p.styles)
 	}
 
 	// Get confirmations
 	if !force {
 		if !p.confirmDeletion(targets) {
-			fmt.Println(p.styles.NoData.Render("Operation cancelled"))
+			utils.OperationCancelled(p.styles)
 			return nil
 		}
 
 		if !p.confirmHeadImpact(targets) {
-			fmt.Println(p.styles.NoData.Render("Operation cancelled"))
+			utils.OperationCancelled(p.styles)
 			return nil
 		}
 	}
@@ -67,11 +64,17 @@ func (p *Processor) DeleteTargets(ctx context.Context, targetIDs []string, targe
 
 	// Print summary and cleanup
 	if len(targets) > 1 {
-		p.printSummary(results, true)
+		summaryResults := utils.SummaryResults{
+			SuccessCount: results.SuccessCount,
+			FailCount:    results.FailCount,
+			Errors:       results.Errors,
+			ItemType:     string(targetType) + "s",
+		}
+		utils.PrintSummary(summaryResults, p.styles)
 	}
 
 	if results.SuccessCount > 0 {
-		p.cleanupHead()
+		utils.CleanupAfterDeletion(ctx, p.client)
 	}
 
 	if results.FailCount > 0 {
@@ -90,15 +93,12 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 	}
 
 	if len(response.Data) == 0 {
-		fmt.Println(p.styles.NoData.Render("No clusters found to delete."))
+		utils.NoDataFound("No clusters found to delete.", p.styles)
 		return nil
 	}
 
 	// Convert to clusters for display
-	var clusters []struct {
-		DisplayName string
-		VmCount     int
-	}
+	var clusters []utils.ClusterInfo
 	var targets []Target
 	for _, cluster := range response.Data {
 		displayName := cluster.Alias
@@ -106,10 +106,7 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 			displayName = cluster.ID
 		}
 
-		clusters = append(clusters, struct {
-			DisplayName string
-			VmCount     int
-		}{
+		clusters = append(clusters, utils.ClusterInfo{
 			DisplayName: displayName,
 			VmCount:     int(cluster.VmCount),
 		})
@@ -125,7 +122,7 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 	// Special confirmation for delete all
 	if !force {
 		if !p.confirmDeleteAll(clusters) {
-			fmt.Println(p.styles.NoData.Render("Operation cancelled - input did not match 'DELETE ALL'"))
+			utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
 			return nil
 		}
 	}
@@ -134,20 +131,24 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 	results := p.executeDeletions(ctx, targets, force)
 
 	// Print summary and cleanup
-	p.printSummary(results, true)
+	summaryResults := utils.SummaryResults{
+		SuccessCount: results.SuccessCount,
+		FailCount:    results.FailCount,
+		Errors:       results.Errors,
+		ItemType:     "clusters",
+	}
+	utils.PrintSummary(summaryResults, p.styles)
 
 	if results.SuccessCount > 0 {
-		p.cleanupHead()
-		fmt.Println()
-		fmt.Println(p.styles.NoData.Render("HEAD cleared (all clusters deleted)"))
+		utils.CleanupAfterDeletion(ctx, p.client)
+		utils.HeadClearedMessage("all clusters deleted", p.styles)
 	}
 
 	if results.FailCount > 0 {
 		return fmt.Errorf("some clusters failed to delete - see details above")
 	}
 
-	fmt.Println()
-	fmt.Println(p.styles.Success.Render("All clusters deleted successfully!"))
+	utils.AllSuccessMessage("clusters", p.styles)
 	return nil
 }
 
@@ -183,27 +184,21 @@ func (p *Processor) confirmDeletion(targets []Target) bool {
 	if len(targets) == 1 {
 		target := targets[0]
 		if target.Type == TargetTypeCluster {
-			fmt.Printf(p.styles.Warning.Render("Warning: You are about to delete cluster '%s' containing %d VMs\n"), target.DisplayName, target.VmCount)
+			return utils.ConfirmClusterDeletion(target.DisplayName, target.VmCount, p.styles)
 		} else {
-			fmt.Printf(p.styles.Warning.Render("Warning: You are about to delete VM '%s'\n"), target.DisplayName)
+			return utils.ConfirmDeletion("VM", target.DisplayName, p.styles)
 		}
-		return p.askConfirmation()
 	} else {
-		// Multiple targets
-		fmt.Printf(p.styles.Warning.Render("Warning: You are about to delete %d %ss:\n"), len(targets), string(targets[0].Type))
-		fmt.Println()
-		for i, target := range targets {
+		// Multiple targets - convert to string slice for batch confirmation
+		var itemNames []string
+		for _, target := range targets {
 			if target.Type == TargetTypeCluster {
-				listItem := fmt.Sprintf("  %d. %s (%d VMs)", i+1, target.DisplayName, target.VmCount)
-				fmt.Println(p.styles.Warning.Render(listItem))
+				itemNames = append(itemNames, fmt.Sprintf("%s (%d VMs)", target.DisplayName, target.VmCount))
 			} else {
-				listItem := fmt.Sprintf("  %d. %s", i+1, target.DisplayName)
-				fmt.Println(p.styles.Warning.Render(listItem))
+				itemNames = append(itemNames, target.DisplayName)
 			}
 		}
-		fmt.Println()
-		fmt.Printf(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL specified %ss!\n"), string(targets[0].Type))
-		return p.askConfirmation()
+		return utils.ConfirmBatchDeletion(len(targets), string(targets[0].Type), itemNames, p.styles)
 	}
 }
 
@@ -218,7 +213,7 @@ func (p *Processor) confirmHeadImpact(targets []Target) bool {
 		}
 	}
 
-	if !p.checkBatchImpact(vmIDs, clusterIDs) {
+	if !utils.CheckBatchImpact(context.Background(), p.client, vmIDs, clusterIDs) {
 		return true // No impact, proceed
 	}
 
@@ -228,28 +223,21 @@ func (p *Processor) confirmHeadImpact(targets []Target) bool {
 		fmt.Println(p.styles.Warning.Render("Warning: Some targets will affect the current HEAD"))
 	}
 
-	return p.askConfirmation()
+	return utils.AskConfirmation()
 }
 
-func (p *Processor) confirmDeleteAll(clusters []struct {
-	DisplayName string
-	VmCount     int
-}) bool {
+func (p *Processor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	headerMsg := fmt.Sprintf("DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusters))
 	fmt.Println(p.styles.Warning.Render(headerMsg))
 	fmt.Println()
 
-	// Print cluster list
-	for i, cluster := range clusters {
-		listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, cluster.DisplayName, cluster.VmCount)
-		fmt.Println(p.styles.Warning.Render(listItem))
-	}
+	utils.PrintClusterList(clusters, p.styles)
 
 	fmt.Println()
 	fmt.Println(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!"))
 	fmt.Println()
 
-	return p.askSpecialConfirmation("DELETE ALL")
+	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }
 
 type DeletionResults struct {
@@ -267,14 +255,8 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, forc
 			action = "Force deleting VM"
 		}
 
-		// Print progress
-		if len(targets) > 1 {
-			progressMsg := fmt.Sprintf("[%d/%d] %s '%s'...", i+1, len(targets), action, target.DisplayName)
-			fmt.Println(p.styles.Progress.Render(progressMsg))
-		} else {
-			progressMsg := fmt.Sprintf("%s '%s'...", action, target.DisplayName)
-			fmt.Println(p.styles.Progress.Render(progressMsg))
-		}
+		// Use utils for progress counter
+		utils.ProgressCounter(i+1, len(targets), action, target.DisplayName, p.styles)
 
 		var err error
 		if target.Type == TargetTypeCluster {
@@ -288,11 +270,10 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, forc
 			errorMsg := fmt.Sprintf("%s '%s': %v", strings.Title(string(target.Type)), target.DisplayName, err)
 			results.Errors = append(results.Errors, errorMsg)
 
-			failMsg := fmt.Sprintf("  Failed: %s", err)
-			fmt.Println(p.styles.Error.Render(failMsg))
+			utils.ErrorMessage("Failed: "+err.Error(), p.styles)
 		} else {
 			results.SuccessCount++
-			fmt.Println(p.styles.Success.Render("  ✓ Deleted successfully"))
+			utils.SuccessMessage("Deleted successfully", p.styles)
 		}
 	}
 
@@ -327,124 +308,4 @@ func (p *Processor) deleteVM(ctx context.Context, vmID string, force bool) error
 	}
 
 	return nil
-}
-
-func (p *Processor) printProgress(current, total int, target Target, force bool) {
-	var msg string
-	if total > 1 {
-		if target.Type == TargetTypeVM && force {
-			msg = fmt.Sprintf("[%d/%d] Force deleting VM '%s'...", current, total, target.DisplayName)
-		} else {
-			msg = fmt.Sprintf("[%d/%d] Deleting %s '%s'...", current, total, target.Type, target.DisplayName)
-		}
-	} else {
-		if target.Type == TargetTypeVM && force {
-			msg = fmt.Sprintf("Force deleting VM '%s'...", target.DisplayName)
-		} else {
-			msg = fmt.Sprintf("Deleting %s '%s'...", target.Type, target.DisplayName)
-		}
-	}
-	fmt.Println(p.styles.Progress.Render(msg))
-}
-
-func (p *Processor) printSummary(results DeletionResults, showSummary bool) {
-	if !showSummary {
-		return
-	}
-
-	fmt.Println()
-	fmt.Println(p.styles.Progress.Render("=== Deletion Summary ==="))
-
-	successMsg := fmt.Sprintf("✓ Successfully deleted: %d targets", results.SuccessCount)
-	fmt.Println(p.styles.Success.Render(successMsg))
-
-	if results.FailCount > 0 {
-		failMsg := fmt.Sprintf("Failed to delete: %d targets", results.FailCount)
-		fmt.Println(p.styles.Error.Render(failMsg))
-
-		fmt.Println()
-		fmt.Println(p.styles.Warning.Render("Error details:"))
-		for _, error := range results.Errors {
-			errorDetail := fmt.Sprintf("  • %s", error)
-			fmt.Println(p.styles.Warning.Render(errorDetail))
-		}
-	}
-}
-
-func (p *Processor) checkHeadImpact(target string, isCluster bool) bool {
-	versDir := ".vers"
-	headFile := filepath.Join(versDir, "HEAD")
-
-	headData, err := os.ReadFile(headFile)
-	if err != nil {
-		return false
-	}
-
-	headContent := strings.TrimSpace(string(headData))
-	if headContent == "" {
-		return false
-	}
-
-	if isCluster {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		vmResponse, err := p.client.API.Vm.Get(ctx, headContent)
-		return err == nil && vmResponse.Data.ClusterID == target
-	}
-
-	return headContent == target
-}
-
-func (p *Processor) cleanupHead() {
-	versDir := ".vers"
-	headFile := filepath.Join(versDir, "HEAD")
-
-	headData, err := os.ReadFile(headFile)
-	if err != nil {
-		return
-	}
-
-	headContent := strings.TrimSpace(string(headData))
-	if headContent == "" {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err = p.client.API.Vm.Get(ctx, headContent)
-	if err != nil {
-		os.WriteFile(headFile, []byte(""), 0644)
-		fmt.Println("HEAD cleared (VM no longer exists)")
-	}
-}
-
-func (p *Processor) checkBatchImpact(vmIDs, clusterIDs []string) bool {
-	// Check if any VM or cluster affects HEAD
-	for _, vmID := range vmIDs {
-		if p.checkHeadImpact(vmID, false) {
-			return true
-		}
-	}
-	for _, clusterID := range clusterIDs {
-		if p.checkHeadImpact(clusterID, true) {
-			return true
-		}
-	}
-	return false
-}
-
-func (p *Processor) askConfirmation() bool {
-	fmt.Printf("Are you sure you want to proceed? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
-	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
-}
-
-func (p *Processor) askSpecialConfirmation(requiredText string) bool {
-	fmt.Printf("Type '%s' to confirm: ", requiredText)
-	var input string
-	fmt.Scanln(&input)
-	return strings.TrimSpace(input) == requiredText
 }
