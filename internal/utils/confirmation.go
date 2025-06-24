@@ -9,9 +9,29 @@ import (
 	"github.com/hdresearch/vers-cli/styles"
 )
 
-// AskConfirmation asks for a simple y/N confirmation
-func AskConfirmation() bool {
-	fmt.Printf("Are you sure you want to proceed? [y/N]: ")
+// AskConfirmation asks for a y/N confirmation with optional styling
+func AskConfirmation(prompt ...string) bool {
+	// Default prompt if none provided
+	confirmPrompt := "Are you sure you want to proceed? [y/N]: "
+	if len(prompt) > 0 {
+		confirmPrompt = prompt[0] + " [y/N]: "
+	}
+
+	fmt.Printf(confirmPrompt)
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+	input = strings.TrimSpace(input)
+
+	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
+}
+
+// AskStyledConfirmation asks for y/N confirmation with styled prompt
+func AskStyledConfirmation(prompt string, s *styles.KillStyles) bool {
+	fmt.Printf(s.Warning.Render(prompt + " [y/N]: "))
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -37,20 +57,6 @@ func AskSpecialConfirmation(requiredText string, s *styles.KillStyles) bool {
 	input = strings.TrimSpace(input)
 
 	return input == requiredText
-}
-
-// AskStyledConfirmation asks for y/N confirmation with styled prompt
-func AskStyledConfirmation(prompt string, s *styles.KillStyles) bool {
-	fmt.Printf(s.Warning.Render(prompt + " [y/N]: "))
-
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-	input = strings.TrimSpace(input)
-
-	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
 }
 
 // ConfirmDeletion shows a deletion warning and asks for confirmation

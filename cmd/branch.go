@@ -21,10 +21,7 @@ var branchCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmName string
-		// Use KillStyles for consistency with other commands
-		s := styles.NewKillStyles()
-		// Keep BranchStyles for the specific formatting we need
-		branchS := styles.NewBranchStyles()
+		s := styles.NewKillStyles() // Use unified styles
 
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
@@ -33,7 +30,7 @@ var branchCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			fmt.Printf(branchS.Tip.Render("Using current HEAD VM: ") + branchS.VMID.Render(vmName) + "\n")
+			fmt.Printf(s.Warning.Render("Using current HEAD VM: ") + s.Success.Render(vmName) + "\n")
 		} else {
 			vmName = args[0]
 		}
@@ -61,16 +58,16 @@ var branchCmd = &cobra.Command{
 		// Use utils for success message
 		utils.SuccessMessage("New VM created successfully!", &s)
 
-		// VM details - keep the nice formatting from BranchStyles
-		fmt.Printf(branchS.ListHeader.Render("New VM details:") + "\n")
-		fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("VM ID")+": "+branchS.VMID.Render(branchInfo.ID)) + "\n")
+		// VM details using unified styles
+		fmt.Printf(s.Progress.Render("New VM details:") + "\n")
+		fmt.Printf("  VM ID: %s\n", s.Success.Render(branchInfo.ID))
 
 		if branchInfo.Alias != "" {
-			fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("Alias")+": "+branchS.BranchName.Render(branchInfo.Alias)) + "\n")
+			fmt.Printf("  Alias: %s\n", s.Success.Render(branchInfo.Alias))
 		}
 
-		fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("IP Address")+": "+branchS.CurrentState.Render(branchInfo.IPAddress)) + "\n")
-		fmt.Printf(branchS.ListItem.Render(branchS.InfoLabel.Render("State")+": "+branchS.CurrentState.Render(string(branchInfo.State))) + "\n\n")
+		fmt.Printf("  IP Address: %s\n", s.Success.Render(branchInfo.IPAddress))
+		fmt.Printf("  State: %s\n\n", s.Success.Render(string(branchInfo.State)))
 
 		// Check if user wants to switch to the new VM
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
@@ -84,7 +81,7 @@ var branchCmd = &cobra.Command{
 				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
 				fmt.Println(s.Warning.Render(warningMsg))
 			} else {
-				fmt.Printf(branchS.Success.Render("✓ HEAD now points to: ") + branchS.BranchName.Render(target) + "\n")
+				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.Success.Render(target) + "\n")
 			}
 		} else {
 			// Show tip about switching
@@ -92,8 +89,8 @@ var branchCmd = &cobra.Command{
 			if switchTarget == "" {
 				switchTarget = branchInfo.ID
 			}
-			fmt.Printf(branchS.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
-			fmt.Printf(branchS.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
+			fmt.Printf(s.Warning.Render("Use --checkout or -c to switch to the new VM") + "\n")
+			fmt.Printf(s.Warning.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
 		}
 
 		return nil

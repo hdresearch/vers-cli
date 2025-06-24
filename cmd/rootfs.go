@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -61,9 +64,13 @@ var rootfsDeleteCmd = &cobra.Command{
 		// Confirm deletion if not forced
 		force, _ := cmd.Flags().GetBool("force")
 		if !force {
-			// Use the shared confirmation utility with custom message
+			// Inline confirmation logic since it's only used here
 			msg := fmt.Sprintf("Are you sure you want to delete rootfs '%s'? This action cannot be undone.", rootfsName)
-			if !utils.AskStyledConfirmation(msg, &s) {
+			fmt.Printf(s.Warning.Render(msg + " [y/N]: "))
+
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil || (!strings.EqualFold(strings.TrimSpace(input), "y") && !strings.EqualFold(strings.TrimSpace(input), "yes")) {
 				utils.OperationCancelled(&s)
 				return nil
 			}
