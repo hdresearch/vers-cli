@@ -59,29 +59,8 @@ func (p *Processor) DeleteTargets(ctx context.Context, targetIDs []string, targe
 		}
 	}
 
-	// Execute deletions
-	results := p.executeDeletions(ctx, targets, force)
-
-	// Print summary and cleanup
-	if len(targets) > 1 {
-		summaryResults := utils.SummaryResults{
-			SuccessCount: results.SuccessCount,
-			FailCount:    results.FailCount,
-			Errors:       results.Errors,
-			ItemType:     string(targetType) + "s",
-		}
-		utils.PrintSummary(summaryResults, p.styles)
-	}
-
-	if results.SuccessCount > 0 {
-		utils.CleanupAfterDeletion(ctx, p.client)
-	}
-
-	if results.FailCount > 0 {
-		return fmt.Errorf("some %ss failed to delete - see details above", targetType)
-	}
-
-	return nil
+	// Execute deletions and handle results
+	return p.executeDeletions(ctx, targets, targetType, force)
 }
 
 func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
@@ -97,55 +76,39 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 		return nil
 	}
 
-	// Convert to clusters for display
-	var clusters []utils.ClusterInfo
-	var targets []Target
-	for _, cluster := range response.Data {
+	// Convert to targets
+	targets := make([]Target, len(response.Data))
+	clusters := make([]utils.ClusterInfo, len(response.Data))
+
+	for i, cluster := range response.Data {
 		displayName := cluster.Alias
 		if displayName == "" {
 			displayName = cluster.ID
 		}
 
-		clusters = append(clusters, utils.ClusterInfo{
+		clusters[i] = utils.ClusterInfo{
 			DisplayName: displayName,
 			VmCount:     int(cluster.VmCount),
-		})
+		}
 
-		targets = append(targets, Target{
+		targets[i] = Target{
 			ID:          cluster.ID,
 			DisplayName: displayName,
 			Type:        TargetTypeCluster,
 			VmCount:     int(cluster.VmCount),
-		})
-	}
-
-	// Special confirmation for delete all
-	if !force {
-		if !p.confirmDeleteAll(clusters) {
-			utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
-			return nil
 		}
 	}
 
+	// Special confirmation for delete all
+	if !force && !p.confirmDeleteAll(clusters) {
+		utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
+		return nil
+	}
+
 	// Execute deletions
-	results := p.executeDeletions(ctx, targets, force)
-
-	// Print summary and cleanup
-	summaryResults := utils.SummaryResults{
-		SuccessCount: results.SuccessCount,
-		FailCount:    results.FailCount,
-		Errors:       results.Errors,
-		ItemType:     "clusters",
-	}
-	utils.PrintSummary(summaryResults, p.styles)
-
-	if results.SuccessCount > 0 {
-		utils.CleanupAfterDeletion(ctx, p.client)
-		utils.HeadClearedMessage("all clusters deleted", p.styles)
-	}
-
-	if results.FailCount > 0 {
-		return fmt.Errorf("some clusters failed to delete - see details above")
+	err = p.executeDeletions(ctx, targets, TargetTypeCluster, force)
+	if err != nil {
+		return err
 	}
 
 	utils.AllSuccessMessage("clusters", p.styles)
@@ -153,10 +116,10 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 }
 
 func (p *Processor) validateTargets(ctx context.Context, targetIDs []string, targetType TargetType, force bool) ([]Target, error) {
-	var targets []Target
+	targets := make([]Target, len(targetIDs))
 
-	for _, id := range targetIDs {
-		target := Target{ID: id, Type: targetType}
+	for i, id := range targetIDs {
+		target := Target{ID: id, Type: targetType, DisplayName: id}
 
 		if targetType == TargetTypeCluster && !force {
 			// Validate cluster exists and get info
@@ -165,16 +128,13 @@ func (p *Processor) validateTargets(ctx context.Context, targetIDs []string, tar
 				return nil, fmt.Errorf(p.styles.Error.Render("failed to get cluster information for '%s': %w"), id, err)
 			}
 
-			target.DisplayName = response.Data.Alias
-			if target.DisplayName == "" {
-				target.DisplayName = response.Data.ID
+			if response.Data.Alias != "" {
+				target.DisplayName = response.Data.Alias
 			}
 			target.VmCount = int(response.Data.VmCount)
-		} else {
-			target.DisplayName = id
 		}
 
-		targets = append(targets, target)
+		targets[i] = target
 	}
 
 	return targets, nil
@@ -185,25 +145,25 @@ func (p *Processor) confirmDeletion(targets []Target) bool {
 		target := targets[0]
 		if target.Type == TargetTypeCluster {
 			return utils.ConfirmClusterDeletion(target.DisplayName, target.VmCount, p.styles)
-		} else {
-			return utils.ConfirmDeletion("VM", target.DisplayName, p.styles)
 		}
-	} else {
-		// Multiple targets - convert to string slice for batch confirmation
-		var itemNames []string
-		for _, target := range targets {
-			if target.Type == TargetTypeCluster {
-				itemNames = append(itemNames, fmt.Sprintf("%s (%d VMs)", target.DisplayName, target.VmCount))
-			} else {
-				itemNames = append(itemNames, target.DisplayName)
-			}
-		}
-		return utils.ConfirmBatchDeletion(len(targets), string(targets[0].Type), itemNames, p.styles)
+		return utils.ConfirmDeletion("VM", target.DisplayName, p.styles)
 	}
+
+	// Multiple targets - convert to display names
+	itemNames := make([]string, len(targets))
+	for i, target := range targets {
+		if target.Type == TargetTypeCluster {
+			itemNames[i] = fmt.Sprintf("%s (%d VMs)", target.DisplayName, target.VmCount)
+		} else {
+			itemNames[i] = target.DisplayName
+		}
+	}
+	return utils.ConfirmBatchDeletion(len(targets), string(targets[0].Type), itemNames, p.styles)
 }
 
 func (p *Processor) confirmHeadImpact(targets []Target) bool {
-	var vmIDs, clusterIDs []string
+	vmIDs := make([]string, 0, len(targets))
+	clusterIDs := make([]string, 0, len(targets))
 
 	for _, target := range targets {
 		if target.Type == TargetTypeCluster {
@@ -217,11 +177,11 @@ func (p *Processor) confirmHeadImpact(targets []Target) bool {
 		return true // No impact, proceed
 	}
 
-	if len(targets) == 1 {
-		fmt.Println(p.styles.Warning.Render("Warning: This will affect the current HEAD"))
-	} else {
-		fmt.Println(p.styles.Warning.Render("Warning: Some targets will affect the current HEAD"))
+	message := "Warning: This will affect the current HEAD"
+	if len(targets) > 1 {
+		message = "Warning: Some targets will affect the current HEAD"
 	}
+	fmt.Println(p.styles.Warning.Render(message))
 
 	return utils.AskConfirmation()
 }
@@ -240,14 +200,9 @@ func (p *Processor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }
 
-type DeletionResults struct {
-	SuccessCount int
-	FailCount    int
-	Errors       []string
-}
-
-func (p *Processor) executeDeletions(ctx context.Context, targets []Target, force bool) DeletionResults {
-	var results DeletionResults
+func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targetType TargetType, force bool) error {
+	var successCount, failCount int
+	var errors []string
 
 	for i, target := range targets {
 		action := "Deleting " + string(target.Type)
@@ -255,7 +210,6 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, forc
 			action = "Force deleting VM"
 		}
 
-		// Use utils for progress counter
 		utils.ProgressCounter(i+1, len(targets), action, target.DisplayName, p.styles)
 
 		var err error
@@ -266,18 +220,40 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, forc
 		}
 
 		if err != nil {
-			results.FailCount++
+			failCount++
 			errorMsg := fmt.Sprintf("%s '%s': %v", strings.Title(string(target.Type)), target.DisplayName, err)
-			results.Errors = append(results.Errors, errorMsg)
-
+			errors = append(errors, errorMsg)
 			utils.ErrorMessage("Failed: "+err.Error(), p.styles)
 		} else {
-			results.SuccessCount++
+			successCount++
 			utils.SuccessMessage("Deleted successfully", p.styles)
 		}
 	}
 
-	return results
+	// Print summary for multiple targets
+	if len(targets) > 1 {
+		summaryResults := utils.SummaryResults{
+			SuccessCount: successCount,
+			FailCount:    failCount,
+			Errors:       errors,
+			ItemType:     string(targetType) + "s",
+		}
+		utils.PrintSummary(summaryResults, p.styles)
+	}
+
+	// Cleanup HEAD if we deleted anything
+	if successCount > 0 {
+		utils.CleanupAfterDeletion(ctx, p.client)
+		if targetType == TargetTypeCluster && len(targets) > 1 {
+			utils.HeadClearedMessage("clusters deleted", p.styles)
+		}
+	}
+
+	if failCount > 0 {
+		return fmt.Errorf("some %ss failed to delete - see details above", targetType)
+	}
+
+	return nil
 }
 
 func (p *Processor) deleteCluster(ctx context.Context, clusterID string) error {
