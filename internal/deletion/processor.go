@@ -43,7 +43,6 @@ func (p *Processor) DeleteTargets(ctx context.Context, targetIDs []string, targe
 	}
 
 	if len(targets) > 1 {
-		// Inline ProcessingMessage
 		msg := fmt.Sprintf("Processing %d %ss...", len(targets), string(targetType))
 		fmt.Println(p.styles.Progress.Render(msg))
 	}
@@ -113,7 +112,6 @@ func (p *Processor) DeleteAllClusters(ctx context.Context, force bool) error {
 		return err
 	}
 
-	// Inline AllSuccessMessage
 	fmt.Println()
 	msg := fmt.Sprintf("All clusters processed successfully!")
 	fmt.Println(p.styles.Success.Render(msg))
@@ -178,10 +176,12 @@ func (p *Processor) confirmHeadImpact(targets []Target) bool {
 		}
 	}
 
+	// Use the existing utils function instead of duplicating logic
 	if !utils.CheckBatchImpact(context.Background(), p.client, vmIDs, clusterIDs) {
 		return true // No impact, proceed
 	}
 
+	// Show appropriate warning message
 	message := "Warning: This will affect the current HEAD"
 	if len(targets) > 1 {
 		message = "Warning: Some targets will affect the current HEAD"
@@ -196,7 +196,6 @@ func (p *Processor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	fmt.Println(p.styles.Warning.Render(headerMsg))
 	fmt.Println()
 
-	// Inline PrintClusterList
 	for i, cluster := range clusters {
 		listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, cluster.DisplayName, cluster.VmCount)
 		fmt.Println(p.styles.Warning.Render(listItem))
@@ -252,11 +251,10 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 		utils.PrintSummary(summaryResults, p.styles)
 	}
 
-	// Cleanup HEAD if we deleted anything
+	// Cleanup HEAD if we deleted anything - use utils function
 	if successCount > 0 {
 		utils.CleanupAfterDeletion(ctx, p.client)
 		if targetType == TargetTypeCluster && len(targets) > 1 {
-			// Inline HeadClearedMessage
 			fmt.Println()
 			msg := fmt.Sprintf("HEAD cleared (clusters deleted)")
 			fmt.Println(p.styles.NoData.Render(msg))

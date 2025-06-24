@@ -59,39 +59,6 @@ func ClearHead() error {
 	return os.WriteFile(headFile, []byte(""), 0644)
 }
 
-// CheckVMImpact checks if deleting a VM will affect HEAD
-func CheckVMImpact(vmID string) string {
-	headVM, err := GetCurrentHeadVM()
-	if err != nil {
-		return "" // No HEAD to worry about
-	}
-
-	if headVM == vmID {
-		return "Current HEAD points to the VM being deleted. HEAD will be cleared."
-	}
-
-	return ""
-}
-
-// CheckClusterImpact checks if deleting a cluster will affect HEAD
-func CheckClusterImpact(ctx context.Context, client *vers.Client, clusterID string) string {
-	headVM, err := GetCurrentHeadVM()
-	if err != nil {
-		return "" // No HEAD to worry about
-	}
-
-	// Check if HEAD VM is in the cluster being deleted
-	apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	vmResponse, err := client.API.Vm.Get(apiCtx, headVM)
-	if err == nil && vmResponse.Data.ClusterID == clusterID {
-		return "Current HEAD points to a VM in the cluster being deleted. HEAD will be cleared."
-	}
-
-	return ""
-}
-
 // CheckBatchImpact checks if any targets in a batch will affect HEAD
 func CheckBatchImpact(ctx context.Context, client *vers.Client, vmIDs []string, clusterIDs []string) bool {
 	headVM, err := GetCurrentHeadVM()
@@ -143,24 +110,4 @@ func CleanupAfterDeletion(ctx context.Context, client *vers.Client) {
 		ClearHead()
 		fmt.Println("HEAD cleared (VM no longer exists)")
 	}
-}
-
-// EnsureHeadExists checks if HEAD exists and is valid
-func EnsureHeadExists(ctx context.Context, client *vers.Client) error {
-	headVM, err := GetCurrentHeadVM()
-	if err != nil {
-		return err
-	}
-
-	// Verify the VM still exists
-	apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err = client.API.Vm.Get(apiCtx, headVM)
-	if err != nil {
-		ClearHead()
-		return fmt.Errorf("HEAD pointed to non-existent VM, cleared HEAD")
-	}
-
-	return nil
 }
