@@ -38,7 +38,6 @@ var pauseCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Use utils for progress message
 		utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
 
 		// Create pause request using SDK
@@ -54,10 +53,7 @@ var pauseCmd = &cobra.Command{
 			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), vmID, err)
 		}
 
-		// Use utils for success message
-		successMsg := fmt.Sprintf("VM '%s' paused successfully", response.Data.ID)
-		utils.SuccessMessage(successMsg, &s)
-
+		utils.SuccessMessage(fmt.Sprintf("VM '%s' paused successfully", response.Data.ID), &s)
 		fmt.Printf(s.HeadStatus.Render("VM state: %s\n"), response.Data.State)
 		return nil
 	},

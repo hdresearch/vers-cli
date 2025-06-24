@@ -64,10 +64,7 @@ var rootfsDeleteCmd = &cobra.Command{
 		// Confirm deletion if not forced
 		force, _ := cmd.Flags().GetBool("force")
 		if !force {
-			// Inline confirmation logic since it's only used here
-			msg := fmt.Sprintf("Are you sure you want to delete rootfs '%s'? This action cannot be undone.", rootfsName)
-			fmt.Printf(s.Warning.Render(msg + " [y/N]: "))
-
+			fmt.Print(s.Warning.Render(fmt.Sprintf("Are you sure you want to delete rootfs '%s'? This action cannot be undone.", rootfsName) + " [y/N]: "))
 			reader := bufio.NewReader(os.Stdin)
 			input, err := reader.ReadString('\n')
 			if err != nil || (!strings.EqualFold(strings.TrimSpace(input), "y") && !strings.EqualFold(strings.TrimSpace(input), "yes")) {
@@ -80,19 +77,14 @@ var rootfsDeleteCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Show progress message
 		utils.ProgressCounter(1, 1, "Deleting rootfs", rootfsName, &s)
-
 		response, err := client.API.Rootfs.Delete(apiCtx, rootfsName)
 		if err != nil {
 			return fmt.Errorf("failed to delete rootfs '%s': %w", rootfsName, err)
 		}
 		data := response.Data
 
-		// Show success message
-		successMsg := fmt.Sprintf("Successfully deleted rootfs '%s'", data.RootfsName)
-		utils.SuccessMessage(successMsg, &s)
-
+		utils.SuccessMessage(fmt.Sprintf("Successfully deleted rootfs '%s'", data.RootfsName), &s)
 		return nil
 	},
 }

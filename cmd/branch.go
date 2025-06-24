@@ -39,7 +39,7 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		fmt.Println(s.Progress.Render(fmt.Sprintf("Creating new VM from '%s'...", vmName)))
+		fmt.Println(s.Progress.Render("Creating new VM from: " + vmName))
 
 		body := vers.APIVmBranchParams{
 			VmBranchParams: vers.VmBranchParams{},
@@ -54,8 +54,8 @@ var branchCmd = &cobra.Command{
 		}
 		branchInfo := response.Data
 
-		// Use utils for success message
-		fmt.Println(s.Success.Render("New VM created successfully!"))
+		// Success message
+		fmt.Printf(s.Success.Render("✓ New VM created successfully!") + "\n")
 
 		// VM details
 		fmt.Printf(s.ListHeader.Render("New VM details:") + "\n")
