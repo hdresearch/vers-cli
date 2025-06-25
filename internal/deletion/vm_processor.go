@@ -22,8 +22,9 @@ func NewVMProcessor(client *vers.Client, s *styles.KillStyles) *VMProcessor {
 }
 
 func (p *VMProcessor) DeleteVMs(ctx context.Context, vmIDs []string, force bool) error {
-	// Validate all VMs exist first (unless force is used)
-	if !force {
+	// Only validate for multiple deletions to prevent partial failures
+	// Single deletions can rely on backend error handling
+	if !force && len(vmIDs) > 1 {
 		if err := utils.ValidateResourcesExist(ctx, p.client, vmIDs, "VM", false); err != nil {
 			return err
 		}

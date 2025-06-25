@@ -22,8 +22,9 @@ func NewClusterProcessor(client *vers.Client, s *styles.KillStyles) *ClusterProc
 }
 
 func (p *ClusterProcessor) DeleteClusters(ctx context.Context, clusterIDs []string, force bool) error {
-	// Validate all clusters exist first (unless force is used)
-	if !force {
+	// Only validate for multiple deletions to prevent partial failures
+	// Single deletions can rely on backend error handling
+	if !force && len(clusterIDs) > 1 {
 		if err := utils.ValidateResourcesExist(ctx, p.client, clusterIDs, "cluster", true); err != nil {
 			return err
 		}
