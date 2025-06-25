@@ -20,8 +20,6 @@ var connectCmd = &cobra.Command{
 	Long:  `Connect to a running Vers VM via SSH. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
-		var vmInfo *utils.VMInfo
 		s := styles.NewStatusStyles()
 
 		// Initialize context
@@ -29,37 +27,31 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM ID to use - OPTIMIZED: minimal API calls
+		// Determine VM identifier to use - OPTIMIZED: single API call approach
+		var identifier string
 		if len(args) == 0 {
 			// Use HEAD VM - get ID first (no API call)
 			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			vmID = headVMID
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
+			identifier = headVMID
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
 		} else {
-			// Use provided identifier - resolve it first (1 API call)
-			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
-			}
-			vmInfo = resolvedVMInfo
-			vmID = vmInfo.ID
+			// Use provided identifier (could be ID or alias)
+			identifier = args[0]
 		}
 
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 
-		// Get VM and node information - OPTIMIZED: single API call for network info
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
+		// Single API call gets VM data AND network info - OPTIMIZED!
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, identifier)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
 
-		// Create VMInfo from VM data if we don't have it (HEAD case)
-		if vmInfo == nil {
-			vmInfo = utils.CreateVMInfoFromGetResponse(vm)
-		}
+		// Create VMInfo from the response
+		vmInfo := utils.CreateVMInfoFromGetResponse(vm)
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)

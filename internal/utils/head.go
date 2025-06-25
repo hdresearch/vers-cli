@@ -102,21 +102,6 @@ func CreateVMInfoFromUpdateResponse(vm vers.APIVmUpdateResponseData) *VMInfo {
 	}
 }
 
-// CreateClusterInfoFromGetResponse creates ClusterInfo from a Get API response
-// Use this when you already have cluster data from Get endpoint to avoid extra API calls
-func CreateClusterInfoFromGetResponse(cluster vers.APIClusterGetResponseData) *ClusterInfo {
-	displayName := cluster.Alias
-	if displayName == "" {
-		displayName = cluster.ID
-	}
-
-	return &ClusterInfo{
-		ID:          cluster.ID,
-		DisplayName: displayName,
-		VmCount:     int(cluster.VmCount),
-	}
-}
-
 // CreateClusterInfoFromListResponse creates ClusterInfo from a List API response item
 // Use this when you already have cluster data from List endpoint to avoid extra API calls
 func CreateClusterInfoFromListResponse(cluster vers.APIClusterListResponseData) *ClusterInfo {
@@ -141,12 +126,6 @@ func GetCurrentHeadVMInfo(ctx context.Context, client *vers.Client) (*VMInfo, er
 	}
 
 	return ResolveVMIdentifier(ctx, client, headVM)
-}
-
-// GetCurrentHeadVMID is an alias for GetCurrentHeadVM for clarity
-// Use this when you only need the ID and will make your own API call
-func GetCurrentHeadVMID() (string, error) {
-	return GetCurrentHeadVM()
 }
 
 // SetHeadFromIdentifier resolves a VM identifier to an ID and sets HEAD
