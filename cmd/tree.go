@@ -12,27 +12,28 @@ import (
 )
 
 var treeCmd = &cobra.Command{
-	Use:   "tree [cluster-id]",
+	Use:   "tree [cluster-id|cluster-alias]",
 	Short: "Print the tree of the cluster",
-	Long:  `Print a visual tree representation of the cluster and its VMs. If no cluster ID is provided, uses the cluster from current HEAD.`,
+	Long:  `Print a visual tree representation of the cluster and its VMs. If no cluster ID or alias is provided, uses the cluster from current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var clusterID string
+		var clusterInfo *utils.ClusterInfo
+		var err error
 
 		// Initialize context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// If no cluster ID provided, find the cluster from HEAD
+		// Resolve cluster identifier
 		if len(args) == 0 {
-			// Get current VM ID from HEAD
-			vmID, err := utils.GetCurrentHeadVM()
+			// Get current VM ID from HEAD and find its cluster
+			vmInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
 			if err != nil {
 				return fmt.Errorf("no cluster ID provided and %w", err)
 			}
 
-			fmt.Printf("Finding cluster for current HEAD VM: %s\n", vmID)
+			fmt.Printf("Finding cluster for current HEAD VM: %s\n", vmInfo.DisplayName)
 
 			// Get all clusters and find the one containing our VM
 			response, err := client.API.Cluster.List(apiCtx)
@@ -44,16 +45,34 @@ var treeCmd = &cobra.Command{
 			found := false
 			for _, cluster := range clusters {
 				// First check if it's the root VM
-				if cluster.RootVmID == vmID {
-					clusterID = cluster.ID
+				if cluster.RootVmID == vmInfo.ID {
+					// Create ClusterInfo for the found cluster
+					displayName := cluster.Alias
+					if displayName == "" {
+						displayName = cluster.ID
+					}
+					clusterInfo = &utils.ClusterInfo{
+						ID:          cluster.ID,
+						DisplayName: displayName,
+						VmCount:     int(cluster.VmCount),
+					}
 					found = true
 					break
 				}
 
 				// Check all children in the cluster
 				for _, vm := range cluster.Vms {
-					if vm.ID == vmID {
-						clusterID = cluster.ID
+					if vm.ID == vmInfo.ID {
+						// Create ClusterInfo for the found cluster
+						displayName := cluster.Alias
+						if displayName == "" {
+							displayName = cluster.ID
+						}
+						clusterInfo = &utils.ClusterInfo{
+							ID:          cluster.ID,
+							DisplayName: displayName,
+							VmCount:     int(cluster.VmCount),
+						}
 						found = true
 						break
 					}
@@ -65,38 +84,42 @@ var treeCmd = &cobra.Command{
 			}
 
 			if !found {
-				return fmt.Errorf("couldn't find a cluster containing VM '%s'", vmID)
+				return fmt.Errorf("couldn't find a cluster containing VM '%s'", vmInfo.DisplayName)
 			}
 
 		} else {
-			clusterID = args[0]
+			// Use provided cluster identifier (could be ID or alias)
+			clusterInfo, err = utils.ResolveClusterIdentifier(apiCtx, client, args[0])
+			if err != nil {
+				return fmt.Errorf("failed to find cluster: %w", err)
+			}
 		}
 
-		fmt.Printf("Generating tree for cluster: %s\n", clusterID)
+		fmt.Printf("Generating tree for cluster: %s\n", clusterInfo.DisplayName)
 
-		// Fetch cluster data
-		response, err := client.API.Cluster.Get(apiCtx, clusterID)
+		// Fetch cluster data using the resolved cluster ID
+		response, err := client.API.Cluster.Get(apiCtx, clusterInfo.ID)
 		if err != nil {
-			return fmt.Errorf("failed to get information for cluster '%s': %w", clusterID, err)
+			return fmt.Errorf("failed to get information for cluster '%s': %w", clusterInfo.DisplayName, err)
 		}
 		cluster := response.Data
 
-		// Print cluster information header
-		clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", cluster.ID, cluster.VmCount))
+		// Print cluster information header (show display name)
+		clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", clusterInfo.DisplayName, cluster.VmCount))
 		fmt.Println(clusterHeader)
 
 		// Find the root VM
 		if cluster.RootVmID == "" {
-			return fmt.Errorf("cluster '%s' has no root VM", clusterID)
+			return fmt.Errorf("cluster '%s' has no root VM", clusterInfo.DisplayName)
 		}
 
 		// Print the tree starting from the root VM
-		headVM, err := utils.GetCurrentHeadVM()
+		headVMInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
 		if err != nil {
 			// If we can't get HEAD, just print without it
 			printVMTree(cluster.Vms, cluster.RootVmID, "", true, "")
 		} else {
-			printVMTree(cluster.Vms, cluster.RootVmID, "", true, headVM)
+			printVMTree(cluster.Vms, cluster.RootVmID, "", true, headVMInfo.ID)
 		}
 
 		fmt.Println("\nLegend:")
@@ -146,7 +169,13 @@ func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, head
 	}
 
 	// Build the VM info string with appropriate styling
-	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(currentVMID))
+	// Show alias if available, otherwise show ID
+	displayName := currentVM.Alias
+	if displayName == "" {
+		displayName = currentVMID
+	}
+
+	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(displayName))
 	if currentVM.IPAddress != "" {
 		vmInfo += fmt.Sprintf(" (%s)", styles.MutedTextStyle.Render(currentVM.IPAddress))
 	}

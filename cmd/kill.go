@@ -54,22 +54,44 @@ Examples:
 
 		// Handle the case where no arguments are provided
 		if len(args) == 0 {
-			// Use HEAD VM
-			headVM, err := utils.GetCurrentHeadVM()
+			// Use HEAD VM and resolve it to get display name
+			vmInfo, err := utils.GetCurrentHeadVMInfo(ctx, client)
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
 			}
 
-			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVM)
-			args = []string{headVM}
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmInfo.DisplayName)
+
+			// For HEAD VM, we pass the ID to maintain existing processor behavior
+			args = []string{vmInfo.ID}
 		}
 
 		if isCluster {
+			// Resolve cluster identifiers to IDs before passing to processor
+			var clusterIDs []string
+			for _, identifier := range args {
+				clusterInfo, err := utils.ResolveClusterIdentifier(ctx, client, identifier)
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("failed to find cluster '%s': %w"), identifier, err)
+				}
+				clusterIDs = append(clusterIDs, clusterInfo.ID)
+			}
+
 			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteClusters(args)
+			return processor.DeleteClusters(clusterIDs)
 		} else {
+			// Resolve VM identifiers to IDs before passing to processor
+			var vmIDs []string
+			for _, identifier := range args {
+				vmInfo, err := utils.ResolveVMIdentifier(ctx, client, identifier)
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("failed to find VM '%s': %w"), identifier, err)
+				}
+				vmIDs = append(vmIDs, vmInfo.ID)
+			}
+
 			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteVMs(args)
+			return processor.DeleteVMs(vmIDs)
 		}
 	},
 }

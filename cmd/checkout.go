@@ -24,59 +24,39 @@ If no arguments are provided, shows the current HEAD.`,
 
 		target := args[0]
 
-		// Verify the VM/alias exists before switching
+		// Initialize context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 10*time.Second)
 		defer cancel()
 
 		fmt.Printf("Verifying VM '%s'...\n", target)
-		response, err := client.API.Vm.Get(apiCtx, target)
+
+		// Use utils to resolve and set HEAD (this handles ID/alias resolution and stores ID)
+		vmInfo, err := utils.SetHeadFromIdentifier(apiCtx, client, target)
 		if err != nil {
-			return fmt.Errorf("failed to find VM '%s': %w", target, err)
-		}
-		vm := response.Data
-
-		// Use utils to update HEAD
-		if err := utils.SetHead(vm.ID); err != nil {
-			return fmt.Errorf("failed to update HEAD: %w", err)
+			return fmt.Errorf("failed to switch to VM '%s': %w", target, err)
 		}
 
-		// Show success message with VM details
-		displayName := vm.Alias
-		if displayName == "" {
-			displayName = vm.ID
-		}
-
-		fmt.Printf("Switched to VM '%s' (State: %s)\n", displayName, vm.State)
+		// Show success message with VM details (use display name)
+		fmt.Printf("Switched to VM '%s' (State: %s)\n", vmInfo.DisplayName, vmInfo.State)
 		return nil
 	},
 }
 
 // showCurrentHead displays the current HEAD information using utils
 func showCurrentHead() error {
-	headVM, err := utils.GetCurrentHeadVM()
-	if err != nil {
-		return err
-	}
-
-	// Try to get VM details to show more information
+	// Initialize context
 	baseCtx := context.Background()
 	apiCtx, cancel := context.WithTimeout(baseCtx, 10*time.Second)
 	defer cancel()
 
-	response, err := client.API.Vm.Get(apiCtx, headVM)
+	// Use utils to get current HEAD info with resolution
+	vmInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
 	if err != nil {
-		fmt.Printf("Current HEAD: %s (unable to verify: %v)\n", headVM, err)
-		return nil
+		return err
 	}
 
-	vm := response.Data
-	displayName := vm.Alias
-	if displayName == "" {
-		displayName = vm.ID
-	}
-
-	fmt.Printf("Current HEAD: %s (State: %s)\n", displayName, vm.State)
+	fmt.Printf("Current HEAD: %s (State: %s)\n", vmInfo.DisplayName, vmInfo.State)
 	return nil
 }
 

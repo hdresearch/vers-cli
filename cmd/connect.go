@@ -15,34 +15,40 @@ import (
 
 // connectCmd represents the connect command
 var connectCmd = &cobra.Command{
-	Use:   "connect [vm-id]",
+	Use:   "connect [vm-id|alias]",
 	Short: "Connect to a VM via SSH",
-	Long:  `Connect to a running Vers VM via SSH. If no VM ID is provided, uses the current HEAD.`,
+	Long:  `Connect to a running Vers VM via SSH. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
+		var vmInfo *utils.VMInfo
+		var err error
 		s := styles.NewStatusStyles()
 
-		// If no VM ID provided, try to use the current HEAD
-		if len(args) == 0 {
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
-			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
-		} else {
-			vmID = args[0]
-		}
-
-		// Initialize SDK client and context
+		// Initialize context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		// Resolve VM identifier (HEAD, ID, or alias) to get VM info
+		if len(args) == 0 {
+			// Use HEAD VM
+			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
+			}
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmInfo.DisplayName) + "\n")
+		} else {
+			// Use provided identifier (could be ID or alias)
+			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
+			}
+		}
+
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
+		// Get VM and node information using the resolved VM ID
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmInfo.ID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
@@ -55,12 +61,13 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
+		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmInfo.DisplayName)
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), nodeIP, vm.NetworkInfo.SSHPort)
 
-		keyPath, err := auth.GetOrCreateSSHKey(vm.ID, client, apiCtx)
+		// Use the VM ID for SSH key management
+		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}

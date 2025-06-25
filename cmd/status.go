@@ -14,9 +14,9 @@ import (
 
 // statusCmd represents the status command
 var statusCmd = &cobra.Command{
-	Use:   "status [vm-id]",
+	Use:   "status [vm-id|alias]",
 	Short: "Get status of clusters or VMs",
-	Long:  `Displays the status of all clusters by default. Use -c flag for specific cluster details, or provide a VM ID as argument for VM-specific status.`,
+	Long:  `Displays the status of all clusters by default. Use -c flag for specific cluster details, or provide a VM ID or alias as argument for VM-specific status.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		clusterID, _ := cmd.Flags().GetString("cluster")
 
@@ -31,27 +31,33 @@ var statusCmd = &cobra.Command{
 
 		// If cluster flag is provided, show status for that specific cluster
 		if clusterID != "" {
-			fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterID) + "\n")
-
-			// Fetch cluster info
-			fmt.Println(s.NoData.Render("Fetching cluster information..."))
-			response, err := client.API.Cluster.Get(apiCtx, clusterID)
+			// Resolve cluster identifier (could be ID or alias)
+			clusterInfo, err := utils.ResolveClusterIdentifier(apiCtx, client, clusterID)
 			if err != nil {
-				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %w"), clusterID, err)
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find cluster: %w"), err)
+			}
+
+			fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterInfo.DisplayName) + "\n")
+
+			// Fetch cluster info using resolved cluster ID
+			fmt.Println(s.NoData.Render("Fetching cluster information..."))
+			response, err := client.API.Cluster.Get(apiCtx, clusterInfo.ID)
+			if err != nil {
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for cluster '%s': %w"), clusterInfo.DisplayName, err)
 			}
 			cluster := response.Data
 
 			fmt.Println(s.VMListHeader.Render("Cluster details:"))
 			clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
-			// Format cluster info
-			clusterInfo := fmt.Sprintf(
+			// Format cluster info (show display name for user)
+			clusterInfo_display := fmt.Sprintf(
 				"%s\n%s\n%s",
-				s.ClusterName.Render("Cluster: "+cluster.ID),
+				s.ClusterName.Render("Cluster: "+clusterInfo.DisplayName),
 				s.ClusterData.Render("Root VM: "+s.VMID.Render(cluster.RootVmID)),
 				s.ClusterData.Render("# VMs: "+fmt.Sprintf("%d", len(cluster.Vms))),
 			)
-			clusterList.Items(clusterInfo)
+			clusterList.Items(clusterInfo_display)
 			fmt.Println(clusterList)
 
 			fmt.Println(s.VMListHeader.Render("VMs in this cluster:"))
@@ -61,9 +67,15 @@ var statusCmd = &cobra.Command{
 			} else {
 				vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 				for _, vm := range cluster.Vms {
+					// Show alias if available, otherwise show ID
+					displayName := vm.Alias
+					if displayName == "" {
+						displayName = vm.ID
+					}
+
 					vmInfo := fmt.Sprintf(
 						"%s\n%s\n",
-						s.ClusterData.Render("VM: "+s.VMID.Render(vm.ID)),
+						s.ClusterData.Render("VM: "+s.VMID.Render(displayName)),
 						s.ClusterData.Render("State: "+string(vm.State)),
 					)
 					vmList.Items(vmInfo)
@@ -79,13 +91,19 @@ var statusCmd = &cobra.Command{
 
 		// If VM ID is provided as argument, show status for that specific VM
 		if len(args) > 0 {
-			vmID := args[0]
-			fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmID) + "\n")
-
-			fmt.Println(s.NoData.Render("Fetching VM information..."))
-			response, err := client.API.Vm.Get(apiCtx, vmID)
+			// Resolve VM identifier (could be ID or alias)
+			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
-				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for VM '%s': %w"), vmID, err)
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find VM: %w"), err)
+			}
+
+			fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName) + "\n")
+
+			// Get VM details using resolved VM ID
+			fmt.Println(s.NoData.Render("Fetching VM information..."))
+			response, err := client.API.Vm.Get(apiCtx, vmInfo.ID)
+			if err != nil {
+				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to get status for VM '%s': %w"), vmInfo.DisplayName, err)
 			}
 			vm := response.Data
 
@@ -94,13 +112,14 @@ var statusCmd = &cobra.Command{
 			fmt.Println(s.VMListHeader.Render("VM details:"))
 			vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
-			vmInfo := fmt.Sprintf(
+			// Show display name for user
+			vmInfo_display := fmt.Sprintf(
 				"%s\n%s\n%s",
-				s.ClusterName.Render("VM: "+s.VMID.Render(vm.ID)),
+				s.ClusterName.Render("VM: "+s.VMID.Render(vmInfo.DisplayName)),
 				s.ClusterData.Render("State: "+string(vm.State)),
 				s.ClusterData.Render("Cluster: "+vm.ClusterID),
 			)
-			vmList.Items(vmInfo)
+			vmList.Items(vmInfo_display)
 			fmt.Println(vmList)
 
 			tip := "\nTip: To view the cluster containing this VM, run: vers status -c " + vm.ClusterID
@@ -126,10 +145,16 @@ var statusCmd = &cobra.Command{
 		fmt.Println(s.VMListHeader.Render("Available clusters:"))
 		clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 		for _, cluster := range clusters {
+			// Show alias if available, otherwise show ID
+			displayName := cluster.Alias
+			if displayName == "" {
+				displayName = cluster.ID
+			}
+
 			// Combine the cluster name and its data into a single string
 			clusterInfo := fmt.Sprintf(
 				"%s\n%s\n%s",
-				s.ClusterName.Render("Cluster: "+cluster.ID),
+				s.ClusterName.Render("Cluster: "+displayName),
 				s.ClusterData.Render("Root VM: "+s.VMID.Render(cluster.RootVmID)),
 				s.ClusterData.Render("# children: "+fmt.Sprintf("%d", cluster.VmCount)),
 			)
@@ -149,7 +174,13 @@ var statusCmd = &cobra.Command{
 func displayHeadStatus() error {
 	s := styles.NewStatusStyles()
 
-	headVM, err := utils.GetCurrentHeadVM()
+	// Initialize context for HEAD resolution
+	baseCtx := context.Background()
+	apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer cancel()
+
+	// Use GetCurrentHeadVMInfo to get full VM information
+	vmInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
 	if err != nil {
 		// Handle different error cases from utils
 		errStr := err.Error()
@@ -163,22 +194,7 @@ func displayHeadStatus() error {
 		return nil
 	}
 
-	// Try to get VM details to show alias if available
-	baseCtx := context.Background()
-	apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
-	defer cancel()
-
-	response, err := client.API.Vm.Get(apiCtx, headVM)
-	if err != nil {
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headVM)
-	} else {
-		vm := response.Data
-		displayName := vm.Alias
-		if displayName == "" {
-			displayName = vm.ID
-		}
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), displayName, vm.State)
-	}
+	fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), vmInfo.DisplayName, vmInfo.State)
 	fmt.Println()
 	return nil
 }
@@ -189,5 +205,5 @@ func emptyEnumerator(_ list.Items, _ int) string {
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
-	statusCmd.Flags().StringP("cluster", "c", "", "Cluster ID to show detailed status for")
+	statusCmd.Flags().StringP("cluster", "c", "", "Cluster ID or alias to show detailed status for")
 }

@@ -16,40 +16,54 @@ import (
 
 // executeCmd represents the execute command
 var executeCmd = &cobra.Command{
-	Use:   "execute [vm_id] <command> [args...]",
+	Use:   "execute [vm-id|alias] [args...]",
 	Short: "Run a command on a specific VM",
-	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID is provided, uses the current HEAD.`,
+	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MinimumNArgs(1), // Require at least command
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
+		var vmInfo *utils.VMInfo
 		var commandArgs []string
 		var commandStr string
+		var err error
 		s := styles.NewStatusStyles()
 
-		// Check if first arg is a VM ID or a command
+		// Initialize context
+		baseCtx := context.Background()
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		defer cancel()
+
+		// Check if first arg is a VM ID/alias or a command
 		if len(args) > 1 {
-			vmID = args[0]
-			commandArgs = args[1:]
+			// Try to resolve the first argument as a VM identifier
+			possibleVMInfo, vmErr := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			if vmErr == nil {
+				// First arg is a valid VM identifier
+				vmInfo = possibleVMInfo
+				commandArgs = args[1:]
+			} else {
+				// First arg is not a valid VM, use HEAD and treat all args as command
+				vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
+				}
+				fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmInfo.DisplayName) + "\n")
+				commandArgs = args
+			}
 		} else {
-			// First arg doesn't look like a VM ID or only one arg, use HEAD
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
+			// Only one arg, use HEAD and treat it as command
+			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmInfo.DisplayName) + "\n")
 			commandArgs = args
 		}
 
 		// Join the command arguments
 		commandStr = strings.Join(commandArgs, " ")
 
-		// Initialize SDK client and context
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-		defer cancel()
-
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
+		// Get VM and node information using the resolved VM ID
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmInfo.ID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
@@ -62,8 +76,8 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		// Determine the path for storing the SSH key
-		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
+		// Determine the path for storing the SSH key (use VM ID)
+		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}

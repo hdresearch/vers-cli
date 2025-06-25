@@ -13,7 +13,7 @@ import (
 
 // renameCmd represents the rename command
 var renameCmd = &cobra.Command{
-	Use:   "rename [vm-id|cluster-id] [new-alias]",
+	Use:   "rename [vm-id|alias|cluster-id|cluster-alias] [new-alias]",
 	Short: "Rename a VM or cluster",
 	Long:  `Rename a VM or cluster by setting a new alias. Use -c flag for clusters. If no ID is provided, uses the current HEAD VM.`,
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -24,25 +24,8 @@ var renameCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var id, newAlias string
+		var newAlias string
 		s := styles.NewKillStyles()
-
-		// Determine ID and alias based on number of arguments
-		if len(args) == 1 {
-			// Only alias provided, use HEAD for ID
-			newAlias = args[0]
-
-			var err error
-			id, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no ID provided and %w"), err)
-			}
-			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", id)
-		} else {
-			// Both ID and alias provided
-			id = args[0]
-			newAlias = args[1]
-		}
 
 		// Initialize context
 		baseCtx := context.Background()
@@ -51,10 +34,27 @@ var renameCmd = &cobra.Command{
 
 		// Check if this is a cluster rename
 		isCluster, _ := cmd.Flags().GetBool("cluster")
-		if isCluster {
-			fmt.Printf(s.Progress.Render("Renaming cluster '%s' to '%s'...\n"), id, newAlias)
 
-			// Create cluster rename request
+		if isCluster {
+			// Handle cluster rename
+			var clusterInfo *utils.ClusterInfo
+			var err error
+
+			if len(args) == 1 {
+				// Only alias provided, this doesn't make sense for clusters since we can't use HEAD
+				return fmt.Errorf(s.NoData.Render("cluster ID or alias must be provided when renaming clusters"))
+			} else {
+				// Both ID and alias provided
+				clusterInfo, err = utils.ResolveClusterIdentifier(apiCtx, client, args[0])
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("failed to find cluster: %w"), err)
+				}
+				newAlias = args[1]
+			}
+
+			fmt.Printf(s.Progress.Render("Renaming cluster '%s' to '%s'...\n"), clusterInfo.DisplayName, newAlias)
+
+			// Create cluster rename request using the resolved cluster ID
 			updateParams := vers.APIClusterUpdateParams{
 				ClusterPatchParams: vers.ClusterPatchParams{
 					Alias: vers.F(newAlias),
@@ -62,16 +62,37 @@ var renameCmd = &cobra.Command{
 			}
 
 			// Make API call to rename the cluster
-			response, err := client.API.Cluster.Update(apiCtx, id, updateParams)
+			response, err := client.API.Cluster.Update(apiCtx, clusterInfo.ID, updateParams)
 			if err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to rename cluster '%s': %w"), id, err)
+				return fmt.Errorf(s.NoData.Render("failed to rename cluster '%s': %w"), clusterInfo.DisplayName, err)
 			}
 
 			fmt.Printf(s.Success.Render("✓ Cluster '%s' renamed to '%s'\n"), response.Data.ID, response.Data.Alias)
 		} else {
-			fmt.Printf(s.Progress.Render("Renaming VM '%s' to '%s'...\n"), id, newAlias)
+			// Handle VM rename
+			var vmInfo *utils.VMInfo
+			var err error
 
-			// Create VM rename request
+			if len(args) == 1 {
+				// Only alias provided, use HEAD for VM ID
+				vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("no ID provided and %w"), err)
+				}
+				fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmInfo.DisplayName)
+				newAlias = args[0]
+			} else {
+				// Both ID and alias provided
+				vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
+				}
+				newAlias = args[1]
+			}
+
+			fmt.Printf(s.Progress.Render("Renaming VM '%s' to '%s'...\n"), vmInfo.DisplayName, newAlias)
+
+			// Create VM rename request using the resolved VM ID
 			updateParams := vers.APIVmUpdateParams{
 				VmPatchParams: vers.VmPatchParams{
 					Alias: vers.F(newAlias),
@@ -79,9 +100,9 @@ var renameCmd = &cobra.Command{
 			}
 
 			// Make API call to rename the VM
-			response, err := client.API.Vm.Update(apiCtx, id, updateParams)
+			response, err := client.API.Vm.Update(apiCtx, vmInfo.ID, updateParams)
 			if err != nil {
-				return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), id, err)
+				return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), vmInfo.DisplayName, err)
 			}
 
 			fmt.Printf(s.Success.Render("✓ VM '%s' renamed to '%s'\n"), response.Data.ID, response.Data.Alias)
