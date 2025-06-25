@@ -101,8 +101,8 @@ var logCmd = &cobra.Command{
 	Long:  `Shows the commit history for the current VM or a specified VM ID or alias.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var vmID string
 		var vmInfo *utils.VMInfo
-		var err error
 		s := NewLogStyles()
 		versDir := ".vers"
 
@@ -116,30 +116,39 @@ var logCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Resolve VM identifier (HEAD, ID, or alias) to get VM info
+		// Determine VM ID to use - OPTIMIZED: minimal API calls
 		if len(args) == 0 {
-			// Use HEAD VM
-			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			// Use HEAD VM - get ID first (no API call)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}
-			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmInfo.DisplayName)
+			vmID = headVMID
+			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmID)
 		} else {
-			// Use provided identifier (could be ID or alias)
-			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			// Use provided identifier - resolve it first (1 API call)
+			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf("failed to find VM: %w", err)
 			}
+			vmInfo = resolvedVMInfo
+			vmID = vmInfo.ID
 		}
 
-		// Get VM details to verify it exists (using resolved VM ID)
+		// Get VM details - OPTIMIZED: reuse API call when possible
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
-		response, err := client.API.Vm.Get(apiCtx, vmInfo.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get VM information: %w", err)
+		if vmInfo == nil {
+			// We need to make the API call (HEAD case)
+			response, err := client.API.Vm.Get(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf("failed to get VM information: %w", err)
+			}
+			// Create VMInfo from the response (no extra API call)
+			vmInfo = utils.CreateVMInfoFromGetResponse(response.Data)
 		}
-		vm := response.Data
+		// If vmInfo is already set (args case), we skip the API call entirely!
 
+		// Rest of the logic uses vmInfo.ID for files and vmInfo.DisplayName for display
 		// First, try to read existing commit log (use VM ID for file operations)
 		commits, err := readCommitLogFile(versDir, vmInfo.ID)
 		if err != nil {
@@ -159,12 +168,12 @@ var logCmd = &cobra.Command{
 		// If we don't have a commit record for this VM and we successfully got VM details,
 		// create a new commit info record using data from the API
 		if !foundCurrentVM {
-			// Create a simple message from VM ID if no other information is available
+			// Create a simple message from VM display name
 			message := fmt.Sprintf("VM %s", vmInfo.DisplayName)
 
 			// Use State as additional info
-			if vm.State != "" {
-				message = fmt.Sprintf("VM %s (%s)", vmInfo.DisplayName, vm.State)
+			if vmInfo.State != "" {
+				message = fmt.Sprintf("VM %s (%s)", vmInfo.DisplayName, vmInfo.State)
 			}
 
 			// Create commit info for this VM using API data
@@ -174,7 +183,7 @@ var logCmd = &cobra.Command{
 				Timestamp: time.Now().Unix(), // Use current time as we don't have the exact commit time
 				Author:    "unknown",         // No author info from API
 				VMID:      vmInfo.ID,
-				Alias:     vm.Alias,
+				Alias:     vmInfo.DisplayName, // This might be alias or ID
 			}
 
 			// Add to our commits list
@@ -220,7 +229,7 @@ var logCmd = &cobra.Command{
 					Timestamp: time.Now().Unix(),
 					Author:    "user@example.com",
 					VMID:      vmInfo.ID,
-					Alias:     vm.Alias,
+					Alias:     vmInfo.DisplayName,
 				},
 			}
 		}

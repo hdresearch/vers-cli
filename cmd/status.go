@@ -170,17 +170,12 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-// Helper function to display current HEAD status using utils
+// Helper function to display current HEAD status using utils - OPTIMIZED
 func displayHeadStatus() error {
 	s := styles.NewStatusStyles()
 
-	// Initialize context for HEAD resolution
-	baseCtx := context.Background()
-	apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
-	defer cancel()
-
-	// Use GetCurrentHeadVMInfo to get full VM information
-	vmInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
+	// Get HEAD VM ID first (no API call)
+	headVMID, err := utils.GetCurrentHeadVM()
 	if err != nil {
 		// Handle different error cases from utils
 		errStr := err.Error()
@@ -194,7 +189,19 @@ func displayHeadStatus() error {
 		return nil
 	}
 
-	fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), vmInfo.DisplayName, vmInfo.State)
+	// Try to get VM details to show alias if available - OPTIMIZED: single API call with timeout
+	baseCtx := context.Background()
+	apiCtx, cancel := context.WithTimeout(baseCtx, 3*time.Second) // Shorter timeout for status display
+	defer cancel()
+
+	response, err := client.API.Vm.Get(apiCtx, headVMID)
+	if err != nil {
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headVMID)
+	} else {
+		// Create VMInfo from response (no extra API call)
+		vmInfo := utils.CreateVMInfoFromGetResponse(response.Data)
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), vmInfo.DisplayName, vmInfo.State)
+	}
 	fmt.Println()
 	return nil
 }

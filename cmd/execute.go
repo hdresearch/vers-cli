@@ -21,10 +21,10 @@ var executeCmd = &cobra.Command{
 	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MinimumNArgs(1), // Require at least command
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var vmID string
 		var vmInfo *utils.VMInfo
 		var commandArgs []string
 		var commandStr string
-		var err error
 		s := styles.NewStatusStyles()
 
 		// Initialize context
@@ -32,40 +32,48 @@ var executeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Check if first arg is a VM ID/alias or a command
+		// Check if first arg is a VM ID/alias or a command - OPTIMIZED approach
 		if len(args) > 1 {
 			// Try to resolve the first argument as a VM identifier
 			possibleVMInfo, vmErr := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if vmErr == nil {
 				// First arg is a valid VM identifier
 				vmInfo = possibleVMInfo
+				vmID = vmInfo.ID
 				commandArgs = args[1:]
 			} else {
 				// First arg is not a valid VM, use HEAD and treat all args as command
-				vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+				headVMID, err := utils.GetCurrentHeadVM()
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 				}
-				fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmInfo.DisplayName) + "\n")
+				vmID = headVMID
+				fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 				commandArgs = args
 			}
 		} else {
 			// Only one arg, use HEAD and treat it as command
-			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmInfo.DisplayName) + "\n")
+			vmID = headVMID
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 			commandArgs = args
 		}
 
 		// Join the command arguments
 		commandStr = strings.Join(commandArgs, " ")
 
-		// Get VM and node information using the resolved VM ID
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmInfo.ID)
+		// Get VM and node information - OPTIMIZED: single API call
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
+		}
+
+		// Create VMInfo from VM data if we don't have it (HEAD case or invalid first arg case)
+		if vmInfo == nil {
+			vmInfo = utils.CreateVMInfoFromGetResponse(vm)
 		}
 
 		if vm.State != "Running" {

@@ -20,8 +20,8 @@ var connectCmd = &cobra.Command{
 	Long:  `Connect to a running Vers VM via SSH. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var vmID string
 		var vmInfo *utils.VMInfo
-		var err error
 		s := styles.NewStatusStyles()
 
 		// Initialize context
@@ -29,28 +29,36 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Resolve VM identifier (HEAD, ID, or alias) to get VM info
+		// Determine VM ID to use - OPTIMIZED: minimal API calls
 		if len(args) == 0 {
-			// Use HEAD VM
-			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			// Use HEAD VM - get ID first (no API call)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmInfo.DisplayName) + "\n")
+			vmID = headVMID
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 		} else {
-			// Use provided identifier (could be ID or alias)
-			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			// Use provided identifier - resolve it first (1 API call)
+			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
 			}
+			vmInfo = resolvedVMInfo
+			vmID = vmInfo.ID
 		}
 
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 
-		// Get VM and node information using the resolved VM ID
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmInfo.ID)
+		// Get VM and node information - OPTIMIZED: single API call for network info
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
+		}
+
+		// Create VMInfo from VM data if we don't have it (HEAD case)
+		if vmInfo == nil {
+			vmInfo = utils.CreateVMInfoFromGetResponse(vm)
 		}
 
 		if vm.State != "Running" {

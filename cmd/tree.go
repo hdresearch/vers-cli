@@ -27,13 +27,13 @@ var treeCmd = &cobra.Command{
 
 		// Resolve cluster identifier
 		if len(args) == 0 {
-			// Get current VM ID from HEAD and find its cluster
-			vmInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
+			// Get current VM ID from HEAD (no API call)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no cluster ID provided and %w", err)
 			}
 
-			fmt.Printf("Finding cluster for current HEAD VM: %s\n", vmInfo.DisplayName)
+			fmt.Printf("Finding cluster for current HEAD VM: %s\n", headVMID)
 
 			// Get all clusters and find the one containing our VM
 			response, err := client.API.Cluster.List(apiCtx)
@@ -45,34 +45,18 @@ var treeCmd = &cobra.Command{
 			found := false
 			for _, cluster := range clusters {
 				// First check if it's the root VM
-				if cluster.RootVmID == vmInfo.ID {
+				if cluster.RootVmID == headVMID {
 					// Create ClusterInfo for the found cluster
-					displayName := cluster.Alias
-					if displayName == "" {
-						displayName = cluster.ID
-					}
-					clusterInfo = &utils.ClusterInfo{
-						ID:          cluster.ID,
-						DisplayName: displayName,
-						VmCount:     int(cluster.VmCount),
-					}
+					clusterInfo = utils.CreateClusterInfoFromListResponse(cluster)
 					found = true
 					break
 				}
 
 				// Check all children in the cluster
 				for _, vm := range cluster.Vms {
-					if vm.ID == vmInfo.ID {
+					if vm.ID == headVMID {
 						// Create ClusterInfo for the found cluster
-						displayName := cluster.Alias
-						if displayName == "" {
-							displayName = cluster.ID
-						}
-						clusterInfo = &utils.ClusterInfo{
-							ID:          cluster.ID,
-							DisplayName: displayName,
-							VmCount:     int(cluster.VmCount),
-						}
+						clusterInfo = utils.CreateClusterInfoFromListResponse(cluster)
 						found = true
 						break
 					}
@@ -84,7 +68,7 @@ var treeCmd = &cobra.Command{
 			}
 
 			if !found {
-				return fmt.Errorf("couldn't find a cluster containing VM '%s'", vmInfo.DisplayName)
+				return fmt.Errorf("couldn't find a cluster containing VM '%s'", headVMID)
 			}
 
 		} else {
@@ -113,13 +97,13 @@ var treeCmd = &cobra.Command{
 			return fmt.Errorf("cluster '%s' has no root VM", clusterInfo.DisplayName)
 		}
 
-		// Print the tree starting from the root VM
-		headVMInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
+		// Print the tree starting from the root VM - OPTIMIZED: use HEAD ID directly
+		headVMID, err := utils.GetCurrentHeadVM()
 		if err != nil {
 			// If we can't get HEAD, just print without it
 			printVMTree(cluster.Vms, cluster.RootVmID, "", true, "")
 		} else {
-			printVMTree(cluster.Vms, cluster.RootVmID, "", true, headVMInfo.ID)
+			printVMTree(cluster.Vms, cluster.RootVmID, "", true, headVMID)
 		}
 
 		fmt.Println("\nLegend:")

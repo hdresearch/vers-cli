@@ -72,45 +72,53 @@ var commitCmd = &cobra.Command{
 	Long:  `Save the current state of the Vers environment as a commit. If no VM ID or alias is provided, commits the current HEAD VM.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var vmID string
 		var vmInfo *utils.VMInfo
-		var err error
 
 		// Initialize the context and SDK client
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
 
-		// Resolve VM identifier (HEAD, ID, or alias) to get VM info
+		// Determine VM ID to use - OPTIMIZED: minimal API calls
 		if len(args) > 0 {
-			// Use provided identifier (could be ID or alias)
-			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			// Use provided identifier - resolve it first (1 API call)
+			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf("failed to find VM: %w", err)
 			}
+			vmInfo = resolvedVMInfo
+			vmID = vmInfo.ID
 			fmt.Printf("Using provided VM: %s\n", vmInfo.DisplayName)
 		} else {
-			// Use HEAD VM
-			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			// Use HEAD VM - get ID first (no API call)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("failed to get current VM: %w", err)
 			}
-			fmt.Printf("Using current HEAD VM: %s\n", vmInfo.DisplayName)
+			vmID = headVMID
+			fmt.Printf("Using current HEAD VM: %s\n", vmID) // Show ID initially
 		}
 
-		fmt.Printf("Creating commit for VM '%s'\n", vmInfo.DisplayName)
+		fmt.Printf("Creating commit for VM '%s'\n", vmID) // Show ID initially
 		if tag != "" {
 			fmt.Printf("Tagging commit as: %s\n", tag)
 		}
 
-		// Get VM details for alias information (using resolved VM ID)
-		vmResponse, err := client.API.Vm.Get(apiCtx, vmInfo.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get VM details: %w", err)
+		// Get VM details for alias information - OPTIMIZED: single API call
+		fmt.Println("Creating commit...")
+		if vmInfo == nil {
+			// We need to make the API call (HEAD case)
+			vmResponse, err := client.API.Vm.Get(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf("failed to get VM details: %w", err)
+			}
+			// Create VMInfo from the response (no extra API call)
+			vmInfo = utils.CreateVMInfoFromGetResponse(vmResponse.Data)
 		}
-		vm := vmResponse.Data
+		// If vmInfo is already set (args case), we skip this API call!
 
 		// Call the SDK to commit the VM state (use resolved VM ID)
-		fmt.Println("Creating commit...")
 		response, err := client.API.Vm.Commit(apiCtx, vmInfo.ID)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
@@ -131,7 +139,7 @@ var commitCmd = &cobra.Command{
 				Tag:       tag,
 				Author:    "user", // Could be improved to use actual user info
 				VMID:      vmInfo.ID,
-				Alias:     vm.Alias,
+				Alias:     vmInfo.DisplayName, // This will be alias if available, otherwise ID
 			}
 
 			// Save commit info (use VM ID for file operations)

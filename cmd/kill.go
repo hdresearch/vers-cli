@@ -52,18 +52,18 @@ Examples:
 			return processor.DeleteAllClusters()
 		}
 
-		// Handle the case where no arguments are provided
+		// Handle the case where no arguments are provided - OPTIMIZED
 		if len(args) == 0 {
-			// Use HEAD VM and resolve it to get display name
-			vmInfo, err := utils.GetCurrentHeadVMInfo(ctx, client)
+			// Use HEAD VM - get ID first (no API call)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
 			}
 
-			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmInfo.DisplayName)
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
 
 			// For HEAD VM, we pass the ID to maintain existing processor behavior
-			args = []string{vmInfo.ID}
+			args = []string{headVMID}
 		}
 
 		if isCluster {

@@ -20,31 +20,39 @@ var branchCmd = &cobra.Command{
 	Long:  `Create a new VM (branch) from the state of an existing VM. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var vmID string
 		var vmInfo *utils.VMInfo
-		var err error
 		s := styles.NewBranchStyles()
 
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Resolve VM identifier (HEAD, ID, or alias) to get VM info
+		// Determine VM ID to use - OPTIMIZED: minimal API calls
 		if len(args) == 0 {
-			// Use HEAD VM
-			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			// Use HEAD VM - get ID first (no API call)
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmInfo.DisplayName) + "\n")
+			vmID = headVMID
+			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
 		} else {
-			// Use provided identifier (could be ID or alias)
-			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			// Use provided identifier - resolve it first (1 API call)
+			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to find VM: %w"), err)
 			}
+			vmInfo = resolvedVMInfo
+			vmID = vmInfo.ID
 		}
 
-		fmt.Println(s.Progress.Render("Creating new VM from: " + vmInfo.DisplayName))
+		// Show progress with display name if we have it
+		progressName := vmID
+		if vmInfo != nil {
+			progressName = vmInfo.DisplayName
+		}
+		fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
 
 		body := vers.APIVmBranchParams{
 			VmBranchParams: vers.VmBranchParams{},
@@ -54,11 +62,17 @@ var branchCmd = &cobra.Command{
 		}
 
 		// Make API call using the resolved VM ID
-		response, err := client.API.Vm.Branch(apiCtx, vmInfo.ID, body)
+		response, err := client.API.Vm.Branch(apiCtx, vmID, body)
 		if err != nil {
-			return fmt.Errorf(s.Error.Render("failed to create branch from vm '%s': %w"), vmInfo.DisplayName, err)
+			return fmt.Errorf(s.Error.Render("failed to create branch from vm '%s': %w"), progressName, err)
 		}
 		branchInfo := response.Data
+
+		// Create VMInfo from branch response if we don't have source VM info (HEAD case)
+		if vmInfo == nil {
+			// For HEAD case, we'll show the source VM ID in messages since we don't have alias info
+			// The important part is that the branch worked and we show the new VM details below
+		}
 
 		// Success message
 		fmt.Printf(s.Success.Render("✓ New VM created successfully!") + "\n")
