@@ -16,7 +16,6 @@ var (
 	killAll   bool
 )
 
-// killCmd represents the kill command
 var killCmd = &cobra.Command{
 	Use:   "kill [vm-id|vm-alias|cluster-id|cluster-alias]...",
 	Short: "Delete one or more VMs or clusters",
@@ -46,18 +45,19 @@ Examples:
 		defer cancel()
 
 		s := styles.NewKillStyles()
-		processor := deletion.NewProcessor(client, &s)
 
 		if killAll {
+			processor := deletion.NewClusterProcessor(client, &s)
 			return processor.DeleteAllClusters(ctx, force)
 		}
 
-		targetType := deletion.TargetTypeVM
 		if isCluster {
-			targetType = deletion.TargetTypeCluster
+			processor := deletion.NewClusterProcessor(client, &s)
+			return processor.DeleteClusters(ctx, args, force)
+		} else {
+			processor := deletion.NewVMProcessor(client, &s)
+			return processor.DeleteVMs(ctx, args, force)
 		}
-
-		return processor.DeleteTargets(ctx, args, targetType, force)
 	},
 }
 

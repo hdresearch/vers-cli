@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -93,14 +94,40 @@ func CheckBatchImpact(ctx context.Context, client *vers.Client, vmIDs []string, 
 	return false
 }
 
-// CleanupAfterDeletion clears HEAD if the VM it points to no longer exists
+// ConfirmHeadImpact checks and confirms HEAD impact for VM or cluster deletions
+// This consolidates the duplicated logic from both processors
+func ConfirmHeadImpact(ctx context.Context, client *vers.Client, vmIDs []string, clusterIDs []string, s *styles.KillStyles) bool {
+	if !CheckBatchImpact(ctx, client, vmIDs, clusterIDs) {
+		return true // No impact, proceed
+	}
+
+	// Determine appropriate warning message
+	var message string
+	totalItems := len(vmIDs) + len(clusterIDs)
+
+	if totalItems == 1 {
+		message = "Warning: This will affect the current HEAD"
+	} else {
+		if len(vmIDs) > 0 && len(clusterIDs) > 0 {
+			message = "Warning: Some targets will affect the current HEAD"
+		} else if len(vmIDs) > 1 {
+			message = "Warning: Some VMs will affect the current HEAD"
+		} else {
+			message = "Warning: Some clusters will affect the current HEAD"
+		}
+	}
+
+	fmt.Println(s.Warning.Render(message))
+	return AskConfirmation()
+}
+
+// CleanupAfterDeletion clears HEAD if any of the deleted VM IDs match current HEAD
 func CleanupAfterDeletion(deletedVMIDs []string) bool {
 	headVM, err := GetCurrentHeadVM()
 	if err != nil {
-		return false // No HEAD to clear
+		return false
 	}
 
-	// Check if the current HEAD VM was in the list of deleted VMs
 	for _, deletedID := range deletedVMIDs {
 		if headVM == deletedID {
 			ClearHead()
