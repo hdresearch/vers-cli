@@ -3,12 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss/list"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -146,31 +145,21 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-// Helper function to display current HEAD status
+// Helper function to display current HEAD status using utils
 func displayHeadStatus() error {
-	versDir := ".vers"
-	headFile := filepath.Join(versDir, "HEAD")
-
 	s := styles.NewStatusStyles()
 
-	// Check if .vers directory and HEAD file exist
-	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)"))
-		return nil
-	}
-
-	// Read HEAD file
-	headData, err := os.ReadFile(headFile)
+	headVM, err := utils.GetCurrentHeadVM()
 	if err != nil {
-		fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
-		return nil
-	}
-
-	// HEAD directly contains a VM ID or alias
-	headContent := strings.TrimSpace(string(headData))
-
-	if headContent == "" {
-		fmt.Println(s.HeadStatus.Render("HEAD status: Empty (create a VM with 'vers run')"))
+		// Handle different error cases from utils
+		errStr := err.Error()
+		if strings.Contains(errStr, "HEAD not found") {
+			fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)"))
+		} else if strings.Contains(errStr, "HEAD is empty") {
+			fmt.Println(s.HeadStatus.Render("HEAD status: Empty (create a VM with 'vers run')"))
+		} else {
+			fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
+		}
 		return nil
 	}
 
@@ -179,9 +168,9 @@ func displayHeadStatus() error {
 	apiCtx, cancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer cancel()
 
-	response, err := client.API.Vm.Get(apiCtx, headContent)
+	response, err := client.API.Vm.Get(apiCtx, headVM)
 	if err != nil {
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headContent)
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headVM)
 	} else {
 		vm := response.Data
 		displayName := vm.Alias

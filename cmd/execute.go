@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,32 +13,6 @@ import (
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
-
-// getCurrentHeadVM returns the VM ID from the current HEAD
-func getCurrentHeadVM() (string, error) {
-	versDir := ".vers"
-	headFile := filepath.Join(versDir, "HEAD")
-
-	// Check if .vers directory and HEAD file exist
-	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		return "", fmt.Errorf("HEAD not found. Run 'vers init' first")
-	}
-
-	// Read HEAD file
-	headData, err := os.ReadFile(headFile)
-	if err != nil {
-		return "", fmt.Errorf("error reading HEAD: %w", err)
-	}
-
-	// HEAD directly contains a VM ID or alias
-	vmID := strings.TrimSpace(string(headData))
-
-	if vmID == "" {
-		return "", fmt.Errorf("HEAD is empty. Create a VM first with 'vers run'")
-	}
-
-	return vmID, nil
-}
 
 // executeCmd represents the execute command
 var executeCmd = &cobra.Command{
@@ -60,7 +33,7 @@ var executeCmd = &cobra.Command{
 		} else {
 			// First arg doesn't look like a VM ID or only one arg, use HEAD
 			var err error
-			vmID, err = getCurrentHeadVM()
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}

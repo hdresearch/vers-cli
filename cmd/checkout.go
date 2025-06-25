@@ -3,11 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -19,17 +17,9 @@ var checkoutCmd = &cobra.Command{
 If no arguments are provided, shows the current HEAD.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		versDir := ".vers"
-		headFile := filepath.Join(versDir, "HEAD")
-
-		// Check if .vers directory exists
-		if _, err := os.Stat(versDir); os.IsNotExist(err) {
-			return fmt.Errorf(".vers directory not found. Run 'vers init' first")
-		}
-
 		// If no arguments provided, show current HEAD
 		if len(args) == 0 {
-			return showCurrentHead(headFile)
+			return showCurrentHead()
 		}
 
 		target := args[0]
@@ -46,8 +36,8 @@ If no arguments are provided, shows the current HEAD.`,
 		}
 		vm := response.Data
 
-		// Update HEAD to point to the VM
-		if err := os.WriteFile(headFile, []byte(target+"\n"), 0644); err != nil {
+		// Use utils to update HEAD
+		if err := utils.SetHead(target); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
 
@@ -62,17 +52,11 @@ If no arguments are provided, shows the current HEAD.`,
 	},
 }
 
-// showCurrentHead displays the current HEAD information
-func showCurrentHead(headFile string) error {
-	headData, err := os.ReadFile(headFile)
+// showCurrentHead displays the current HEAD information using utils
+func showCurrentHead() error {
+	headVM, err := utils.GetCurrentHeadVM()
 	if err != nil {
-		return fmt.Errorf("error reading HEAD: %w", err)
-	}
-
-	headContent := strings.TrimSpace(string(headData))
-	if headContent == "" {
-		fmt.Println("HEAD is empty. Create a VM first with 'vers run'")
-		return nil
+		return err
 	}
 
 	// Try to get VM details to show more information
@@ -80,9 +64,9 @@ func showCurrentHead(headFile string) error {
 	apiCtx, cancel := context.WithTimeout(baseCtx, 10*time.Second)
 	defer cancel()
 
-	response, err := client.API.Vm.Get(apiCtx, headContent)
+	response, err := client.API.Vm.Get(apiCtx, headVM)
 	if err != nil {
-		fmt.Printf("Current HEAD: %s (unable to verify: %v)\n", headContent, err)
+		fmt.Printf("Current HEAD: %s (unable to verify: %v)\n", headVM, err)
 		return nil
 	}
 

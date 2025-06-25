@@ -3,10 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
@@ -27,7 +26,7 @@ var branchCmd = &cobra.Command{
 		// If no VM ID provided, try to use the current HEAD
 		if len(args) == 0 {
 			var err error
-			vmName, err = getCurrentHeadVM()
+			vmName, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
@@ -71,16 +70,15 @@ var branchCmd = &cobra.Command{
 
 		// Check if user wants to switch to the new VM
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
-			versDir := ".vers"
-			headFile := filepath.Join(versDir, "HEAD")
-
 			target := branchInfo.ID
 			if branchInfo.Alias != "" {
 				target = branchInfo.Alias
 			}
 
-			if err := os.WriteFile(headFile, []byte(target+"\n"), 0644); err != nil {
-				fmt.Printf(s.Warning.Render("⚠ Warning: Failed to update HEAD: %v\n"), err)
+			// Use utils for HEAD management
+			if err := utils.SetHead(target); err != nil {
+				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
+				fmt.Println(s.Warning.Render(warningMsg))
 			} else {
 				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(target) + "\n")
 			}

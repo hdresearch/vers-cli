@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -80,7 +81,7 @@ var commitCmd = &cobra.Command{
 			fmt.Printf("Using provided VM ID: %s\n", vmID)
 		} else {
 			// Get the current HEAD VM ID
-			vmID, err = getCurrentHeadVM()
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("failed to get current VM: %w", err)
 			}

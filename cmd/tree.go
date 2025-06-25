@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ var treeCmd = &cobra.Command{
 		// If no cluster ID provided, find the cluster from HEAD
 		if len(args) == 0 {
 			// Get current VM ID from HEAD
-			vmID, err := getCurrentHeadVM()
+			vmID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no cluster ID provided and %w", err)
 			}
@@ -90,7 +91,7 @@ var treeCmd = &cobra.Command{
 		}
 
 		// Print the tree starting from the root VM
-		headVM, err := getCurrentHeadVM()
+		headVM, err := utils.GetCurrentHeadVM()
 		if err != nil {
 			// If we can't get HEAD, just print without it
 			printVMTree(cluster.Vms, cluster.RootVmID, "", true, "")
