@@ -9,15 +9,15 @@ import (
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-type VMProcessor struct {
+type VMDeletionProcessor struct {
 	client *vers.Client
 	styles *styles.KillStyles
 	ctx    context.Context
 	force  bool
 }
 
-func NewVMProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *VMProcessor {
-	return &VMProcessor{
+func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *VMDeletionProcessor {
+	return &VMDeletionProcessor{
 		client: client,
 		styles: s,
 		ctx:    ctx,
@@ -25,7 +25,7 @@ func NewVMProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Conte
 	}
 }
 
-func (p *VMProcessor) DeleteVMs(vmIDs []string) error {
+func (p *VMDeletionProcessor) DeleteVMs(vmIDs []string) error {
 	// Only validate for multiple deletions to prevent partial failures
 	// Single deletions can rely on backend error handling
 	if !p.force && len(vmIDs) > 1 {
@@ -55,7 +55,7 @@ func (p *VMProcessor) DeleteVMs(vmIDs []string) error {
 	return p.executeVMDeletions(vmIDs)
 }
 
-func (p *VMProcessor) confirmVMDeletion(vmIDs []string) bool {
+func (p *VMDeletionProcessor) confirmVMDeletion(vmIDs []string) bool {
 	if len(vmIDs) == 1 {
 		return utils.ConfirmDeletion("VM", vmIDs[0], p.styles)
 	}
@@ -63,7 +63,7 @@ func (p *VMProcessor) confirmVMDeletion(vmIDs []string) bool {
 	return utils.ConfirmBatchDeletion(len(vmIDs), "vm", vmIDs, p.styles)
 }
 
-func (p *VMProcessor) executeVMDeletions(vmIDs []string) error {
+func (p *VMDeletionProcessor) executeVMDeletions(vmIDs []string) error {
 	var successCount, failCount int
 	var errors []string
 	var allDeletedVMIDs []string
@@ -116,7 +116,7 @@ func (p *VMProcessor) executeVMDeletions(vmIDs []string) error {
 	return nil
 }
 
-func (p *VMProcessor) deleteVM(vmID string) ([]string, error) {
+func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
 	deleteParams := vers.APIVmDeleteParams{
 		Recursive: vers.F(p.force),
 	}

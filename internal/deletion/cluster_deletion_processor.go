@@ -9,15 +9,15 @@ import (
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-type ClusterProcessor struct {
+type ClusterDeletionProcessor struct {
 	client *vers.Client
 	styles *styles.KillStyles
 	ctx    context.Context
 	force  bool
 }
 
-func NewClusterProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *ClusterProcessor {
-	return &ClusterProcessor{
+func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *ClusterDeletionProcessor {
+	return &ClusterDeletionProcessor{
 		client: client,
 		styles: s,
 		ctx:    ctx,
@@ -25,7 +25,7 @@ func NewClusterProcessor(client *vers.Client, s *styles.KillStyles, ctx context.
 	}
 }
 
-func (p *ClusterProcessor) DeleteClusters(clusterIDs []string) error {
+func (p *ClusterDeletionProcessor) DeleteClusters(clusterIDs []string) error {
 	// Only validate for multiple deletions to prevent partial failures
 	// Single deletions can rely on backend error handling
 	if !p.force && len(clusterIDs) > 1 {
@@ -55,7 +55,7 @@ func (p *ClusterProcessor) DeleteClusters(clusterIDs []string) error {
 	return p.executeClusterDeletions(clusterIDs)
 }
 
-func (p *ClusterProcessor) DeleteAllClusters() error {
+func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	fmt.Println(p.styles.Progress.Render("Fetching all clusters..."))
 
 	response, err := p.client.API.Cluster.List(p.ctx)
@@ -100,7 +100,7 @@ func (p *ClusterProcessor) DeleteAllClusters() error {
 	return nil
 }
 
-func (p *ClusterProcessor) confirmClusterDeletion(clusterIDs []string) bool {
+func (p *ClusterDeletionProcessor) confirmClusterDeletion(clusterIDs []string) bool {
 	if len(clusterIDs) == 1 {
 		// Get cluster info for single cluster confirmation
 		response, err := p.client.API.Cluster.Get(p.ctx, clusterIDs[0])
@@ -135,7 +135,7 @@ func (p *ClusterProcessor) confirmClusterDeletion(clusterIDs []string) bool {
 	return utils.ConfirmBatchDeletion(len(clusterIDs), "cluster", clusterInfos, p.styles)
 }
 
-func (p *ClusterProcessor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
+func (p *ClusterDeletionProcessor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	headerMsg := fmt.Sprintf("DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusters))
 	fmt.Println(p.styles.Warning.Render(headerMsg))
 	fmt.Println()
@@ -152,7 +152,7 @@ func (p *ClusterProcessor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }
 
-func (p *ClusterProcessor) executeClusterDeletions(clusterIDs []string) error {
+func (p *ClusterDeletionProcessor) executeClusterDeletions(clusterIDs []string) error {
 	var successCount, failCount int
 	var errors []string
 	var allDeletedVMIDs []string
@@ -200,7 +200,7 @@ func (p *ClusterProcessor) executeClusterDeletions(clusterIDs []string) error {
 	return nil
 }
 
-func (p *ClusterProcessor) deleteCluster(clusterID string) ([]string, error) {
+func (p *ClusterDeletionProcessor) deleteCluster(clusterID string) ([]string, error) {
 	result, err := p.client.API.Cluster.Delete(p.ctx, clusterID)
 	if err != nil {
 		return nil, err
