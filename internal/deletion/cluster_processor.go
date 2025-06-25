@@ -48,7 +48,7 @@ func (p *ClusterProcessor) DeleteClusters(ctx context.Context, clusterIDs []stri
 		}
 	}
 
-	return p.executeClusterDeletions(ctx, clusterIDs, force)
+	return p.executeClusterDeletions(ctx, clusterIDs)
 }
 
 func (p *ClusterProcessor) DeleteAllClusters(ctx context.Context, force bool) error {
@@ -86,7 +86,7 @@ func (p *ClusterProcessor) DeleteAllClusters(ctx context.Context, force bool) er
 		return nil
 	}
 
-	err = p.executeClusterDeletions(ctx, clusterIDs, force)
+	err = p.executeClusterDeletions(ctx, clusterIDs)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (p *ClusterProcessor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }
 
-func (p *ClusterProcessor) executeClusterDeletions(ctx context.Context, clusterIDs []string, force bool) error {
+func (p *ClusterProcessor) executeClusterDeletions(ctx context.Context, clusterIDs []string) error {
 	var successCount, failCount int
 	var errors []string
 	var allDeletedVMIDs []string
