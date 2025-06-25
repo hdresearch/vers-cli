@@ -211,6 +211,7 @@ func (p *Processor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targetType TargetType, force bool) error {
 	var successCount, failCount int
 	var errors []string
+	var allDeletedVMIDs []string // Track all successfully deleted VM IDs
 
 	for i, target := range targets {
 		action := "Deleting " + string(target.Type)
@@ -220,11 +221,12 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 
 		utils.ProgressCounter(i+1, len(targets), action, target.DisplayName, p.styles)
 
+		var deletedIDs []string
 		var err error
 		if target.Type == TargetTypeCluster {
-			err = p.deleteCluster(ctx, target.ID)
+			deletedIDs, err = p.deleteCluster(ctx, target.ID)
 		} else {
-			err = p.deleteVM(ctx, target.ID, force)
+			deletedIDs, err = p.deleteVM(ctx, target.ID, force)
 		}
 
 		if err != nil {
@@ -236,6 +238,7 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 			fmt.Println(p.styles.Error.Render(failMsg))
 		} else {
 			successCount++
+			allDeletedVMIDs = append(allDeletedVMIDs, deletedIDs...)
 			utils.SuccessMessage("Deleted successfully", p.styles)
 		}
 	}
@@ -251,13 +254,10 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 		utils.PrintSummary(summaryResults, p.styles)
 	}
 
-	// Cleanup HEAD if we deleted anything - use utils function
-	if successCount > 0 {
-		utils.CleanupAfterDeletion(ctx, p.client)
-		if targetType == TargetTypeCluster && len(targets) > 1 {
-			fmt.Println()
-			msg := fmt.Sprintf("HEAD cleared (clusters deleted)")
-			fmt.Println(p.styles.NoData.Render(msg))
+	// Cleanup HEAD based on actually deleted VMs
+	if len(allDeletedVMIDs) > 0 {
+		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
+			fmt.Println(p.styles.NoData.Render("HEAD cleared (VM was deleted)"))
 		}
 	}
 
@@ -268,32 +268,34 @@ func (p *Processor) executeDeletions(ctx context.Context, targets []Target, targ
 	return nil
 }
 
-func (p *Processor) deleteCluster(ctx context.Context, clusterID string) error {
+func (p *Processor) deleteCluster(ctx context.Context, clusterID string) ([]string, error) {
 	result, err := p.client.API.Cluster.Delete(ctx, clusterID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if errorSummary := utils.GetClusterDeleteErrorSummary(result); errorSummary != "" {
-		return fmt.Errorf("partially failed: %s", errorSummary)
+		return nil, fmt.Errorf("partially failed: %s", errorSummary)
 	}
 
-	return nil
+	// Return the list of deleted VM IDs from the cluster
+	return result.Data.Vms.DeletedIDs, nil
 }
 
-func (p *Processor) deleteVM(ctx context.Context, vmID string, force bool) error {
+func (p *Processor) deleteVM(ctx context.Context, vmID string, force bool) ([]string, error) {
 	deleteParams := vers.APIVmDeleteParams{
 		Recursive: vers.F(force),
 	}
 
 	result, err := p.client.API.Vm.Delete(ctx, vmID, deleteParams)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if utils.HandleVmDeleteErrors(result, p.styles) {
-		return fmt.Errorf("deletion had errors")
+		return nil, fmt.Errorf("deletion had errors")
 	}
 
-	return nil
+	// Return the list of deleted VM IDs
+	return result.Data.DeletedIDs, nil
 }

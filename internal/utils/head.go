@@ -94,20 +94,19 @@ func CheckBatchImpact(ctx context.Context, client *vers.Client, vmIDs []string, 
 }
 
 // CleanupAfterDeletion clears HEAD if the VM it points to no longer exists
-func CleanupAfterDeletion(ctx context.Context, client *vers.Client) {
+func CleanupAfterDeletion(deletedVMIDs []string) bool {
 	headVM, err := GetCurrentHeadVM()
 	if err != nil {
-		return
+		return false // No HEAD to clear
 	}
 
-	// Check if the VM still exists
-	apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err = client.API.Vm.Get(apiCtx, headVM)
-	if err != nil {
-		// VM no longer exists, clear HEAD
-		ClearHead()
-		fmt.Println("HEAD cleared (VM no longer exists)")
+	// Check if the current HEAD VM was in the list of deleted VMs
+	for _, deletedID := range deletedVMIDs {
+		if headVM == deletedID {
+			ClearHead()
+			return true
+		}
 	}
+
+	return false
 }
