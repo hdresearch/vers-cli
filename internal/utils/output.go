@@ -28,14 +28,6 @@ func SectionHeader(title string, s *styles.KillStyles) {
 	fmt.Println(s.Progress.Render("=== " + title + " ==="))
 }
 
-// SummaryResults prints deletion/operation summary results
-type SummaryResults struct {
-	SuccessCount int
-	FailCount    int
-	Errors       []string
-	ItemType     string // "clusters", "VMs", etc.
-}
-
 func PrintSummary(results SummaryResults, s *styles.KillStyles) {
 	SectionHeader("Operation Summary", s)
 
@@ -55,12 +47,6 @@ func PrintSummary(results SummaryResults, s *styles.KillStyles) {
 			}
 		}
 	}
-}
-
-// ClusterInfo represents cluster information for display
-type ClusterInfo struct {
-	DisplayName string
-	VmCount     int
 }
 
 // Standard status messages
