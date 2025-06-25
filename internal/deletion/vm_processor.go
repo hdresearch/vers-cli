@@ -12,20 +12,24 @@ import (
 type VMProcessor struct {
 	client *vers.Client
 	styles *styles.KillStyles
+	ctx    context.Context
+	force  bool
 }
 
-func NewVMProcessor(client *vers.Client, s *styles.KillStyles) *VMProcessor {
+func NewVMProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *VMProcessor {
 	return &VMProcessor{
 		client: client,
 		styles: s,
+		ctx:    ctx,
+		force:  force,
 	}
 }
 
-func (p *VMProcessor) DeleteVMs(ctx context.Context, vmIDs []string, force bool) error {
+func (p *VMProcessor) DeleteVMs(vmIDs []string) error {
 	// Only validate for multiple deletions to prevent partial failures
 	// Single deletions can rely on backend error handling
-	if !force && len(vmIDs) > 1 {
-		if err := utils.ValidateResourcesExist(ctx, p.client, vmIDs, "VM", false); err != nil {
+	if !p.force && len(vmIDs) > 1 {
+		if err := utils.ValidateResourcesExist(p.ctx, p.client, vmIDs, "VM", false); err != nil {
 			return err
 		}
 	}
@@ -36,19 +40,19 @@ func (p *VMProcessor) DeleteVMs(ctx context.Context, vmIDs []string, force bool)
 	}
 
 	// Get confirmations
-	if !force {
+	if !p.force {
 		if !p.confirmVMDeletion(vmIDs) {
 			utils.OperationCancelled(p.styles)
 			return nil
 		}
 
-		if !utils.ConfirmHeadImpact(ctx, p.client, vmIDs, nil, p.styles) {
+		if !utils.ConfirmHeadImpact(p.ctx, p.client, vmIDs, nil, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil
 		}
 	}
 
-	return p.executeVMDeletions(ctx, vmIDs, force)
+	return p.executeVMDeletions(vmIDs)
 }
 
 func (p *VMProcessor) confirmVMDeletion(vmIDs []string) bool {
@@ -59,20 +63,20 @@ func (p *VMProcessor) confirmVMDeletion(vmIDs []string) bool {
 	return utils.ConfirmBatchDeletion(len(vmIDs), "vm", vmIDs, p.styles)
 }
 
-func (p *VMProcessor) executeVMDeletions(ctx context.Context, vmIDs []string, force bool) error {
+func (p *VMProcessor) executeVMDeletions(vmIDs []string) error {
 	var successCount, failCount int
 	var errors []string
 	var allDeletedVMIDs []string
 
 	for i, vmID := range vmIDs {
 		action := "Deleting VM"
-		if force {
+		if p.force {
 			action = "Force deleting VM"
 		}
 
 		utils.ProgressCounter(i+1, len(vmIDs), action, vmID, p.styles)
 
-		deletedIDs, err := p.deleteVM(ctx, vmID, force)
+		deletedIDs, err := p.deleteVM(vmID)
 		if err != nil {
 			failCount++
 			errorMsg := fmt.Sprintf("VM '%s': %v", vmID, err)
@@ -112,12 +116,12 @@ func (p *VMProcessor) executeVMDeletions(ctx context.Context, vmIDs []string, fo
 	return nil
 }
 
-func (p *VMProcessor) deleteVM(ctx context.Context, vmID string, force bool) ([]string, error) {
+func (p *VMProcessor) deleteVM(vmID string) ([]string, error) {
 	deleteParams := vers.APIVmDeleteParams{
-		Recursive: vers.F(force),
+		Recursive: vers.F(p.force),
 	}
 
-	result, err := p.client.API.Vm.Delete(ctx, vmID, deleteParams)
+	result, err := p.client.API.Vm.Delete(p.ctx, vmID, deleteParams)
 	if err != nil {
 		return nil, err
 	}

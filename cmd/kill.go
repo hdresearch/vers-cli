@@ -47,16 +47,16 @@ Examples:
 		s := styles.NewKillStyles()
 
 		if killAll {
-			processor := deletion.NewClusterProcessor(client, &s)
-			return processor.DeleteAllClusters(ctx, force)
+			processor := deletion.NewClusterProcessor(client, &s, ctx, force)
+			return processor.DeleteAllClusters()
 		}
 
 		if isCluster {
-			processor := deletion.NewClusterProcessor(client, &s)
-			return processor.DeleteClusters(ctx, args, force)
+			processor := deletion.NewClusterProcessor(client, &s, ctx, force)
+			return processor.DeleteClusters(args)
 		} else {
-			processor := deletion.NewVMProcessor(client, &s)
-			return processor.DeleteVMs(ctx, args, force)
+			processor := deletion.NewVMProcessor(client, &s, ctx, force)
+			return processor.DeleteVMs(args)
 		}
 	},
 }

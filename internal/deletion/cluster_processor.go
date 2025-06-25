@@ -12,20 +12,24 @@ import (
 type ClusterProcessor struct {
 	client *vers.Client
 	styles *styles.KillStyles
+	ctx    context.Context
+	force  bool
 }
 
-func NewClusterProcessor(client *vers.Client, s *styles.KillStyles) *ClusterProcessor {
+func NewClusterProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *ClusterProcessor {
 	return &ClusterProcessor{
 		client: client,
 		styles: s,
+		ctx:    ctx,
+		force:  force,
 	}
 }
 
-func (p *ClusterProcessor) DeleteClusters(ctx context.Context, clusterIDs []string, force bool) error {
+func (p *ClusterProcessor) DeleteClusters(clusterIDs []string) error {
 	// Only validate for multiple deletions to prevent partial failures
 	// Single deletions can rely on backend error handling
-	if !force && len(clusterIDs) > 1 {
-		if err := utils.ValidateResourcesExist(ctx, p.client, clusterIDs, "cluster", true); err != nil {
+	if !p.force && len(clusterIDs) > 1 {
+		if err := utils.ValidateResourcesExist(p.ctx, p.client, clusterIDs, "cluster", true); err != nil {
 			return err
 		}
 	}
@@ -36,25 +40,25 @@ func (p *ClusterProcessor) DeleteClusters(ctx context.Context, clusterIDs []stri
 	}
 
 	// Get confirmations
-	if !force {
-		if !p.confirmClusterDeletion(ctx, clusterIDs) {
+	if !p.force {
+		if !p.confirmClusterDeletion(clusterIDs) {
 			utils.OperationCancelled(p.styles)
 			return nil
 		}
 
-		if !utils.ConfirmHeadImpact(ctx, p.client, nil, clusterIDs, p.styles) {
+		if !utils.ConfirmHeadImpact(p.ctx, p.client, nil, clusterIDs, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil
 		}
 	}
 
-	return p.executeClusterDeletions(ctx, clusterIDs)
+	return p.executeClusterDeletions(clusterIDs)
 }
 
-func (p *ClusterProcessor) DeleteAllClusters(ctx context.Context, force bool) error {
+func (p *ClusterProcessor) DeleteAllClusters() error {
 	fmt.Println(p.styles.Progress.Render("Fetching all clusters..."))
 
-	response, err := p.client.API.Cluster.List(ctx)
+	response, err := p.client.API.Cluster.List(p.ctx)
 	if err != nil {
 		return fmt.Errorf(p.styles.Error.Render("failed to list clusters: %w"), err)
 	}
@@ -81,12 +85,12 @@ func (p *ClusterProcessor) DeleteAllClusters(ctx context.Context, force bool) er
 		clusterIDs[i] = cluster.ID
 	}
 
-	if !force && !p.confirmDeleteAll(clusters) {
+	if !p.force && !p.confirmDeleteAll(clusters) {
 		utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
 		return nil
 	}
 
-	err = p.executeClusterDeletions(ctx, clusterIDs)
+	err = p.executeClusterDeletions(clusterIDs)
 	if err != nil {
 		return err
 	}
@@ -96,10 +100,10 @@ func (p *ClusterProcessor) DeleteAllClusters(ctx context.Context, force bool) er
 	return nil
 }
 
-func (p *ClusterProcessor) confirmClusterDeletion(ctx context.Context, clusterIDs []string) bool {
+func (p *ClusterProcessor) confirmClusterDeletion(clusterIDs []string) bool {
 	if len(clusterIDs) == 1 {
 		// Get cluster info for single cluster confirmation
-		response, err := p.client.API.Cluster.Get(ctx, clusterIDs[0])
+		response, err := p.client.API.Cluster.Get(p.ctx, clusterIDs[0])
 		if err != nil {
 			// If we can't get info, fall back to simple confirmation
 			return utils.ConfirmDeletion("cluster", clusterIDs[0], p.styles)
@@ -116,7 +120,7 @@ func (p *ClusterProcessor) confirmClusterDeletion(ctx context.Context, clusterID
 	// For multiple clusters, get display names with VM counts
 	clusterInfos := make([]string, len(clusterIDs))
 	for i, clusterID := range clusterIDs {
-		response, err := p.client.API.Cluster.Get(ctx, clusterID)
+		response, err := p.client.API.Cluster.Get(p.ctx, clusterID)
 		if err != nil {
 			clusterInfos[i] = clusterID // Fallback to ID if we can't get info
 		} else {
@@ -148,7 +152,7 @@ func (p *ClusterProcessor) confirmDeleteAll(clusters []utils.ClusterInfo) bool {
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }
 
-func (p *ClusterProcessor) executeClusterDeletions(ctx context.Context, clusterIDs []string) error {
+func (p *ClusterProcessor) executeClusterDeletions(clusterIDs []string) error {
 	var successCount, failCount int
 	var errors []string
 	var allDeletedVMIDs []string
@@ -156,7 +160,7 @@ func (p *ClusterProcessor) executeClusterDeletions(ctx context.Context, clusterI
 	for i, clusterID := range clusterIDs {
 		utils.ProgressCounter(i+1, len(clusterIDs), "Deleting cluster", clusterID, p.styles)
 
-		deletedIDs, err := p.deleteCluster(ctx, clusterID)
+		deletedIDs, err := p.deleteCluster(clusterID)
 		if err != nil {
 			failCount++
 			errorMsg := fmt.Sprintf("Cluster '%s': %v", clusterID, err)
@@ -196,8 +200,8 @@ func (p *ClusterProcessor) executeClusterDeletions(ctx context.Context, clusterI
 	return nil
 }
 
-func (p *ClusterProcessor) deleteCluster(ctx context.Context, clusterID string) ([]string, error) {
-	result, err := p.client.API.Cluster.Delete(ctx, clusterID)
+func (p *ClusterProcessor) deleteCluster(clusterID string) ([]string, error) {
+	result, err := p.client.API.Cluster.Delete(p.ctx, clusterID)
 	if err != nil {
 		return nil, err
 	}
