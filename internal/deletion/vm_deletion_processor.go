@@ -26,14 +26,6 @@ func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx conte
 }
 
 func (p *VMDeletionProcessor) DeleteVMs(vmIDs []string) error {
-	// Only validate for multiple deletions to prevent partial failures
-	// Single deletions can rely on backend error handling
-	if !p.force && len(vmIDs) > 1 {
-		if err := utils.ValidateResourcesExist(p.ctx, p.client, vmIDs, "VM", false); err != nil {
-			return err
-		}
-	}
-
 	if len(vmIDs) > 1 {
 		msg := fmt.Sprintf("Processing %d VMs...", len(vmIDs))
 		fmt.Println(p.styles.Progress.Render(msg))
@@ -107,10 +99,6 @@ func (p *VMDeletionProcessor) executeVMDeletions(vmIDs []string) error {
 		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
 			fmt.Println(p.styles.NoData.Render("HEAD cleared (VM was deleted)"))
 		}
-	}
-
-	if failCount > 0 {
-		return fmt.Errorf("some VMs failed to delete - see details above")
 	}
 
 	return nil

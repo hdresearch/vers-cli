@@ -26,14 +26,6 @@ func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx 
 }
 
 func (p *ClusterDeletionProcessor) DeleteClusters(clusterIDs []string) error {
-	// Only validate for multiple deletions to prevent partial failures
-	// Single deletions can rely on backend error handling
-	if !p.force && len(clusterIDs) > 1 {
-		if err := utils.ValidateResourcesExist(p.ctx, p.client, clusterIDs, "cluster", true); err != nil {
-			return err
-		}
-	}
-
 	if len(clusterIDs) > 1 {
 		msg := fmt.Sprintf("Processing %d clusters...", len(clusterIDs))
 		fmt.Println(p.styles.Progress.Render(msg))
@@ -102,7 +94,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 
 func (p *ClusterDeletionProcessor) confirmClusterDeletion(clusterIDs []string) bool {
 	if len(clusterIDs) == 1 {
-		// Get cluster info for single cluster confirmation
+		// For single cluster, try to get info but don't fail if we can't
 		response, err := p.client.API.Cluster.Get(p.ctx, clusterIDs[0])
 		if err != nil {
 			// If we can't get info, fall back to simple confirmation
@@ -117,20 +109,9 @@ func (p *ClusterDeletionProcessor) confirmClusterDeletion(clusterIDs []string) b
 		return utils.ConfirmClusterDeletion(displayName, int(response.Data.VmCount), p.styles)
 	}
 
-	// For multiple clusters, get display names with VM counts
+	// For multiple clusters, show simple list (don't pre-validate)
 	clusterInfos := make([]string, len(clusterIDs))
-	for i, clusterID := range clusterIDs {
-		response, err := p.client.API.Cluster.Get(p.ctx, clusterID)
-		if err != nil {
-			clusterInfos[i] = clusterID // Fallback to ID if we can't get info
-		} else {
-			displayName := response.Data.Alias
-			if displayName == "" {
-				displayName = response.Data.ID
-			}
-			clusterInfos[i] = fmt.Sprintf("%s (%d VMs)", displayName, response.Data.VmCount)
-		}
-	}
+	copy(clusterInfos, clusterIDs)
 
 	return utils.ConfirmBatchDeletion(len(clusterIDs), "cluster", clusterInfos, p.styles)
 }
@@ -191,10 +172,6 @@ func (p *ClusterDeletionProcessor) executeClusterDeletions(clusterIDs []string) 
 		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
 			fmt.Println(p.styles.NoData.Render("HEAD cleared (cluster VMs were deleted)"))
 		}
-	}
-
-	if failCount > 0 {
-		return fmt.Errorf("some clusters failed to delete - see details above")
 	}
 
 	return nil
