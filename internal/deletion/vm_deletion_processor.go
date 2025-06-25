@@ -26,8 +26,6 @@ func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx conte
 }
 
 func (p *VMDeletionProcessor) DeleteVMs(vmIDs []string) error {
-	// No upfront validation - try each VM and collect errors
-
 	if len(vmIDs) > 1 {
 		msg := fmt.Sprintf("Processing %d VMs...", len(vmIDs))
 		fmt.Println(p.styles.Progress.Render(msg))
@@ -103,8 +101,6 @@ func (p *VMDeletionProcessor) executeVMDeletions(vmIDs []string) error {
 		}
 	}
 
-	// Don't return error for partial failures - just report them
-	// This allows "do as much as possible" behavior
 	return nil
 }
 

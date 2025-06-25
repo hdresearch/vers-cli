@@ -26,8 +26,6 @@ func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx 
 }
 
 func (p *ClusterDeletionProcessor) DeleteClusters(clusterIDs []string) error {
-	// No upfront validation - try each cluster and collect errors
-
 	if len(clusterIDs) > 1 {
 		msg := fmt.Sprintf("Processing %d clusters...", len(clusterIDs))
 		fmt.Println(p.styles.Progress.Render(msg))
@@ -97,7 +95,6 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 func (p *ClusterDeletionProcessor) confirmClusterDeletion(clusterIDs []string) bool {
 	if len(clusterIDs) == 1 {
 		// For single cluster, try to get info but don't fail if we can't
-		// The deletion attempt will show the real error
 		response, err := p.client.API.Cluster.Get(p.ctx, clusterIDs[0])
 		if err != nil {
 			// If we can't get info, fall back to simple confirmation
@@ -113,11 +110,8 @@ func (p *ClusterDeletionProcessor) confirmClusterDeletion(clusterIDs []string) b
 	}
 
 	// For multiple clusters, show simple list (don't pre-validate)
-	// If some don't exist, the deletion attempts will show those errors
 	clusterInfos := make([]string, len(clusterIDs))
-	for i, clusterID := range clusterIDs {
-		clusterInfos[i] = clusterID // Just use the ID, don't try to fetch details
-	}
+	copy(clusterInfos, clusterIDs)
 
 	return utils.ConfirmBatchDeletion(len(clusterIDs), "cluster", clusterInfos, p.styles)
 }
@@ -180,8 +174,6 @@ func (p *ClusterDeletionProcessor) executeClusterDeletions(clusterIDs []string) 
 		}
 	}
 
-	// Don't return error for partial failures - just report them
-	// This allows "do as much as possible" behavior
 	return nil
 }
 
