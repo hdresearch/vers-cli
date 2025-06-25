@@ -37,7 +37,7 @@ If no arguments are provided, shows the current HEAD.`,
 		vm := response.Data
 
 		// Use utils to update HEAD
-		if err := utils.SetHead(target); err != nil {
+		if err := utils.SetHead(vm.ID); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
 

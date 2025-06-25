@@ -17,6 +17,86 @@ const (
 	HeadFile = "HEAD"
 )
 
+// VMInfo contains both ID and display name for a VM
+type VMInfo struct {
+	ID          string
+	DisplayName string
+	State       string
+}
+
+// ClusterInfo contains both ID and display name for a cluster
+type ClusterInfo struct {
+	ID          string
+	DisplayName string
+	VmCount     int
+}
+
+// ResolveVMIdentifier takes a VM ID or alias and returns the VM ID and display info
+// This ensures all API calls use IDs while providing good UX with display names
+func ResolveVMIdentifier(ctx context.Context, client *vers.Client, identifier string) (*VMInfo, error) {
+	response, err := client.API.Vm.Get(ctx, identifier)
+	if err != nil {
+		return nil, fmt.Errorf("VM '%s' not found: %w", identifier, err)
+	}
+
+	vm := response.Data
+	displayName := vm.Alias
+	if displayName == "" {
+		displayName = vm.ID
+	}
+
+	return &VMInfo{
+		ID:          vm.ID,
+		DisplayName: displayName,
+		State:       string(vm.State),
+	}, nil
+}
+
+// ResolveClusterIdentifier takes a cluster ID or alias and returns the cluster ID and display info
+func ResolveClusterIdentifier(ctx context.Context, client *vers.Client, identifier string) (*ClusterInfo, error) {
+	response, err := client.API.Cluster.Get(ctx, identifier)
+	if err != nil {
+		return nil, fmt.Errorf("cluster '%s' not found: %w", identifier, err)
+	}
+
+	cluster := response.Data
+	displayName := cluster.Alias
+	if displayName == "" {
+		displayName = cluster.ID
+	}
+
+	return &ClusterInfo{
+		ID:          cluster.ID,
+		DisplayName: displayName,
+		VmCount:     int(cluster.VmCount),
+	}, nil
+}
+
+// GetCurrentHeadVMInfo returns both the HEAD VM ID and its display information
+func GetCurrentHeadVMInfo(ctx context.Context, client *vers.Client) (*VMInfo, error) {
+	headVM, err := GetCurrentHeadVM()
+	if err != nil {
+		return nil, err
+	}
+
+	return ResolveVMIdentifier(ctx, client, headVM)
+}
+
+// SetHeadFromIdentifier resolves a VM identifier to an ID and sets HEAD
+// This ensures HEAD always contains IDs regardless of user input
+func SetHeadFromIdentifier(ctx context.Context, client *vers.Client, identifier string) (*VMInfo, error) {
+	vmInfo, err := ResolveVMIdentifier(ctx, client, identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := SetHead(vmInfo.ID); err != nil {
+		return nil, fmt.Errorf("failed to update HEAD: %w", err)
+	}
+
+	return vmInfo, nil
+}
+
 // GetCurrentHeadVM returns the VM ID from the current HEAD
 func GetCurrentHeadVM() (string, error) {
 	headFile := filepath.Join(VersDir, HeadFile)
@@ -42,7 +122,7 @@ func GetCurrentHeadVM() (string, error) {
 	return vmID, nil
 }
 
-// SetHead sets the HEAD to point to a specific VM
+// SetHead sets the HEAD to point to a specific VM ID (always stores ID, never alias)
 func SetHead(vmID string) error {
 	headFile := filepath.Join(VersDir, HeadFile)
 

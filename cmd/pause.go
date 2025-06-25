@@ -13,47 +13,56 @@ import (
 
 // pauseCmd represents the pause command
 var pauseCmd = &cobra.Command{
-	Use:   "pause [vm-id]",
+	Use:   "pause [vm-id|alias]",
 	Short: "Pause a running VM",
-	Long:  `Pause a running Vers VM. If no VM ID is provided, uses the current HEAD.`,
+	Long:  `Pause a running Vers VM. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
+		var vmInfo *utils.VMInfo
+		var err error
 		s := styles.NewKillStyles()
-
-		// If no VM ID provided, try to use the current HEAD
-		if len(args) == 0 {
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
-			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
-		} else {
-			vmID = args[0]
-		}
 
 		// Initialize context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
+		// Resolve VM identifier (HEAD, ID, or alias) to get VM info
+		if len(args) == 0 {
+			// Use HEAD VM
+			vmInfo, err = utils.GetCurrentHeadVMInfo(apiCtx, client)
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
+			}
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmInfo.DisplayName)
+		} else {
+			// Use provided identifier (could be ID or alias)
+			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
+			}
+		}
 
-		// Create pause request using SDK
+		// Use utils for progress message (show display name for UX)
+		utils.ProgressCounter(1, 1, "Pausing VM", vmInfo.DisplayName, &s)
+
+		// Create pause request using SDK (always use the resolved ID)
 		updateParams := vers.APIVmUpdateParams{
 			VmPatchParams: vers.VmPatchParams{
 				State: vers.F(vers.VmPatchParamsStatePaused),
 			},
 		}
 
-		// Make API call to pause the VM
-		response, err := client.API.Vm.Update(apiCtx, vmID, updateParams)
+		// Make API call to pause the VM (use ID for API call)
+		response, err := client.API.Vm.Update(apiCtx, vmInfo.ID, updateParams)
 		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), vmID, err)
+			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), vmInfo.DisplayName, err)
 		}
 
-		utils.SuccessMessage(fmt.Sprintf("VM '%s' paused successfully", response.Data.ID), &s)
+		// Use utils for success message (show display name for UX)
+		successMsg := fmt.Sprintf("VM '%s' paused successfully", vmInfo.DisplayName)
+		utils.SuccessMessage(successMsg, &s)
+
 		fmt.Printf(s.HeadStatus.Render("VM state: %s\n"), response.Data.State)
 		return nil
 	},

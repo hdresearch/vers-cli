@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
@@ -12,14 +13,36 @@ import (
 
 // renameCmd represents the rename command
 var renameCmd = &cobra.Command{
-	Use:   "rename [vm-id] [new-alias]",
+	Use:   "rename [vm-id|cluster-id] [new-alias]",
 	Short: "Rename a VM or cluster",
-	Long:  `Rename a VM or cluster by setting a new alias. Use -c flag for clusters.`,
-	Args:  cobra.ExactArgs(2),
+	Long:  `Rename a VM or cluster by setting a new alias. Use -c flag for clusters. If no ID is provided, uses the current HEAD VM.`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		// Allow 1 or 2 arguments
+		if len(args) < 1 || len(args) > 2 {
+			return fmt.Errorf("accepts 1 or 2 arg(s), received %d", len(args))
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		id := args[0]
-		newAlias := args[1]
+		var id, newAlias string
 		s := styles.NewKillStyles()
+
+		// Determine ID and alias based on number of arguments
+		if len(args) == 1 {
+			// Only alias provided, use HEAD for ID
+			newAlias = args[0]
+
+			var err error
+			id, err = utils.GetCurrentHeadVM()
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("no ID provided and %w"), err)
+			}
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", id)
+		} else {
+			// Both ID and alias provided
+			id = args[0]
+			newAlias = args[1]
+		}
 
 		// Initialize context
 		baseCtx := context.Background()

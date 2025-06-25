@@ -17,12 +17,6 @@ type SummaryResults struct {
 	ItemType     string
 }
 
-// ClusterInfo represents cluster information for display
-type ClusterInfo struct {
-	DisplayName string
-	VmCount     int
-}
-
 // PrintDeletionSummary prints results for multiple target deletions
 func PrintDeletionSummary(results SummaryResults, s *styles.KillStyles) {
 	SectionHeader("Operation Summary", s)
