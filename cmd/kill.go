@@ -64,93 +64,14 @@ Examples:
 			args = []string{headVMID}
 		}
 
-		// Process items one at a time
-		var successCount, failCount int
-		var errors []string
-		var allDeletedVMIDs []string
-
-		if len(args) > 1 {
-			if isCluster {
-				fmt.Printf(s.Progress.Render("Processing %d clusters...")+"\n", len(args))
-			} else {
-				fmt.Printf(s.Progress.Render("Processing %d VMs...")+"\n", len(args))
-			}
+		// Delegate to appropriate processor
+		if isCluster {
+			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
+			return processor.DeleteMultipleClusters(args)
+		} else {
+			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
+			return processor.DeleteMultipleVMs(args)
 		}
-
-		for i, identifier := range args {
-			if isCluster {
-				// Process cluster one at a time
-				clusterInfo, err := utils.ResolveClusterIdentifier(ctx, client, identifier)
-				if err != nil {
-					failCount++
-					errorMsg := fmt.Sprintf("Cluster '%s': failed to resolve - %v", identifier, err)
-					errors = append(errors, errorMsg)
-					fmt.Printf(s.Error.Render("FAILED to resolve cluster '%s': %s")+"\n", identifier, err.Error())
-					continue
-				}
-
-				processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
-				deletedVMIDs, err := processor.DeleteSingleCluster(clusterInfo, i+1, len(args))
-				if err != nil {
-					failCount++
-					errorMsg := fmt.Sprintf("Cluster '%s': %v", clusterInfo.DisplayName, err)
-					errors = append(errors, errorMsg)
-				} else {
-					successCount++
-					allDeletedVMIDs = append(allDeletedVMIDs, deletedVMIDs...)
-				}
-			} else {
-				// Process VM one at a time
-				vmInfo, err := utils.ResolveVMIdentifier(ctx, client, identifier)
-				if err != nil {
-					failCount++
-					errorMsg := fmt.Sprintf("VM '%s': failed to resolve - %v", identifier, err)
-					errors = append(errors, errorMsg)
-					fmt.Printf(s.Error.Render("FAILED to resolve VM '%s': %s")+"\n", identifier, err.Error())
-					continue
-				}
-
-				processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
-				deletedVMIDs, err := processor.DeleteSingleVM(vmInfo, i+1, len(args))
-				if err != nil {
-					failCount++
-					errorMsg := fmt.Sprintf("VM '%s': %v", vmInfo.DisplayName, err)
-					errors = append(errors, errorMsg)
-				} else {
-					successCount++
-					allDeletedVMIDs = append(allDeletedVMIDs, deletedVMIDs...)
-				}
-			}
-		}
-
-		// Print summary for multiple targets
-		if len(args) > 1 {
-			itemType := "VMs"
-			if isCluster {
-				itemType = "clusters"
-			}
-
-			summaryResults := utils.SummaryResults{
-				SuccessCount: successCount,
-				FailCount:    failCount,
-				Errors:       errors,
-				ItemType:     itemType,
-			}
-			utils.PrintDeletionSummary(summaryResults, &s)
-		}
-
-		// Cleanup HEAD
-		if len(allDeletedVMIDs) > 0 {
-			if utils.CleanupAfterDeletion(allDeletedVMIDs) {
-				fmt.Println(s.NoData.Render("HEAD cleared (VM was deleted)"))
-			}
-		}
-
-		if failCount > 0 {
-			return fmt.Errorf("some items failed to delete - see details above")
-		}
-
-		return nil
 	},
 }
 

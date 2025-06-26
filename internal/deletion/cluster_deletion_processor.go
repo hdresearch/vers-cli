@@ -25,6 +25,64 @@ func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx 
 	}
 }
 
+// DeleteMultipleClusters processes multiple cluster identifiers one at a time
+func (p *ClusterDeletionProcessor) DeleteMultipleClusters(identifiers []string) error {
+	// Process items one at a time
+	var successCount, failCount int
+	var errors []string
+	var allDeletedVMIDs []string
+
+	if len(identifiers) > 1 {
+		fmt.Printf(p.styles.Progress.Render("Processing %d clusters...")+"\n", len(identifiers))
+	}
+
+	for i, identifier := range identifiers {
+		// Process cluster one at a time
+		clusterInfo, err := utils.ResolveClusterIdentifier(p.ctx, p.client, identifier)
+		if err != nil {
+			failCount++
+			errorMsg := fmt.Sprintf("Cluster '%s': failed to resolve - %v", identifier, err)
+			errors = append(errors, errorMsg)
+			fmt.Printf(p.styles.Error.Render("FAILED to resolve cluster '%s': %s")+"\n", identifier, err.Error())
+			continue
+		}
+
+		deletedVMIDs, err := p.DeleteSingleCluster(clusterInfo, i+1, len(identifiers))
+		if err != nil {
+			failCount++
+			errorMsg := fmt.Sprintf("Cluster '%s': %v", clusterInfo.DisplayName, err)
+			errors = append(errors, errorMsg)
+		} else {
+			successCount++
+			allDeletedVMIDs = append(allDeletedVMIDs, deletedVMIDs...)
+		}
+	}
+
+	// Print summary for multiple targets
+	if len(identifiers) > 1 {
+		summaryResults := utils.SummaryResults{
+			SuccessCount: successCount,
+			FailCount:    failCount,
+			Errors:       errors,
+			ItemType:     "clusters",
+		}
+		utils.PrintDeletionSummary(summaryResults, p.styles)
+	}
+
+	// Cleanup HEAD
+	if len(allDeletedVMIDs) > 0 {
+		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
+			fmt.Println(p.styles.NoData.Render("HEAD cleared (cluster VMs were deleted)"))
+		}
+	}
+
+	if failCount > 0 {
+		return fmt.Errorf("some clusters failed to delete - see details above")
+	}
+
+	return nil
+}
+
 // DeleteSingleCluster deletes a single cluster with pre-resolved info
 // Returns the list of deleted VM IDs and any error
 func (p *ClusterDeletionProcessor) DeleteSingleCluster(clusterInfo *utils.ClusterInfo, currentIndex, totalCount int) ([]string, error) {
