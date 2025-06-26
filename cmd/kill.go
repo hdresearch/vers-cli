@@ -142,11 +142,7 @@ Examples:
 		// Cleanup HEAD
 		if len(allDeletedVMIDs) > 0 {
 			if utils.CleanupAfterDeletion(allDeletedVMIDs) {
-				if isCluster {
-					fmt.Println(s.NoData.Render("HEAD cleared (cluster VMs were deleted)"))
-				} else {
-					fmt.Println(s.NoData.Render("HEAD cleared (VM was deleted)"))
-				}
+				fmt.Println(s.NoData.Render("HEAD cleared (VM was deleted)"))
 			}
 		}
 
