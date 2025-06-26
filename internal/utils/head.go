@@ -186,64 +186,50 @@ func ClearHead() error {
 	return os.WriteFile(headFile, []byte(""), 0644)
 }
 
-// CheckBatchImpact checks if any targets in a batch will affect HEAD
-func CheckBatchImpact(ctx context.Context, client *vers.Client, vmIDs []string, clusterIDs []string) bool {
+// CheckVMImpactsHead checks if a specific VM deletion will affect HEAD
+func CheckVMImpactsHead(vmID string) bool {
+	headVM, err := GetCurrentHeadVM()
+	if err != nil {
+		return false
+	}
+	return headVM == vmID
+}
+
+// CheckClusterImpactsHead checks if a specific cluster deletion will affect HEAD
+func CheckClusterImpactsHead(ctx context.Context, client *vers.Client, clusterID string) bool {
 	headVM, err := GetCurrentHeadVM()
 	if err != nil {
 		return false
 	}
 
-	// Check direct VM matches
-	for _, vmID := range vmIDs {
-		if headVM == vmID {
-			return true
-		}
+	apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	vmResponse, err := client.API.Vm.Get(apiCtx, headVM)
+	if err != nil {
+		return false
 	}
 
-	// Check cluster impacts
-	if len(clusterIDs) > 0 {
-		apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-
-		vmResponse, err := client.API.Vm.Get(apiCtx, headVM)
-		if err != nil {
-			return false
-		}
-
-		for _, clusterID := range clusterIDs {
-			if vmResponse.Data.ClusterID == clusterID {
-				return true
-			}
-		}
-	}
-
-	return false
+	return vmResponse.Data.ClusterID == clusterID
 }
 
-// ConfirmHeadImpact checks and confirms HEAD impact for VM or cluster deletions
-// This consolidates the duplicated logic from both processors
-func ConfirmHeadImpact(ctx context.Context, client *vers.Client, vmIDs []string, clusterIDs []string, s *styles.KillStyles) bool {
-	if !CheckBatchImpact(ctx, client, vmIDs, clusterIDs) {
+// ConfirmVMHeadImpact checks and confirms HEAD impact for a single VM deletion
+func ConfirmVMHeadImpact(vmID string, s *styles.KillStyles) bool {
+	if !CheckVMImpactsHead(vmID) {
 		return true // No impact, proceed
 	}
 
-	// Determine appropriate warning message
-	var message string
-	totalItems := len(vmIDs) + len(clusterIDs)
+	fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
+	return AskConfirmation()
+}
 
-	if totalItems == 1 {
-		message = "Warning: This will affect the current HEAD"
-	} else {
-		if len(vmIDs) > 0 && len(clusterIDs) > 0 {
-			message = "Warning: Some targets will affect the current HEAD"
-		} else if len(vmIDs) > 1 {
-			message = "Warning: Some VMs will affect the current HEAD"
-		} else {
-			message = "Warning: Some clusters will affect the current HEAD"
-		}
+// ConfirmClusterHeadImpact checks and confirms HEAD impact for a single cluster deletion
+func ConfirmClusterHeadImpact(ctx context.Context, client *vers.Client, clusterID string, s *styles.KillStyles) bool {
+	if !CheckClusterImpactsHead(ctx, client, clusterID) {
+		return true // No impact, proceed
 	}
 
-	fmt.Println(s.Warning.Render(message))
+	fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
 	return AskConfirmation()
 }
 

@@ -30,19 +30,17 @@ var resumeCmd = &cobra.Command{
 		// Determine VM ID to use - OPTIMIZED: minimal API calls
 		if len(args) == 0 {
 			// Use HEAD VM - get ID first (no API call)
-			headVMID, err := utils.GetCurrentHeadVM()
+			vmID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			vmID = headVMID
 			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 		} else {
 			// Use provided identifier - resolve it first (1 API call)
-			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
 			}
-			vmInfo = resolvedVMInfo
 			vmID = vmInfo.ID
 		}
 

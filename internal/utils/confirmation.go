@@ -58,21 +58,3 @@ func ConfirmClusterDeletion(clusterName string, vmCount int, s *styles.KillStyle
 	fmt.Println(s.Warning.Render(msg))
 	return AskConfirmation()
 }
-
-// ConfirmBatchDeletion shows a batch deletion warning
-func ConfirmBatchDeletion(count int, itemType string, items []string, s *styles.KillStyles) bool {
-	msg := fmt.Sprintf("Warning: You are about to delete %d %ss:", count, itemType)
-	fmt.Println(s.Warning.Render(msg))
-	fmt.Println()
-
-	for i, item := range items {
-		listItem := fmt.Sprintf("  %d. %s '%s'", i+1, strings.Title(itemType), item)
-		fmt.Println(s.Warning.Render(listItem))
-	}
-
-	fmt.Println()
-	irreversibleMsg := fmt.Sprintf("This action is IRREVERSIBLE and will delete ALL specified %ss!", itemType)
-	fmt.Println(s.Warning.Render(irreversibleMsg))
-
-	return AskConfirmation()
-}

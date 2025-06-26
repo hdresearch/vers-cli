@@ -1,12 +1,9 @@
 package utils
 
 import (
-	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hdresearch/vers-cli/styles"
-	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 // SummaryResults for deletion operations
@@ -39,30 +36,20 @@ func PrintDeletionSummary(results SummaryResults, s *styles.KillStyles) {
 	}
 }
 
-// ValidateResourcesExist validates that all resources exist via API calls
-// Generic function that works for both VMs and clusters
-func ValidateResourcesExist(ctx context.Context, client *vers.Client, resourceIDs []string, resourceType string, isCluster bool) error {
-	var invalidResources []string
+// HandleDeletionResult displays progress, performs deletion, and handles the result
+// This is the common pattern used by both VM and cluster processors
+func HandleDeletionResult(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
+	// Show progress
+	ProgressCounter(currentIndex, totalCount, action, displayName, s)
 
-	for _, resourceID := range resourceIDs {
-		var err error
-		if isCluster {
-			_, err = client.API.Cluster.Get(ctx, resourceID)
-		} else {
-			_, err = client.API.Vm.Get(ctx, resourceID)
-		}
-
-		if err != nil {
-			invalidResources = append(invalidResources, resourceID)
-		}
+	// Perform the deletion
+	deletedIDs, err := deletionFunc()
+	if err != nil {
+		failMsg := fmt.Sprintf("FAILED: %s", err.Error())
+		fmt.Println(s.Error.Render(failMsg))
+		return nil, err
 	}
 
-	if len(invalidResources) > 0 {
-		if len(invalidResources) == 1 {
-			return fmt.Errorf("%s '%s' not found", resourceType, invalidResources[0])
-		}
-		return fmt.Errorf("%ss not found: %s", resourceType, strings.Join(invalidResources, ", "))
-	}
-
-	return nil
+	SuccessMessage("Deleted successfully", s)
+	return deletedIDs, nil
 }

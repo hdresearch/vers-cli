@@ -17,9 +17,6 @@ var treeCmd = &cobra.Command{
 	Long:  `Print a visual tree representation of the cluster and its VMs. If no cluster ID or alias is provided, uses the cluster from current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var clusterInfo *utils.ClusterInfo
-		var err error
-
 		// Initialize context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
@@ -35,89 +32,132 @@ var treeCmd = &cobra.Command{
 
 			fmt.Printf("Finding cluster for current HEAD VM: %s\n", headVMID)
 
-			// Get all clusters and find the one containing our VM
+			// OPTIMIZED: Single API call to get all clusters with complete VM data
 			response, err := client.API.Cluster.List(apiCtx)
-			clusters := response.Data
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
+			clusters := response.Data
 
-			found := false
-			for _, cluster := range clusters {
-				// First check if it's the root VM
+			// Find the cluster containing our HEAD VM
+			var foundCluster *vers.APIClusterListResponseData
+			for i := range clusters {
+				cluster := &clusters[i]
+
+				// Check if it's the root VM
 				if cluster.RootVmID == headVMID {
-					// Create ClusterInfo for the found cluster
-					clusterInfo = utils.CreateClusterInfoFromListResponse(cluster)
-					found = true
+					foundCluster = cluster
 					break
 				}
 
 				// Check all children in the cluster
 				for _, vm := range cluster.Vms {
 					if vm.ID == headVMID {
-						// Create ClusterInfo for the found cluster
-						clusterInfo = utils.CreateClusterInfoFromListResponse(cluster)
-						found = true
+						foundCluster = cluster
 						break
 					}
 				}
 
-				if found {
+				if foundCluster != nil {
 					break
 				}
 			}
 
-			if !found {
+			if foundCluster == nil {
 				return fmt.Errorf("couldn't find a cluster containing VM '%s'", headVMID)
 			}
 
+			// OPTIMIZED: Build tree directly from List data - no second API call needed!
+			return buildAndDisplayTree(*foundCluster, headVMID)
+
 		} else {
-			// Use provided cluster identifier (could be ID or alias)
-			clusterInfo, err = utils.ResolveClusterIdentifier(apiCtx, client, args[0])
+			// Use provided cluster identifier - we still need to resolve this
+			clusterInfo, err := utils.ResolveClusterIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf("failed to find cluster: %w", err)
 			}
+
+			// For explicit cluster requests, we could also optimize this by using List
+			// and finding the matching cluster, but since this is less common, keeping
+			// the existing behavior for now
+			return buildTreeFromClusterGet(apiCtx, clusterInfo)
 		}
-
-		fmt.Printf("Generating tree for cluster: %s\n", clusterInfo.DisplayName)
-
-		// Fetch cluster data using the resolved cluster ID
-		response, err := client.API.Cluster.Get(apiCtx, clusterInfo.ID)
-		if err != nil {
-			return fmt.Errorf("failed to get information for cluster '%s': %w", clusterInfo.DisplayName, err)
-		}
-		cluster := response.Data
-
-		// Print cluster information header (show display name)
-		clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", clusterInfo.DisplayName, cluster.VmCount))
-		fmt.Println(clusterHeader)
-
-		// Find the root VM
-		if cluster.RootVmID == "" {
-			return fmt.Errorf("cluster '%s' has no root VM", clusterInfo.DisplayName)
-		}
-
-		// Print the tree starting from the root VM - OPTIMIZED: use HEAD ID directly
-		headVMID, err := utils.GetCurrentHeadVM()
-		if err != nil {
-			// If we can't get HEAD, just print without it
-			printVMTree(cluster.Vms, cluster.RootVmID, "", true, "")
-		} else {
-			printVMTree(cluster.Vms, cluster.RootVmID, "", true, headVMID)
-		}
-
-		fmt.Println("\nLegend:")
-		fmt.Println(styles.MutedTextStyle.Render("- [R] Running")) // Apply style to legend
-		fmt.Println(styles.MutedTextStyle.Render("- [P] Paused"))
-		fmt.Println(styles.MutedTextStyle.Render("- [S] Stopped"))
-		fmt.Println(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details.")) // Use help style
-
-		return nil
 	},
 }
 
-// printVMTree recursively prints a tree view of VMs
-func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string) {
+// buildAndDisplayTree builds and displays the tree using only List API response data
+func buildAndDisplayTree(cluster vers.APIClusterListResponseData, headVMID string) error {
+	// Create display name for cluster
+	clusterDisplayName := cluster.Alias
+	if clusterDisplayName == "" {
+		clusterDisplayName = cluster.ID
+	}
+
+	fmt.Printf("Generating tree for cluster: %s\n", clusterDisplayName)
+
+	// Print cluster information header
+	clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", clusterDisplayName, cluster.VmCount))
+	fmt.Println(clusterHeader)
+
+	// Validate we have a root VM
+	if cluster.RootVmID == "" {
+		return fmt.Errorf("cluster '%s' has no root VM", clusterDisplayName)
+	}
+
+	// Print the tree starting from the root VM
+	printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID)
+
+	// Print legend
+	fmt.Println("\nLegend:")
+	fmt.Println(styles.MutedTextStyle.Render("- [R] Running"))
+	fmt.Println(styles.MutedTextStyle.Render("- [P] Paused"))
+	fmt.Println(styles.MutedTextStyle.Render("- [S] Stopped"))
+	fmt.Println(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details."))
+
+	return nil
+}
+
+// buildTreeFromClusterGet builds tree using the original Get API call (for explicit cluster requests)
+func buildTreeFromClusterGet(ctx context.Context, clusterInfo *utils.ClusterInfo) error {
+	fmt.Printf("Generating tree for cluster: %s\n", clusterInfo.DisplayName)
+
+	// Fetch cluster data using the resolved cluster ID
+	response, err := client.API.Cluster.Get(ctx, clusterInfo.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get information for cluster '%s': %w", clusterInfo.DisplayName, err)
+	}
+	cluster := response.Data
+
+	// Print cluster information header
+	clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", clusterInfo.DisplayName, cluster.VmCount))
+	fmt.Println(clusterHeader)
+
+	// Find the root VM
+	if cluster.RootVmID == "" {
+		return fmt.Errorf("cluster '%s' has no root VM", clusterInfo.DisplayName)
+	}
+
+	// Get HEAD VM for highlighting
+	headVMID, err := utils.GetCurrentHeadVM()
+	if err != nil {
+		// If we can't get HEAD, just print without it
+		printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, "")
+	} else {
+		printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID)
+	}
+
+	// Print legend
+	fmt.Println("\nLegend:")
+	fmt.Println(styles.MutedTextStyle.Render("- [R] Running"))
+	fmt.Println(styles.MutedTextStyle.Render("- [P] Paused"))
+	fmt.Println(styles.MutedTextStyle.Render("- [S] Stopped"))
+	fmt.Println(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details."))
+
+	return nil
+}
+
+// printVMTreeFromListData prints tree using List response data structure
+func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string) {
 	// Find the current VM in the list
 	var currentVM *vers.VmDto
 	for i := range vms {
@@ -139,7 +179,7 @@ func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, head
 
 	// Format state with symbol and style
 	stateSymbol := "[?]"
-	stateStyle := styles.MutedTextStyle // Default style for state
+	stateStyle := styles.MutedTextStyle
 	switch currentVM.State {
 	case "Running":
 		stateSymbol = "[R]"
@@ -152,8 +192,7 @@ func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, head
 		stateStyle = styles.ErrorTextStyle
 	}
 
-	// Build the VM info string with appropriate styling
-	// Show alias if available, otherwise show ID
+	// Build the VM info string
 	displayName := currentVM.Alias
 	if displayName == "" {
 		displayName = currentVMID
@@ -164,7 +203,7 @@ func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, head
 		vmInfo += fmt.Sprintf(" (%s)", styles.MutedTextStyle.Render(currentVM.IPAddress))
 	}
 
-	finalStyle := styles.NormalListItemStyle // Default list item style
+	finalStyle := styles.NormalListItemStyle
 	if currentVM.ID == headVMID {
 		vmInfo += " <- HEAD"
 		finalStyle = styles.SelectedListItemStyle
@@ -183,7 +222,7 @@ func printVMTree(vms []vers.VmDto, currentVMID, prefix string, isLast bool, head
 	// Print children
 	for i, childID := range currentVM.Children {
 		isLastChild := i == len(currentVM.Children)-1
-		printVMTree(vms, childID, childPrefix, isLastChild, headVMID)
+		printVMTreeFromListData(vms, childID, childPrefix, isLastChild, headVMID)
 	}
 }
 

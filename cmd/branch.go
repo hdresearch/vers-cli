@@ -68,12 +68,6 @@ var branchCmd = &cobra.Command{
 		}
 		branchInfo := response.Data
 
-		// Create VMInfo from branch response if we don't have source VM info (HEAD case)
-		if vmInfo == nil {
-			// For HEAD case, we'll show the source VM ID in messages since we don't have alias info
-			// The important part is that the branch worked and we show the new VM details below
-		}
-
 		// Success message
 		fmt.Printf(s.Success.Render("✓ New VM created successfully!") + "\n")
 
@@ -88,21 +82,20 @@ var branchCmd = &cobra.Command{
 		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress)) + "\n")
 		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
 
-		// Check if user wants to switch to the new VM
+		// Check if user wants to switch to the new VM - OPTIMIZED: no extra API call
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
-			// Use SetHeadFromIdentifier to properly resolve and store the ID
-			target := branchInfo.Alias
-			if target == "" {
-				target = branchInfo.ID
-			}
-
-			// Use utils for HEAD management - this will store the ID regardless of what we pass
-			newHeadInfo, err := utils.SetHeadFromIdentifier(apiCtx, client, target)
+			// OPTIMIZED: Use branch response data directly, no extra API call needed!
+			err := utils.SetHead(branchInfo.ID) // Direct HEAD update (no API call)
 			if err != nil {
 				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
 				fmt.Println(s.Warning.Render(warningMsg))
 			} else {
-				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(newHeadInfo.DisplayName) + "\n")
+				// Create display name from branch response
+				displayName := branchInfo.Alias
+				if displayName == "" {
+					displayName = branchInfo.ID
+				}
+				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(displayName) + "\n")
 			}
 		} else {
 			// Show tip about switching

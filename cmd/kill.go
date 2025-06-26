@@ -52,7 +52,7 @@ Examples:
 			return processor.DeleteAllClusters()
 		}
 
-		// Handle the case where no arguments are provided - OPTIMIZED
+		// Handle the case where no arguments are provided
 		if len(args) == 0 {
 			// Use HEAD VM - get ID first (no API call)
 			headVMID, err := utils.GetCurrentHeadVM()
@@ -61,38 +61,100 @@ Examples:
 			}
 
 			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
-
-			// For HEAD VM, we pass the ID to maintain existing processor behavior
 			args = []string{headVMID}
 		}
 
-		if isCluster {
-			// Resolve cluster identifiers to IDs before passing to processor
-			var clusterIDs []string
-			for _, identifier := range args {
+		// Process items one at a time
+		var successCount, failCount int
+		var errors []string
+		var allDeletedVMIDs []string
+
+		if len(args) > 1 {
+			if isCluster {
+				fmt.Printf(s.Progress.Render("Processing %d clusters...")+"\n", len(args))
+			} else {
+				fmt.Printf(s.Progress.Render("Processing %d VMs...")+"\n", len(args))
+			}
+		}
+
+		for i, identifier := range args {
+			if isCluster {
+				// Process cluster one at a time
 				clusterInfo, err := utils.ResolveClusterIdentifier(ctx, client, identifier)
 				if err != nil {
-					return fmt.Errorf(s.NoData.Render("failed to find cluster '%s': %w"), identifier, err)
+					failCount++
+					errorMsg := fmt.Sprintf("Cluster '%s': failed to resolve - %v", identifier, err)
+					errors = append(errors, errorMsg)
+					fmt.Printf(s.Error.Render("FAILED to resolve cluster '%s': %s")+"\n", identifier, err.Error())
+					continue
 				}
-				clusterIDs = append(clusterIDs, clusterInfo.ID)
-			}
 
-			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteClusters(clusterIDs)
-		} else {
-			// Resolve VM identifiers to IDs before passing to processor
-			var vmIDs []string
-			for _, identifier := range args {
+				processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
+				deletedVMIDs, err := processor.DeleteSingleCluster(clusterInfo, i+1, len(args))
+				if err != nil {
+					failCount++
+					errorMsg := fmt.Sprintf("Cluster '%s': %v", clusterInfo.DisplayName, err)
+					errors = append(errors, errorMsg)
+				} else {
+					successCount++
+					allDeletedVMIDs = append(allDeletedVMIDs, deletedVMIDs...)
+				}
+			} else {
+				// Process VM one at a time
 				vmInfo, err := utils.ResolveVMIdentifier(ctx, client, identifier)
 				if err != nil {
-					return fmt.Errorf(s.NoData.Render("failed to find VM '%s': %w"), identifier, err)
+					failCount++
+					errorMsg := fmt.Sprintf("VM '%s': failed to resolve - %v", identifier, err)
+					errors = append(errors, errorMsg)
+					fmt.Printf(s.Error.Render("FAILED to resolve VM '%s': %s")+"\n", identifier, err.Error())
+					continue
 				}
-				vmIDs = append(vmIDs, vmInfo.ID)
+
+				processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
+				deletedVMIDs, err := processor.DeleteSingleVM(vmInfo, i+1, len(args))
+				if err != nil {
+					failCount++
+					errorMsg := fmt.Sprintf("VM '%s': %v", vmInfo.DisplayName, err)
+					errors = append(errors, errorMsg)
+				} else {
+					successCount++
+					allDeletedVMIDs = append(allDeletedVMIDs, deletedVMIDs...)
+				}
+			}
+		}
+
+		// Print summary for multiple targets
+		if len(args) > 1 {
+			itemType := "VMs"
+			if isCluster {
+				itemType = "clusters"
 			}
 
-			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteVMs(vmIDs)
+			summaryResults := utils.SummaryResults{
+				SuccessCount: successCount,
+				FailCount:    failCount,
+				Errors:       errors,
+				ItemType:     itemType,
+			}
+			utils.PrintDeletionSummary(summaryResults, &s)
 		}
+
+		// Cleanup HEAD
+		if len(allDeletedVMIDs) > 0 {
+			if utils.CleanupAfterDeletion(allDeletedVMIDs) {
+				if isCluster {
+					fmt.Println(s.NoData.Render("HEAD cleared (cluster VMs were deleted)"))
+				} else {
+					fmt.Println(s.NoData.Render("HEAD cleared (VM was deleted)"))
+				}
+			}
+		}
+
+		if failCount > 0 {
+			return fmt.Errorf("some items failed to delete - see details above")
+		}
+
+		return nil
 	},
 }
 

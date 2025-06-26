@@ -183,7 +183,7 @@ var logCmd = &cobra.Command{
 				Timestamp: time.Now().Unix(), // Use current time as we don't have the exact commit time
 				Author:    "unknown",         // No author info from API
 				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName, // This might be alias or ID
+				Alias:     vmInfo.DisplayName,
 			}
 
 			// Add to our commits list

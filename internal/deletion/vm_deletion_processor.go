@@ -25,95 +25,32 @@ func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx conte
 	}
 }
 
-func (p *VMDeletionProcessor) DeleteVMs(vmIDs []string) error {
-	// Only validate for multiple deletions to prevent partial failures
-	// Single deletions can rely on backend error handling
-	if !p.force && len(vmIDs) > 1 {
-		if err := utils.ValidateResourcesExist(p.ctx, p.client, vmIDs, "VM", false); err != nil {
-			return err
-		}
-	}
-
-	if len(vmIDs) > 1 {
-		msg := fmt.Sprintf("Processing %d VMs...", len(vmIDs))
-		fmt.Println(p.styles.Progress.Render(msg))
-	}
-
-	// Get confirmations
+// DeleteSingleVM deletes a single VM with pre-resolved info
+// Returns the list of deleted VM IDs and any error
+func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex, totalCount int) ([]string, error) {
+	// Get confirmation if not forced
 	if !p.force {
-		if !p.confirmVMDeletion(vmIDs) {
+		if !utils.ConfirmDeletion("VM", vmInfo.DisplayName, p.styles) {
 			utils.OperationCancelled(p.styles)
-			return nil
+			return nil, fmt.Errorf("operation cancelled by user")
 		}
 
-		if !utils.ConfirmHeadImpact(p.ctx, p.client, vmIDs, nil, p.styles) {
+		// Check HEAD impact for this specific VM
+		if !utils.ConfirmVMHeadImpact(vmInfo.ID, p.styles) {
 			utils.OperationCancelled(p.styles)
-			return nil
+			return nil, fmt.Errorf("operation cancelled by user")
 		}
 	}
 
-	return p.executeVMDeletions(vmIDs)
-}
-
-func (p *VMDeletionProcessor) confirmVMDeletion(vmIDs []string) bool {
-	if len(vmIDs) == 1 {
-		return utils.ConfirmDeletion("VM", vmIDs[0], p.styles)
+	// Show progress and perform deletion
+	action := "Deleting VM"
+	if p.force {
+		action = "Force deleting VM"
 	}
 
-	return utils.ConfirmBatchDeletion(len(vmIDs), "vm", vmIDs, p.styles)
-}
-
-func (p *VMDeletionProcessor) executeVMDeletions(vmIDs []string) error {
-	var successCount, failCount int
-	var errors []string
-	var allDeletedVMIDs []string
-
-	for i, vmID := range vmIDs {
-		action := "Deleting VM"
-		if p.force {
-			action = "Force deleting VM"
-		}
-
-		utils.ProgressCounter(i+1, len(vmIDs), action, vmID, p.styles)
-
-		deletedIDs, err := p.deleteVM(vmID)
-		if err != nil {
-			failCount++
-			errorMsg := fmt.Sprintf("VM '%s': %v", vmID, err)
-			errors = append(errors, errorMsg)
-
-			failMsg := fmt.Sprintf("FAILED: %s", err.Error())
-			fmt.Println(p.styles.Error.Render(failMsg))
-		} else {
-			successCount++
-			allDeletedVMIDs = append(allDeletedVMIDs, deletedIDs...)
-			utils.SuccessMessage("Deleted successfully", p.styles)
-		}
-	}
-
-	// Print summary for multiple targets
-	if len(vmIDs) > 1 {
-		summaryResults := utils.SummaryResults{
-			SuccessCount: successCount,
-			FailCount:    failCount,
-			Errors:       errors,
-			ItemType:     "VMs",
-		}
-		utils.PrintDeletionSummary(summaryResults, p.styles)
-	}
-
-	// Cleanup HEAD
-	if len(allDeletedVMIDs) > 0 {
-		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
-			fmt.Println(p.styles.NoData.Render("HEAD cleared (VM was deleted)"))
-		}
-	}
-
-	if failCount > 0 {
-		return fmt.Errorf("some VMs failed to delete - see details above")
-	}
-
-	return nil
+	return utils.HandleDeletionResult(currentIndex, totalCount, action, vmInfo.DisplayName, func() ([]string, error) {
+		return p.deleteVM(vmInfo.ID)
+	}, p.styles)
 }
 
 func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
