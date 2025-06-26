@@ -37,7 +37,6 @@ If no arguments are provided, shows the current HEAD.`,
 			return fmt.Errorf("failed to switch to VM '%s': %w", target, err)
 		}
 
-		// Show success message with VM details (use display name)
 		fmt.Printf("Switched to VM '%s' (State: %s)\n", vmInfo.DisplayName, vmInfo.State)
 		return nil
 	},
@@ -50,7 +49,6 @@ func showCurrentHead() error {
 	apiCtx, cancel := context.WithTimeout(baseCtx, 10*time.Second)
 	defer cancel()
 
-	// Use utils to get current HEAD info with resolution
 	vmInfo, err := utils.GetCurrentHeadVMInfo(apiCtx, client)
 	if err != nil {
 		return err

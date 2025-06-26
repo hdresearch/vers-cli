@@ -39,7 +39,7 @@ var statusCmd = &cobra.Command{
 
 			fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterInfo.DisplayName) + "\n")
 
-			// Fetch cluster info using resolved cluster ID - OPTIMIZED: check if we need more details
+			// Fetch cluster info using resolved cluster ID
 			fmt.Println(s.NoData.Render("Fetching cluster information..."))
 			response, err := client.API.Cluster.Get(apiCtx, clusterInfo.ID)
 			if err != nil {
@@ -89,9 +89,9 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
-		// If VM ID is provided as argument, show status for that specific VM - OPTIMIZED
+		// If VM ID is provided as argument, show status for that specific VM
 		if len(args) > 0 {
-			// Resolve VM identifier (could be ID or alias) - OPTIMIZED: single API call
+			// Resolve VM identifier (could be ID or alias)
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find VM: %w"), err)
@@ -99,7 +99,6 @@ var statusCmd = &cobra.Command{
 
 			fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName) + "\n")
 
-			// OPTIMIZED: Use data from ResolveVMIdentifier, no additional API call needed!
 			fmt.Println(s.NoData.Render("Using VM information from resolution..."))
 
 			displayHeadStatus()
@@ -107,7 +106,7 @@ var statusCmd = &cobra.Command{
 			fmt.Println(s.VMListHeader.Render("VM details:"))
 			vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
-			// Show display name for user - OPTIMIZED: use vmInfo directly
+			// Show display name for user
 			vmInfo_display := fmt.Sprintf(
 				"%s\n%s\n%s",
 				s.ClusterName.Render("VM: "+s.VMID.Render(vmInfo.DisplayName)),
@@ -115,8 +114,6 @@ var statusCmd = &cobra.Command{
 				s.ClusterData.Render("Cluster: (fetching...)"), // We don't have cluster ID from basic resolution
 			)
 
-			// If we need cluster ID, we'd need to make an additional call, but let's see if it's in the resolution
-			// For now, let's make one more call to get complete VM details including cluster ID
 			response, err := client.API.Vm.Get(apiCtx, vmInfo.ID)
 			if err == nil {
 				// Update display with cluster info
@@ -181,11 +178,11 @@ var statusCmd = &cobra.Command{
 	},
 }
 
-// Helper function to display current HEAD status using utils - OPTIMIZED
+// Helper function to display current HEAD status using utils
 func displayHeadStatus() error {
 	s := styles.NewStatusStyles()
 
-	// Get HEAD VM ID first (no API call)
+	// Get HEAD VM ID first
 	headVMID, err := utils.GetCurrentHeadVM()
 	if err != nil {
 		// Handle different error cases from utils
@@ -200,7 +197,7 @@ func displayHeadStatus() error {
 		return nil
 	}
 
-	// Try to get VM details to show alias if available - OPTIMIZED: single API call with timeout
+	// Try to get VM details to show alias if available
 	baseCtx := context.Background()
 	apiCtx, cancel := context.WithTimeout(baseCtx, 3*time.Second) // Shorter timeout for status display
 	defer cancel()
@@ -209,7 +206,7 @@ func displayHeadStatus() error {
 	if err != nil {
 		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headVMID)
 	} else {
-		// Create VMInfo from response (no extra API call)
+		// Create VMInfo from response
 		vmInfo := utils.CreateVMInfoFromGetResponse(response.Data)
 		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), vmInfo.DisplayName, vmInfo.State)
 	}

@@ -27,16 +27,16 @@ var resumeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM ID to use - OPTIMIZED: minimal API calls
+		// Determine VM ID to use
 		if len(args) == 0 {
-			// Use HEAD VM - get ID first (no API call)
+			// Use HEAD VM
 			vmID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
 			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 		} else {
-			// Use provided identifier - resolve it first (1 API call)
+			// Use provided identifier
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
@@ -44,19 +44,17 @@ var resumeCmd = &cobra.Command{
 			vmID = vmInfo.ID
 		}
 
-		// Create resume request using SDK (always use the resolved ID)
+		// Create resume request using SDK
 		updateParams := vers.APIVmUpdateParams{
 			VmPatchParams: vers.VmPatchParams{
 				State: vers.F(vers.VmPatchParamsStateRunning),
 			},
 		}
 
-		// Make API call to resume the VM - OPTIMIZED: get display info from response
+		// Make API call to resume the VM
 		if vmInfo == nil {
-			// We're resuming HEAD VM, show progress with ID first
 			utils.ProgressCounter(1, 1, "Resuming VM", vmID, &s)
 		} else {
-			// We already have display name from resolution
 			utils.ProgressCounter(1, 1, "Resuming VM", vmInfo.DisplayName, &s)
 		}
 
@@ -69,7 +67,7 @@ var resumeCmd = &cobra.Command{
 			return fmt.Errorf(s.NoData.Render("failed to resume VM '%s': %w"), displayName, err)
 		}
 
-		// Create VMInfo from response if we don't have it (HEAD case)
+		// Create VMInfo from response if we don't have it
 		if vmInfo == nil {
 			vmInfo = utils.CreateVMInfoFromUpdateResponse(response.Data)
 		}

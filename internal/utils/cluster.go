@@ -35,7 +35,6 @@ func ResolveClusterIdentifier(ctx context.Context, client *vers.Client, identifi
 }
 
 // CreateClusterInfoFromListResponse creates ClusterInfo from a List API response item
-// Use this when you already have cluster data from List endpoint to avoid extra API calls
 func CreateClusterInfoFromListResponse(cluster vers.APIClusterListResponseData) *ClusterInfo {
 	displayName := cluster.Alias
 	if displayName == "" {

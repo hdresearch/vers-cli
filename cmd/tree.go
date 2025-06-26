@@ -24,7 +24,7 @@ var treeCmd = &cobra.Command{
 
 		// Resolve cluster identifier
 		if len(args) == 0 {
-			// Get current VM ID from HEAD (no API call)
+			// Get current VM ID from HEAD
 			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no cluster ID provided and %w", err)
@@ -32,7 +32,6 @@ var treeCmd = &cobra.Command{
 
 			fmt.Printf("Finding cluster for current HEAD VM: %s\n", headVMID)
 
-			// OPTIMIZED: Single API call to get all clusters with complete VM data
 			response, err := client.API.Cluster.List(apiCtx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
@@ -67,11 +66,9 @@ var treeCmd = &cobra.Command{
 				return fmt.Errorf("couldn't find a cluster containing VM '%s'", headVMID)
 			}
 
-			// OPTIMIZED: Build tree directly from List data - no second API call needed!
 			return buildAndDisplayTree(*foundCluster, headVMID)
 
 		} else {
-			// OPTIMIZED: Use List API call to find cluster by ID/alias
 			response, err := client.API.Cluster.List(apiCtx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
@@ -96,14 +93,12 @@ var treeCmd = &cobra.Command{
 				return fmt.Errorf("cluster '%s' not found", clusterIdentifier)
 			}
 
-			// Get HEAD VM for highlighting (no API call)
+			// Get HEAD VM for highlighting
 			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
-				// If we can't get HEAD, just print without it
 				headVMID = ""
 			}
 
-			// OPTIMIZED: Build tree directly from List data - no second API call needed!
 			return buildAndDisplayTree(*foundCluster, headVMID)
 		}
 	},

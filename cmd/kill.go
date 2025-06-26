@@ -54,7 +54,7 @@ Examples:
 
 		// Handle the case where no arguments are provided
 		if len(args) == 0 {
-			// Use HEAD VM - get ID first (no API call)
+			// Use HEAD VM
 			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)

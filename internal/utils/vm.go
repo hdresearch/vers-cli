@@ -36,7 +36,6 @@ func ResolveVMIdentifier(ctx context.Context, client *vers.Client, identifier st
 }
 
 // CreateVMInfoFromGetResponse creates VMInfo from a Get API response
-// Use this when you already have VM data from Get endpoint to avoid extra API calls
 func CreateVMInfoFromGetResponse(vm vers.APIVmGetResponseData) *VMInfo {
 	displayName := vm.Alias
 	if displayName == "" {
@@ -51,7 +50,6 @@ func CreateVMInfoFromGetResponse(vm vers.APIVmGetResponseData) *VMInfo {
 }
 
 // CreateVMInfoFromUpdateResponse creates VMInfo from an Update API response
-// Use this when you already have VM data from Update endpoint to avoid extra API calls
 func CreateVMInfoFromUpdateResponse(vm vers.APIVmUpdateResponseData) *VMInfo {
 	displayName := vm.Alias
 	if displayName == "" {

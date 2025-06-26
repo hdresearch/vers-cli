@@ -61,7 +61,6 @@ func ClearHead() error {
 }
 
 // GetCurrentHeadVMInfo returns both the HEAD VM ID and its display information
-// WARNING: This makes an API call! Use GetCurrentHeadVM() + existing API response when possible
 func GetCurrentHeadVMInfo(ctx context.Context, client *vers.Client) (*VMInfo, error) {
 	headVM, err := GetCurrentHeadVM()
 	if err != nil {
@@ -72,7 +71,6 @@ func GetCurrentHeadVMInfo(ctx context.Context, client *vers.Client) (*VMInfo, er
 }
 
 // SetHeadFromIdentifier resolves a VM identifier to an ID and sets HEAD
-// This ensures HEAD always contains IDs regardless of user input
 func SetHeadFromIdentifier(ctx context.Context, client *vers.Client, identifier string) (*VMInfo, error) {
 	vmInfo, err := ResolveVMIdentifier(ctx, client, identifier)
 	if err != nil {

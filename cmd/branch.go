@@ -30,20 +30,16 @@ var branchCmd = &cobra.Command{
 
 		// Determine VM ID to use - OPTIMIZED: minimal API calls
 		if len(args) == 0 {
-			// Use HEAD VM - get ID first (no API call)
-			headVMID, err := utils.GetCurrentHeadVM()
+			vmID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			vmID = headVMID
 			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
 		} else {
-			// Use provided identifier - resolve it first (1 API call)
-			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to find VM: %w"), err)
 			}
-			vmInfo = resolvedVMInfo
 			vmID = vmInfo.ID
 		}
 
@@ -61,7 +57,6 @@ var branchCmd = &cobra.Command{
 			body.VmBranchParams.Alias = vers.F(alias)
 		}
 
-		// Make API call using the resolved VM ID
 		response, err := client.API.Vm.Branch(apiCtx, vmID, body)
 		if err != nil {
 			return fmt.Errorf(s.Error.Render("failed to create branch from vm '%s': %w"), progressName, err)
@@ -82,10 +77,9 @@ var branchCmd = &cobra.Command{
 		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress)) + "\n")
 		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
 
-		// Check if user wants to switch to the new VM - OPTIMIZED: no extra API call
+		// Check if user wants to switch to the new VM
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
-			// OPTIMIZED: Use branch response data directly, no extra API call needed!
-			err := utils.SetHead(branchInfo.ID) // Direct HEAD update (no API call)
+			err := utils.SetHead(branchInfo.ID)
 			if err != nil {
 				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
 				fmt.Println(s.Warning.Render(warningMsg))

@@ -20,7 +20,7 @@ var executeCmd = &cobra.Command{
 	Use:   "execute [vm-id|alias] [args...]",
 	Short: "Run a command on a specific VM",
 	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID or alias is provided, uses the current HEAD.`,
-	Args:  cobra.MinimumNArgs(1), // Require at least command
+	Args:  cobra.MinimumNArgs(1), // Require at least one command
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmInfo *utils.VMInfo
 		var commandArgs []string
@@ -34,9 +34,9 @@ var executeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Check if first arg is a VM ID/alias or a command - OPTIMIZED approach
+		// Check if first arg is a VM ID/alias or a command
 		if len(args) > 1 {
-			// Try first arg as VM identifier - OPTIMIZED: single API call
+			// Try first arg as VM identifier
 			possibleVM, possibleNodeIP, vmErr := utils.GetVmAndNodeIP(apiCtx, client, args[0])
 			if vmErr == nil {
 				// First arg is a valid VM identifier
@@ -88,7 +88,7 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		// Determine the path for storing the SSH key (use VM ID)
+		// Determine the path for storing the SSH key
 		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)

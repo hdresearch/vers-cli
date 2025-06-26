@@ -41,10 +41,10 @@ var renameCmd = &cobra.Command{
 			var err error
 
 			if len(args) == 1 {
-				// Only alias provided, this doesn't make sense for clusters since we can't use HEAD
+				// Only one argument provided, this doesn't make sense for clusters since we can't use HEAD
 				return fmt.Errorf(s.NoData.Render("cluster ID or alias must be provided when renaming clusters"))
 			} else {
-				// Both ID and alias provided
+				// Both old ID and new alias provided
 				clusterInfo, err = utils.ResolveClusterIdentifier(apiCtx, client, args[0])
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("failed to find cluster: %w"), err)
@@ -71,8 +71,8 @@ var renameCmd = &cobra.Command{
 		} else {
 			// Handle VM rename
 			if len(args) == 1 {
-				// Only alias provided, use HEAD for VM ID - OPTIMIZED: single API call
-				headVMID, err := utils.GetCurrentHeadVM() // No API call
+				// Only alias provided, use HEAD for VM ID
+				headVMID, err := utils.GetCurrentHeadVM()
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("no ID provided and %w"), err)
 				}
@@ -88,13 +88,13 @@ var renameCmd = &cobra.Command{
 					},
 				}
 
-				// Make API call to rename the VM (single API call)
+				// Make API call to rename the VM
 				response, err := client.API.Vm.Update(apiCtx, headVMID, updateParams)
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), headVMID, err)
 				}
 
-				// Create VMInfo from response (no extra API call)
+				// Create VMInfo from response
 				vmInfo := utils.CreateVMInfoFromUpdateResponse(response.Data)
 
 				fmt.Printf(s.Success.Render("✓ VM '%s' renamed to '%s'\n"), vmInfo.ID, response.Data.Alias)

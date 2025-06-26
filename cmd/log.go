@@ -116,26 +116,24 @@ var logCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM ID to use - OPTIMIZED: minimal API calls
+		// Determine VM ID to use
 		if len(args) == 0 {
-			// Use HEAD VM - get ID first (no API call)
-			headVMID, err := utils.GetCurrentHeadVM()
+			// Use HEAD VM
+			vmID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}
-			vmID = headVMID
 			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmID)
 		} else {
-			// Use provided identifier - resolve it first (1 API call)
-			resolvedVMInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			// Use provided identifier
+			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf("failed to find VM: %w", err)
 			}
-			vmInfo = resolvedVMInfo
 			vmID = vmInfo.ID
 		}
 
-		// Get VM details - OPTIMIZED: reuse API call when possible
+		// Get VM details
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 		if vmInfo == nil {
 			// We need to make the API call (HEAD case)
@@ -143,12 +141,10 @@ var logCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to get VM information: %w", err)
 			}
-			// Create VMInfo from the response (no extra API call)
+			// Create VMInfo from the response
 			vmInfo = utils.CreateVMInfoFromGetResponse(response.Data)
 		}
-		// If vmInfo is already set (args case), we skip the API call entirely!
 
-		// Rest of the logic uses vmInfo.ID for files and vmInfo.DisplayName for display
 		// First, try to read existing commit log (use VM ID for file operations)
 		commits, err := readCommitLogFile(versDir, vmInfo.ID)
 		if err != nil {
@@ -189,7 +185,7 @@ var logCmd = &cobra.Command{
 			// Add to our commits list
 			commits = append(commits, commitInfo)
 
-			// Save updated commits list (use VM ID for file operations)
+			// Save updated commits list
 			if err := writeCommitLogFile(versDir, vmInfo.ID, commits); err != nil {
 				fmt.Printf("Warning: Failed to update commit log: %v\n", err)
 			}
@@ -234,7 +230,7 @@ var logCmd = &cobra.Command{
 			}
 		}
 
-		// Display the VM info header (show display name for user)
+		// Display the VM info header
 		fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
 
 		// Display commit history

@@ -27,24 +27,20 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM identifier to use - OPTIMIZED: single API call approach
+		// Determine VM identifier to use
 		var identifier string
 		if len(args) == 0 {
-			// Use HEAD VM - get ID first (no API call)
-			headVMID, err := utils.GetCurrentHeadVM()
+			identifier, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			identifier = headVMID
 			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
 		} else {
-			// Use provided identifier (could be ID or alias)
 			identifier = args[0]
 		}
 
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 
-		// Single API call gets VM data AND network info - OPTIMIZED!
 		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, identifier)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
@@ -66,7 +62,6 @@ var connectCmd = &cobra.Command{
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), nodeIP, vm.NetworkInfo.SSHPort)
 
-		// Use the VM ID for SSH key management
 		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)

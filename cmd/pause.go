@@ -27,16 +27,16 @@ var pauseCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM ID to use - OPTIMIZED: minimal API calls
+		// Determine VM ID to use
 		if len(args) == 0 {
-			// Use HEAD VM - get ID first (no API call)
+			// Use HEAD VM
 			vmID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
 			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmID)
 		} else {
-			// Use provided identifier - resolve it first (1 API call)
+			// Use provided identifier
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
@@ -44,14 +44,14 @@ var pauseCmd = &cobra.Command{
 			vmID = vmInfo.ID
 		}
 
-		// Create pause request using SDK (always use the resolved ID)
+		// Create pause request using SDK
 		updateParams := vers.APIVmUpdateParams{
 			VmPatchParams: vers.VmPatchParams{
 				State: vers.F(vers.VmPatchParamsStatePaused),
 			},
 		}
 
-		// Make API call to pause the VM - OPTIMIZED: get display info from response
+		// Make API call to pause the VM
 		if vmInfo == nil {
 			// We're pausing HEAD VM, show progress with ID first
 			utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
@@ -69,12 +69,12 @@ var pauseCmd = &cobra.Command{
 			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), displayName, err)
 		}
 
-		// Create VMInfo from response if we don't have it (HEAD case)
+		// Create VMInfo from response if we don't have it
 		if vmInfo == nil {
 			vmInfo = utils.CreateVMInfoFromUpdateResponse(response.Data)
 		}
 
-		// Use utils for success message (show display name for UX)
+		// Use utils for success message
 		successMsg := fmt.Sprintf("VM '%s' paused successfully", vmInfo.DisplayName)
 		utils.SuccessMessage(successMsg, &s)
 
