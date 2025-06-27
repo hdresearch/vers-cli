@@ -57,10 +57,25 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 
 	cluster := response.Data
 
+	// Find the root VM in the VMs list to get its alias
+	var rootVMAlias string
+	for _, vm := range cluster.Vms {
+		if vm.ID == cluster.RootVmID {
+			rootVMAlias = vm.Alias
+			break
+		}
+	}
+
 	// Create display name (prefer alias over ID)
 	clusterDisplayName := cluster.Alias
 	if clusterDisplayName == "" {
 		clusterDisplayName = cluster.ID
+	}
+
+	// Create root VM display name (prefer alias over ID)
+	rootVMDisplayName := rootVMAlias
+	if rootVMDisplayName == "" {
+		rootVMDisplayName = cluster.RootVmID
 	}
 
 	fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterDisplayName) + "\n")
@@ -72,7 +87,7 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 	clusterInfo_display := fmt.Sprintf(
 		"%s\n%s\n%s",
 		s.ClusterName.Render("Cluster: "+clusterDisplayName),
-		s.ClusterData.Render("Root VM: "+s.VMID.Render(cluster.RootVmID)),
+		s.ClusterData.Render("Root VM: "+s.VMID.Render(rootVMDisplayName)),
 		s.ClusterData.Render("# VMs: "+fmt.Sprintf("%d", len(cluster.Vms))),
 	)
 	clusterList.Items(clusterInfo_display)
@@ -168,11 +183,20 @@ func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 			displayName = cluster.ID
 		}
 
+		// Try to find root VM alias in the Vms array (if populated)
+		rootVMDisplayName := cluster.RootVmID // Default to ID
+		for _, vm := range cluster.Vms {
+			if vm.ID == cluster.RootVmID && vm.Alias != "" {
+				rootVMDisplayName = vm.Alias
+				break
+			}
+		}
+
 		// Combine the cluster name and its data into a single string
 		clusterInfo := fmt.Sprintf(
 			"%s\n%s\n%s",
 			s.ClusterName.Render("Cluster: "+displayName),
-			s.ClusterData.Render("Root VM: "+s.VMID.Render(cluster.RootVmID)),
+			s.ClusterData.Render("Root VM: "+s.VMID.Render(rootVMDisplayName)),
 			s.ClusterData.Render("# children: "+fmt.Sprintf("%d", cluster.VmCount)),
 		)
 		clusterList.Items(clusterInfo)
