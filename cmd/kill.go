@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/deletion"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -20,8 +21,10 @@ var killCmd = &cobra.Command{
 	Use:   "kill [vm-id|vm-alias|cluster-id|cluster-alias]...",
 	Short: "Delete one or more VMs or clusters",
 	Long: `Delete one or more VMs or clusters by ID or alias. Use -c flag for clusters, or -a flag to delete all clusters.
+If no arguments are provided, deletes the current HEAD VM.
 	
 Examples:
+  vers kill                              # Delete current HEAD VM
   vers kill vm-123abc                    # Delete single VM by ID
   vers kill my-dev-vm my-test-vm         # Delete multiple VMs by alias
   vers kill -c cluster-456def            # Delete single cluster by ID
@@ -35,9 +38,7 @@ Examples:
 			}
 			return nil
 		}
-		if len(args) == 0 {
-			return fmt.Errorf("requires at least 1 arg(s), received 0")
-		}
+		// Allow 0 or more arguments (0 means use HEAD)
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,12 +52,28 @@ Examples:
 			return processor.DeleteAllClusters()
 		}
 
+		// Handle the case where no arguments are provided
+		if len(args) == 0 {
+			// Use HEAD VM - optimized path since HEAD is always a VM ID
+			headVMID, err := utils.GetCurrentHeadVM()
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
+			}
+
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
+
+			// Use optimized deletion path for HEAD
+			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
+			return processor.DeleteHeadVM(headVMID, headVMID)
+		}
+
+		// Delegate to appropriate processor
 		if isCluster {
 			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteClusters(args)
+			return processor.DeleteMultipleClusters(args)
 		} else {
 			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteVMs(args)
+			return processor.DeleteMultipleVMs(args)
 		}
 	},
 }

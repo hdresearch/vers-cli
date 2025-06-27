@@ -28,27 +28,6 @@ func SectionHeader(title string, s *styles.KillStyles) {
 	fmt.Println(s.Progress.Render("=== " + title + " ==="))
 }
 
-func PrintSummary(results SummaryResults, s *styles.KillStyles) {
-	SectionHeader("Operation Summary", s)
-
-	successMsg := fmt.Sprintf("Successfully processed: %d %s", results.SuccessCount, results.ItemType)
-	fmt.Println(s.Success.Render(successMsg))
-
-	if results.FailCount > 0 {
-		failMsg := fmt.Sprintf("Failed to process: %d %s", results.FailCount, results.ItemType)
-		fmt.Println(s.Error.Render(failMsg))
-
-		if len(results.Errors) > 0 {
-			fmt.Println()
-			fmt.Println(s.Warning.Render("Error details:"))
-			for _, error := range results.Errors {
-				errorDetail := fmt.Sprintf("  - %s", error)
-				fmt.Println(s.Warning.Render(errorDetail))
-			}
-		}
-	}
-}
-
 // Standard status messages
 func OperationCancelled(s *styles.KillStyles) {
 	fmt.Println(s.NoData.Render("Operation cancelled"))

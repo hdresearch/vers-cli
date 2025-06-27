@@ -11,48 +11,74 @@ import (
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
 // executeCmd represents the execute command
 var executeCmd = &cobra.Command{
-	Use:   "execute [vm_id] <command> [args...]",
+	Use:   "execute [vm-id|alias] [args...]",
 	Short: "Run a command on a specific VM",
-	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID is provided, uses the current HEAD.`,
-	Args:  cobra.MinimumNArgs(1), // Require at least command
+	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID or alias is provided, uses the current HEAD.`,
+	Args:  cobra.MinimumNArgs(1), // Require at least one command
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
+		var vmInfo *utils.VMInfo
 		var commandArgs []string
 		var commandStr string
+		var vm vers.APIVmGetResponseData
+		var nodeIP string
 		s := styles.NewStatusStyles()
 
-		// Check if first arg is a VM ID or a command
+		// Initialize context
+		baseCtx := context.Background()
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		defer cancel()
+
+		// Check if first arg is a VM ID/alias or a command
 		if len(args) > 1 {
-			vmID = args[0]
-			commandArgs = args[1:]
+			// Try first arg as VM identifier
+			possibleVM, possibleNodeIP, vmErr := utils.GetVmAndNodeIP(apiCtx, client, args[0])
+			if vmErr == nil {
+				// First arg is a valid VM identifier
+				vm = possibleVM
+				nodeIP = possibleNodeIP
+				vmInfo = utils.CreateVMInfoFromGetResponse(vm)
+				commandArgs = args[1:]
+			} else {
+				// First arg is not a valid VM, use HEAD and treat all args as command
+				headVMID, err := utils.GetCurrentHeadVM()
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
+				}
+				fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+headVMID) + "\n")
+
+				// Get VM and node information for HEAD VM
+				vm, nodeIP, err = utils.GetVmAndNodeIP(apiCtx, client, headVMID)
+				if err != nil {
+					return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
+				}
+				vmInfo = utils.CreateVMInfoFromGetResponse(vm)
+				commandArgs = args
+			}
 		} else {
-			// First arg doesn't look like a VM ID or only one arg, use HEAD
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
+			// Only one arg, use HEAD and treat it as command
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+headVMID) + "\n")
+
+			// Get VM and node information for HEAD VM
+			vm, nodeIP, err = utils.GetVmAndNodeIP(apiCtx, client, headVMID)
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
+			}
+			vmInfo = utils.CreateVMInfoFromGetResponse(vm)
 			commandArgs = args
 		}
 
 		// Join the command arguments
 		commandStr = strings.Join(commandArgs, " ")
-
-		// Initialize SDK client and context
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-		defer cancel()
-
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
-		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
-		}
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -63,7 +89,7 @@ var executeCmd = &cobra.Command{
 		}
 
 		// Determine the path for storing the SSH key
-		keyPath, err := auth.GetOrCreateSSHKey(vmID, client, apiCtx)
+		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
