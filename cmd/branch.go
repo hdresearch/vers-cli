@@ -28,27 +28,34 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM ID to use - OPTIMIZED: minimal API calls
+		// Determine VM ID to use
 		if len(args) == 0 {
-			vmID, err := utils.GetCurrentHeadVM()
+			// No argument provided, use HEAD
+			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
+
+			// Resolve the HEAD VM to get display name
+			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, headVMID)
+			if err != nil {
+				return fmt.Errorf(s.Error.Render("failed to resolve HEAD VM: %w"), err)
+			}
+			vmID = vmInfo.ID
+
+			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmInfo.DisplayName) + "\n")
 		} else {
-			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			// Argument provided, resolve it
+			var err error
+			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("failed to find VM: %w"), err)
 			}
 			vmID = vmInfo.ID
 		}
 
-		// Show progress with display name if we have it
-		progressName := vmID
-		if vmInfo != nil {
-			progressName = vmInfo.DisplayName
-		}
-		fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
+		// Show progress with display name
+		fmt.Println(s.Progress.Render("Creating new VM from: " + vmInfo.DisplayName))
 
 		body := vers.APIVmBranchParams{
 			VmBranchParams: vers.VmBranchParams{},
@@ -59,7 +66,7 @@ var branchCmd = &cobra.Command{
 
 		response, err := client.API.Vm.Branch(apiCtx, vmID, body)
 		if err != nil {
-			return fmt.Errorf(s.Error.Render("failed to create branch from vm '%s': %w"), progressName, err)
+			return fmt.Errorf(s.Error.Render("failed to create branch from vm '%s': %w"), vmInfo.DisplayName, err)
 		}
 		branchInfo := response.Data
 
