@@ -27,17 +27,19 @@ var pauseCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Determine VM ID to use
+		// Determine VM ID to use - no extra API calls
 		if len(args) == 0 {
 			// Use HEAD VM
-			vmID, err := utils.GetCurrentHeadVM()
+			var err error
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
 			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmID)
 		} else {
 			// Use provided identifier
-			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			var err error
+			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
 			}
@@ -53,7 +55,7 @@ var pauseCmd = &cobra.Command{
 
 		// Make API call to pause the VM
 		if vmInfo == nil {
-			// We're pausing HEAD VM, show progress with ID first
+			// We're pausing HEAD VM, show progress with ID
 			utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
 		} else {
 			// We already have display name from resolution
