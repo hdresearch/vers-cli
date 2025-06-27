@@ -25,6 +25,47 @@ func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx conte
 	}
 }
 
+// DeleteHeadVM optimized deletion for HEAD VM (no resolution needed since HEAD is always an ID)
+func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
+	// Get confirmation if not forced
+	if !p.force {
+		if !utils.ConfirmDeletion("VM", displayName, p.styles) {
+			utils.OperationCancelled(p.styles)
+			return nil
+		}
+
+		// Check HEAD impact (we know it affects HEAD since this IS the HEAD VM)
+		fmt.Println(p.styles.Warning.Render("Warning: This will clear the current HEAD"))
+		if !utils.AskConfirmation() {
+			utils.OperationCancelled(p.styles)
+			return nil
+		}
+	}
+
+	// Show progress and perform deletion
+	action := "Deleting VM"
+	if p.force {
+		action = "Force deleting VM"
+	}
+
+	deletedVMIDs, err := utils.HandleDeletionResult(1, 1, action, displayName, func() ([]string, error) {
+		return p.deleteVM(vmID)
+	}, p.styles)
+
+	if err != nil {
+		return err
+	}
+
+	// Clear HEAD since we just deleted the HEAD VM
+	if len(deletedVMIDs) > 0 {
+		if utils.CleanupAfterDeletion(deletedVMIDs) {
+			fmt.Println(p.styles.NoData.Render("HEAD cleared (VM was deleted)"))
+		}
+	}
+
+	return nil
+}
+
 // DeleteMultipleVMs processes multiple VM identifiers one at a time
 func (p *VMDeletionProcessor) DeleteMultipleVMs(identifiers []string) error {
 	// Process items one at a time

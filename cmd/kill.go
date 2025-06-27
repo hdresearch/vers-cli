@@ -54,14 +54,17 @@ Examples:
 
 		// Handle the case where no arguments are provided
 		if len(args) == 0 {
-			// Use HEAD VM
+			// Use HEAD VM - optimized path since HEAD is always a VM ID
 			headVMID, err := utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
 			}
 
 			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
-			args = []string{headVMID}
+
+			// Use optimized deletion path for HEAD
+			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
+			return processor.DeleteHeadVM(headVMID, headVMID)
 		}
 
 		// Delegate to appropriate processor
