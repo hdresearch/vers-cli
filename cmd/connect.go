@@ -30,7 +30,8 @@ var connectCmd = &cobra.Command{
 		// Determine VM identifier to use
 		var identifier string
 		if len(args) == 0 {
-			identifier, err := utils.GetCurrentHeadVM()
+			var err error
+			identifier, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
