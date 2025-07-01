@@ -90,7 +90,8 @@ var commitCmd = &cobra.Command{
 			fmt.Printf("Using provided VM: %s\n", vmInfo.DisplayName)
 		} else {
 			// Use HEAD VM
-			vmID, err := utils.GetCurrentHeadVM()
+			var err error
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("failed to get current VM: %w", err)
 			}

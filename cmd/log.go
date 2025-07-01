@@ -119,7 +119,8 @@ var logCmd = &cobra.Command{
 		// Determine VM ID to use
 		if len(args) == 0 {
 			// Use HEAD VM
-			vmID, err := utils.GetCurrentHeadVM()
+			var err error
+			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}
