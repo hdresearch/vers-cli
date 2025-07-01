@@ -15,37 +15,40 @@ import (
 
 // connectCmd represents the connect command
 var connectCmd = &cobra.Command{
-	Use:   "connect [vm-id]",
+	Use:   "connect [vm-id|alias]",
 	Short: "Connect to a VM via SSH",
-	Long:  `Connect to a running Vers VM via SSH. If no VM ID is provided, uses the current HEAD.`,
+	Long:  `Connect to a running Vers VM via SSH. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
 		s := styles.NewStatusStyles()
 
-		// If no VM ID provided, try to use the current HEAD
-		if len(args) == 0 {
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
-			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
-		} else {
-			vmID = args[0]
-		}
-
-		// Initialize SDK client and context
+		// Initialize context
 		baseCtx := context.Background()
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		// Determine VM identifier to use
+		var identifier string
+		if len(args) == 0 {
+			var err error
+			identifier, err = utils.GetCurrentHeadVM()
+			if err != nil {
+				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
+			}
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
+		} else {
+			identifier = args[0]
+		}
+
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmID)
+		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, identifier)
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
+
+		// Create VMInfo from the response
+		vmInfo := utils.CreateVMInfoFromGetResponse(vm)
 
 		if vm.State != "Running" {
 			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
@@ -55,12 +58,12 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmID)
+		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmInfo.DisplayName)
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), nodeIP, vm.NetworkInfo.SSHPort)
 
-		keyPath, err := auth.GetOrCreateSSHKey(vm.ID, client, apiCtx)
+		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}

@@ -96,12 +96,13 @@ func writeCommitLogFile(versDir string, vmID string, commits []logCommitEntry) e
 
 // logCmd represents the log command
 var logCmd = &cobra.Command{
-	Use:   "log [vm-id]",
+	Use:   "log [vm-id|alias]",
 	Short: "Display commit history",
-	Long:  `Shows the commit history for the current VM or a specified VM ID.`,
+	Long:  `Shows the commit history for the current VM or a specified VM ID or alias.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmID string
+		var vmInfo *utils.VMInfo
 		s := NewLogStyles()
 		versDir := ".vers"
 
@@ -110,8 +111,14 @@ var logCmd = &cobra.Command{
 			return fmt.Errorf(".vers directory not found. Run 'vers init' first")
 		}
 
-		// If no VM ID provided, try to use the current HEAD
+		// Initialize SDK client and context
+		baseCtx := context.Background()
+		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		defer cancel()
+
+		// Determine VM ID to use
 		if len(args) == 0 {
+			// Use HEAD VM
 			var err error
 			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
@@ -119,24 +126,28 @@ var logCmd = &cobra.Command{
 			}
 			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmID)
 		} else {
-			vmID = args[0]
+			// Use provided identifier
+			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
+			if err != nil {
+				return fmt.Errorf("failed to find VM: %w", err)
+			}
+			vmID = vmInfo.ID
 		}
 
-		// Initialize SDK client and context
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-		defer cancel()
-
-		// Get VM details to verify it exists
+		// Get VM details
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
-		response, err := client.API.Vm.Get(apiCtx, vmID)
-		if err != nil {
-			return fmt.Errorf("failed to get VM information: %w", err)
+		if vmInfo == nil {
+			// We need to make the API call (HEAD case)
+			response, err := client.API.Vm.Get(apiCtx, vmID)
+			if err != nil {
+				return fmt.Errorf("failed to get VM information: %w", err)
+			}
+			// Create VMInfo from the response
+			vmInfo = utils.CreateVMInfoFromGetResponse(response.Data)
 		}
-		vm := response.Data
 
-		// First, try to read existing commit log
-		commits, err := readCommitLogFile(versDir, vmID)
+		// First, try to read existing commit log (use VM ID for file operations)
+		commits, err := readCommitLogFile(versDir, vmInfo.ID)
 		if err != nil {
 			commits = []logCommitEntry{}
 			fmt.Printf("Warning: %v\n", err)
@@ -145,7 +156,7 @@ var logCmd = &cobra.Command{
 		// Check if we need to add a new commit record for this VM
 		foundCurrentVM := false
 		for _, commit := range commits {
-			if commit.VMID == vmID {
+			if commit.VMID == vmInfo.ID {
 				foundCurrentVM = true
 				break
 			}
@@ -154,29 +165,29 @@ var logCmd = &cobra.Command{
 		// If we don't have a commit record for this VM and we successfully got VM details,
 		// create a new commit info record using data from the API
 		if !foundCurrentVM {
-			// Create a simple message from VM ID if no other information is available
-			message := fmt.Sprintf("VM %s", vmID)
+			// Create a simple message from VM display name
+			message := fmt.Sprintf("VM %s", vmInfo.DisplayName)
 
 			// Use State as additional info
-			if vm.State != "" {
-				message = fmt.Sprintf("VM %s (%s)", vmID, vm.State)
+			if vmInfo.State != "" {
+				message = fmt.Sprintf("VM %s (%s)", vmInfo.DisplayName, vmInfo.State)
 			}
 
 			// Create commit info for this VM using API data
 			commitInfo := logCommitEntry{
-				ID:        fmt.Sprintf("c%s", strings.Replace(vmID, "vm-", "", 1)),
+				ID:        fmt.Sprintf("c%s", strings.Replace(vmInfo.ID, "vm-", "", 1)),
 				Message:   message,
 				Timestamp: time.Now().Unix(), // Use current time as we don't have the exact commit time
 				Author:    "unknown",         // No author info from API
-				VMID:      vmID,
-				Alias:     vm.Alias,
+				VMID:      vmInfo.ID,
+				Alias:     vmInfo.DisplayName,
 			}
 
 			// Add to our commits list
 			commits = append(commits, commitInfo)
 
 			// Save updated commits list
-			if err := writeCommitLogFile(versDir, vmID, commits); err != nil {
+			if err := writeCommitLogFile(versDir, vmInfo.ID, commits); err != nil {
 				fmt.Printf("Warning: Failed to update commit log: %v\n", err)
 			}
 		}
@@ -214,14 +225,14 @@ var logCmd = &cobra.Command{
 					Message:   "Fix bug in feature X",
 					Timestamp: time.Now().Unix(),
 					Author:    "user@example.com",
-					VMID:      vmID,
-					Alias:     vm.Alias,
+					VMID:      vmInfo.ID,
+					Alias:     vmInfo.DisplayName,
 				},
 			}
 		}
 
 		// Display the VM info header
-		fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmID)))
+		fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
 
 		// Display commit history
 		for i, commit := range commits {

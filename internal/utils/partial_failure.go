@@ -8,30 +8,6 @@ import (
 	"github.com/hdresearch/vers-sdk-go"
 )
 
-// HandleClusterDeleteErrors processes cluster deletion results and prints error messages
-// Returns true if there were partial failures, false if completely successful
-func HandleClusterDeleteErrors(result *vers.APIClusterDeleteResponse, s *styles.KillStyles) bool {
-	hasErrors := len(result.Data.Vms.Errors) > 0 || result.Data.FsError != ""
-
-	if !hasErrors {
-		return false
-	}
-
-	fmt.Println(s.Warning.Render("Some resources failed to delete:"))
-
-	// Print FS error if exists
-	if result.Data.FsError != "" {
-		fmt.Printf(s.Warning.Render("  • %s\n"), result.Data.FsError)
-	}
-
-	// Print VM errors
-	for _, error := range result.Data.Vms.Errors {
-		fmt.Printf(s.Warning.Render("  • %s: %s\n"), error.ID, error.Error)
-	}
-
-	return true
-}
-
 // HandleVmDeleteErrors processes VM deletion results and prints error messages
 // Returns true if there were partial failures, false if completely successful
 func HandleVmDeleteErrors(result *vers.APIVmDeleteResponse, s *styles.KillStyles) bool {
