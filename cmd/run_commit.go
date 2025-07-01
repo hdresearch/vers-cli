@@ -49,7 +49,7 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 
 	// Create parameters for FromCluster variant
 	params := vers.ClusterCreateParamsClusterFromCommitParamsParams{
-		CommitKey: vers.F(commitKey),
+		CommitID: vers.F(commitKey),
 	}
 
 	// Add aliases if provided
