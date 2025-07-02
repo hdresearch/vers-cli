@@ -69,9 +69,6 @@ var commitCmd = &cobra.Command{
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
 		fmt.Printf("Commit ID: %s\n", commitResult.ID)
 
-		// Note: Commit is now automatically stored in the database by the load balancer
-		// No local storage needed - commit history is available via 'vers log'
-
 		return nil
 	},
 }
