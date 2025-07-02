@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -13,57 +10,6 @@ import (
 )
 
 var tag string
-
-// logCommitEntry represents commit information (shared with log.go)
-type logCommitEntry struct {
-	ID        string
-	Message   string
-	Timestamp int64
-	Tag       string
-	Author    string
-	VMID      string
-	Alias     string
-}
-
-// writeCommitToLogFile writes commit information to a JSON log file
-func writeCommitToLogFile(versDir string, vmID string, commit logCommitEntry) error {
-	// Read existing commits
-	logFile := filepath.Join(versDir, "logs", "commits", vmID+".json")
-	var commits []logCommitEntry
-
-	// Ensure logs/commits directory exists
-	commitsDir := filepath.Join(versDir, "logs", "commits")
-	if err := os.MkdirAll(commitsDir, 0755); err != nil {
-		return fmt.Errorf("error creating commits directory: %w", err)
-	}
-
-	// Check if log file exists and read existing commits
-	if _, err := os.Stat(logFile); err == nil {
-		data, err := os.ReadFile(logFile)
-		if err != nil {
-			return fmt.Errorf("error reading commit log: %w", err)
-		}
-
-		if err := json.Unmarshal(data, &commits); err != nil {
-			return fmt.Errorf("error parsing commit log: %w", err)
-		}
-	}
-
-	// Add new commit to the list
-	commits = append(commits, commit)
-
-	// Write updated commits list
-	data, err := json.MarshalIndent(commits, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling commit data: %w", err)
-	}
-
-	if err := os.WriteFile(logFile, data, 0644); err != nil {
-		return fmt.Errorf("error writing commit log: %w", err)
-	}
-
-	return nil
-}
 
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
@@ -123,25 +69,8 @@ var commitCmd = &cobra.Command{
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
 		fmt.Printf("Commit ID: %s\n", commitResult.ID)
 
-		// Store commit information in .vers directory
-		versDir := ".vers"
-		if _, err := os.Stat(versDir); !os.IsNotExist(err) {
-			// Create commit info
-			commitInfo := logCommitEntry{
-				ID:        commitResult.ID,
-				Message:   fmt.Sprintf("Commit %s", commitResult.ID),
-				Timestamp: time.Now().Unix(),
-				Tag:       tag,
-				Author:    "user", // Could be improved to use actual user info
-				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName, // This will be alias if available, otherwise ID
-			}
-
-			// Save commit info
-			if err := writeCommitToLogFile(versDir, vmInfo.ID, commitInfo); err != nil {
-				fmt.Printf("Warning: Failed to store commit information: %v\n", err)
-			}
-		}
+		// Note: Commit is now automatically stored in the database by the load balancer
+		// No local storage needed - commit history is available via 'vers log'
 
 		return nil
 	},
