@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -47,13 +48,13 @@ func NewLogStyles() LogStyles {
 
 // logCommitEntry represents commit information from the API
 type logCommitEntry struct {
-	ID        string `json:"ID"`
-	Message   string `json:"Message"`
-	Timestamp int64  `json:"Timestamp"`
-	Tag       string `json:"Tag"`
-	Author    string `json:"Author"`
-	VMID      string `json:"VMID"`
-	Alias     string `json:"Alias"`
+	ID        string   `json:"ID"`
+	Message   string   `json:"Message"`
+	Timestamp int64    `json:"Timestamp"`
+	Tags      []string `json:"Tags"` // Changed from Tag string to Tags []string
+	Author    string   `json:"Author"`
+	VMID      string   `json:"VMID"`
+	Alias     string   `json:"Alias"`
 }
 
 // commitResponse represents the API response structure
@@ -138,9 +139,22 @@ var logCmd = &cobra.Command{
 
 			// Display commit info
 			fmt.Printf("%s %s\n", s.CommitID.Render("Commit:"), commit.ID)
-			if commit.Tag != "" {
-				fmt.Printf("%s\n", s.Tag.Render(commit.Tag))
+
+			// Display tags if they exist
+			if len(commit.Tags) > 0 {
+				// Filter out empty tags and join with commas
+				var nonEmptyTags []string
+				for _, tag := range commit.Tags {
+					if strings.TrimSpace(tag) != "" {
+						nonEmptyTags = append(nonEmptyTags, strings.TrimSpace(tag))
+					}
+				}
+				if len(nonEmptyTags) > 0 {
+					tagsStr := strings.Join(nonEmptyTags, ", ")
+					fmt.Printf("%s\n", s.Tag.Render(tagsStr))
+				}
 			}
+
 			if commit.Alias != "" && commit.Alias != commit.VMID {
 				fmt.Printf("%s %s\n", s.Alias.Render("Alias:"), commit.Alias)
 			}
