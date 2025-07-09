@@ -14,7 +14,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var tags []string
+var individualTags []string
+var commaSeparatedTags string
 
 // CommitWithTagsOptions represents the request body for commits with optional tags
 type CommitWithTagsOptions struct {
@@ -110,6 +111,26 @@ func CommitWithTags(ctx context.Context, vmID string, tags []string) (*APIVmComm
 	return &response, nil
 }
 
+// combineAllTags combines tags from both --tag and --tags flags
+func combineAllTags() []string {
+	var allTags []string
+
+	// Add individual tags from --tag flags
+	allTags = append(allTags, individualTags...)
+
+	// Add comma-separated tags from --tags flag
+	if commaSeparatedTags != "" {
+		commaTags := strings.Split(commaSeparatedTags, ",")
+		for _, tag := range commaTags {
+			if trimmed := strings.TrimSpace(tag); trimmed != "" {
+				allTags = append(allTags, trimmed)
+			}
+		}
+	}
+
+	return allTags
+}
+
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
 	Use:   "commit [vm-id|alias]",
@@ -143,9 +164,12 @@ var commitCmd = &cobra.Command{
 			fmt.Printf("Using current HEAD VM: %s\n", vmID)
 		}
 
+		// Combine all tags from both flag types
+		allTags := combineAllTags()
+
 		fmt.Printf("Creating commit for VM '%s'\n", vmID)
-		if len(tags) > 0 {
-			fmt.Printf("Tags: %s\n", strings.Join(tags, ", "))
+		if len(allTags) > 0 {
+			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
 		}
 
 		// Get VM details for alias information
@@ -158,15 +182,15 @@ var commitCmd = &cobra.Command{
 			vmInfo = utils.CreateVMInfoFromGetResponse(vmResponse.Data)
 		}
 
-		response, err := CommitWithTags(apiCtx, vmInfo.ID, tags)
+		response, err := CommitWithTags(apiCtx, vmInfo.ID, allTags)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
 		}
 
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
 		fmt.Printf("Commit ID: %s\n", response.Data.ID)
-		if len(tags) > 0 {
-			fmt.Printf("Tags: %s\n", strings.Join(tags, ", "))
+		if len(allTags) > 0 {
+			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
 		}
 
 		return nil
@@ -176,6 +200,7 @@ var commitCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(commitCmd)
 
-	// Define flags for the commit command - now supports multiple tags
-	commitCmd.Flags().StringSliceVarP(&tags, "tags", "t", []string{}, "Tags for this commit (can be specified multiple times)")
+	// Define flags for the commit command
+	commitCmd.Flags().StringSliceVarP(&individualTags, "tag", "t", []string{}, "Individual tag for this commit (can be repeated)")
+	commitCmd.Flags().StringVar(&commaSeparatedTags, "tags", "", "Comma-separated tags for this commit")
 }
