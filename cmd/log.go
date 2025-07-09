@@ -51,10 +51,11 @@ type logCommitEntry struct {
 	ID        string   `json:"ID"`
 	Message   string   `json:"Message"`
 	Timestamp int64    `json:"Timestamp"`
-	Tags      []string `json:"Tags"` // Changed from Tag string to Tags []string
+	Tags      []string `json:"Tags"`
 	Author    string   `json:"Author"`
 	VMID      string   `json:"VMID"`
 	Alias     string   `json:"Alias"`
+	ClusterID string   `json:"ClusterID"` // Added cluster ID
 }
 
 // commitResponse represents the API response structure
@@ -161,6 +162,9 @@ var logCmd = &cobra.Command{
 			fmt.Printf("%s %s\n", s.Author.Render("Author:"), commit.Author)
 			fmt.Printf("%s %s\n", s.Date.Render("Date:"), timestamp)
 			fmt.Printf("%s %s\n", s.VMID.Render("VM:"), commit.VMID)
+			if commit.ClusterID != "" {
+				fmt.Printf("%s %s\n", s.Alias.Render("Cluster:"), commit.ClusterID)
+			}
 
 			message := commit.Message
 			if message == "" {

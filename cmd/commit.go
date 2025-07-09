@@ -17,9 +17,10 @@ import (
 var individualTags []string
 var commaSeparatedTags string
 
-// CommitWithTagsOptions represents the request body for commits with optional tags
+// CommitWithTagsOptions represents the request body for commits with optional tags and cluster info
 type CommitWithTagsOptions struct {
-	Tags []string `json:"tags,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	ClusterID string   `json:"cluster_id,omitempty"`
 }
 
 // APIVmCommitResponse represents the response from the commit API
@@ -30,8 +31,8 @@ type APIVmCommitResponse struct {
 	} `json:"data"`
 }
 
-// CommitWithTags makes a commit request with optional tags array
-func CommitWithTags(ctx context.Context, vmID string, tags []string) (*APIVmCommitResponse, error) {
+// CommitWithTags makes a commit request with optional tags array and cluster ID
+func CommitWithTags(ctx context.Context, vmID string, tags []string, clusterID string) (*APIVmCommitResponse, error) {
 	// Get the base URL using the same method as login.go
 	baseURL, err := auth.GetVersUrl()
 	if err != nil {
@@ -47,9 +48,9 @@ func CommitWithTags(ctx context.Context, vmID string, tags []string) (*APIVmComm
 		return nil, fmt.Errorf("failed to get API key: %w", err)
 	}
 
-	// Prepare request body if we have tags
+	// Prepare request body if we have tags or cluster ID
 	var requestBody []byte
-	if len(tags) > 0 {
+	if len(tags) > 0 || clusterID != "" {
 		// Filter out empty tags
 		filteredTags := make([]string, 0)
 		for _, tag := range tags {
@@ -58,12 +59,14 @@ func CommitWithTags(ctx context.Context, vmID string, tags []string) (*APIVmComm
 			}
 		}
 
-		if len(filteredTags) > 0 {
-			payload := CommitWithTagsOptions{Tags: filteredTags}
-			requestBody, err = json.Marshal(payload)
-			if err != nil {
-				return nil, fmt.Errorf("error preparing request body: %w", err)
-			}
+		payload := CommitWithTagsOptions{
+			Tags:      filteredTags,
+			ClusterID: clusterID,
+		}
+		var err error
+		requestBody, err = json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("error preparing request body: %w", err)
 		}
 	}
 
@@ -182,7 +185,7 @@ var commitCmd = &cobra.Command{
 			vmInfo = utils.CreateVMInfoFromGetResponse(vmResponse.Data)
 		}
 
-		response, err := CommitWithTags(apiCtx, vmInfo.ID, allTags)
+		response, err := CommitWithTags(apiCtx, vmInfo.ID, allTags, vmInfo.ClusterID)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
 		}
