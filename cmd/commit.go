@@ -1,68 +1,137 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"net/http"
+	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
-var tag string
+var individualTags []string
+var commaSeparatedTags string
 
-// logCommitEntry represents commit information (shared with log.go)
-type logCommitEntry struct {
-	ID        string
-	Message   string
-	Timestamp int64
-	Tag       string
-	Author    string
-	VMID      string
-	Alias     string
+// CommitWithTagsOptions represents the request body for commits with optional tags and cluster info
+type CommitWithTagsOptions struct {
+	Tags      []string `json:"tags,omitempty"`
+	ClusterID string   `json:"cluster_id,omitempty"`
 }
 
-// writeCommitToLogFile writes commit information to a JSON log file
-func writeCommitToLogFile(versDir string, vmID string, commit logCommitEntry) error {
-	// Read existing commits
-	logFile := filepath.Join(versDir, "logs", "commits", vmID+".json")
-	var commits []logCommitEntry
+// APIVmCommitResponse represents the response from the commit API
+type APIVmCommitResponse struct {
+	Data struct {
+		ID string `json:"id"`
+		// Add other fields as needed based on your actual API response
+	} `json:"data"`
+}
 
-	// Ensure logs/commits directory exists
-	commitsDir := filepath.Join(versDir, "logs", "commits")
-	if err := os.MkdirAll(commitsDir, 0755); err != nil {
-		return fmt.Errorf("error creating commits directory: %w", err)
-	}
-
-	// Check if log file exists and read existing commits
-	if _, err := os.Stat(logFile); err == nil {
-		data, err := os.ReadFile(logFile)
-		if err != nil {
-			return fmt.Errorf("error reading commit log: %w", err)
-		}
-
-		if err := json.Unmarshal(data, &commits); err != nil {
-			return fmt.Errorf("error parsing commit log: %w", err)
-		}
-	}
-
-	// Add new commit to the list
-	commits = append(commits, commit)
-
-	// Write updated commits list
-	data, err := json.MarshalIndent(commits, "", "  ")
+// CommitWithTags makes a commit request with optional tags array and cluster ID
+func CommitWithTags(ctx context.Context, vmID string, tags []string, clusterID string) (*APIVmCommitResponse, error) {
+	// Get the base URL using the same method as login.go
+	baseURL, err := auth.GetVersUrl()
 	if err != nil {
-		return fmt.Errorf("error marshaling commit data: %w", err)
+		return nil, fmt.Errorf("error getting API URL: %w", err)
 	}
 
-	if err := os.WriteFile(logFile, data, 0644); err != nil {
-		return fmt.Errorf("error writing commit log: %w", err)
+	// Build the commit URL
+	commitURL := fmt.Sprintf("%s/api/vm/%s/commit", baseURL, vmID)
+
+	// Get the API key using the same method as the SDK
+	apiKey, err := auth.GetAPIKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get API key: %w", err)
 	}
 
-	return nil
+	// Prepare request body if we have tags or cluster ID
+	var requestBody []byte
+	if len(tags) > 0 || clusterID != "" {
+		// Filter out empty tags
+		filteredTags := make([]string, 0)
+		for _, tag := range tags {
+			if trimmed := strings.TrimSpace(tag); trimmed != "" {
+				filteredTags = append(filteredTags, trimmed)
+			}
+		}
+
+		payload := CommitWithTagsOptions{
+			Tags:      filteredTags,
+			ClusterID: clusterID,
+		}
+		var err error
+		requestBody, err = json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("error preparing request body: %w", err)
+		}
+	}
+
+	// Create the HTTP request
+	var req *http.Request
+	if requestBody != nil {
+		req, err = http.NewRequestWithContext(ctx, "POST", commitURL, bytes.NewBuffer(requestBody))
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+	} else {
+		req, err = http.NewRequestWithContext(ctx, "POST", commitURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating request: %w", err)
+		}
+	}
+
+	// Set auth header
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	// Execute the request
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error executing commit request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle error responses
+	if resp.StatusCode == 401 {
+		return nil, fmt.Errorf("authentication failed - please run 'vers login' to re-authenticate")
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("commit request failed with status %d", resp.StatusCode)
+	}
+
+	// Parse the response
+	var response APIVmCommitResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("error parsing commit response: %w", err)
+	}
+
+	return &response, nil
+}
+
+// combineAllTags combines tags from both --tag and --tags flags
+func combineAllTags() []string {
+	var allTags []string
+
+	// Add individual tags from --tag flags
+	allTags = append(allTags, individualTags...)
+
+	// Add comma-separated tags from --tags flag
+	if commaSeparatedTags != "" {
+		commaTags := strings.Split(commaSeparatedTags, ",")
+		for _, tag := range commaTags {
+			if trimmed := strings.TrimSpace(tag); trimmed != "" {
+				allTags = append(allTags, trimmed)
+			}
+		}
+	}
+
+	return allTags
 }
 
 // commitCmd represents the commit command
@@ -98,9 +167,12 @@ var commitCmd = &cobra.Command{
 			fmt.Printf("Using current HEAD VM: %s\n", vmID)
 		}
 
+		// Combine all tags from both flag types
+		allTags := combineAllTags()
+
 		fmt.Printf("Creating commit for VM '%s'\n", vmID)
-		if tag != "" {
-			fmt.Printf("Tagging commit as: %s\n", tag)
+		if len(allTags) > 0 {
+			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
 		}
 
 		// Get VM details for alias information
@@ -113,34 +185,15 @@ var commitCmd = &cobra.Command{
 			vmInfo = utils.CreateVMInfoFromGetResponse(vmResponse.Data)
 		}
 
-		// Call the SDK to commit the VM state
-		response, err := client.API.Vm.Commit(apiCtx, vmInfo.ID)
+		response, err := CommitWithTags(apiCtx, vmInfo.ID, allTags, vmInfo.ClusterID)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
 		}
-		commitResult := response.Data
 
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
-		fmt.Printf("Commit ID: %s\n", commitResult.ID)
-
-		// Store commit information in .vers directory
-		versDir := ".vers"
-		if _, err := os.Stat(versDir); !os.IsNotExist(err) {
-			// Create commit info
-			commitInfo := logCommitEntry{
-				ID:        commitResult.ID,
-				Message:   fmt.Sprintf("Commit %s", commitResult.ID),
-				Timestamp: time.Now().Unix(),
-				Tag:       tag,
-				Author:    "user", // Could be improved to use actual user info
-				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName, // This will be alias if available, otherwise ID
-			}
-
-			// Save commit info
-			if err := writeCommitToLogFile(versDir, vmInfo.ID, commitInfo); err != nil {
-				fmt.Printf("Warning: Failed to store commit information: %v\n", err)
-			}
+		fmt.Printf("Commit ID: %s\n", response.Data.ID)
+		if len(allTags) > 0 {
+			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
 		}
 
 		return nil
@@ -151,5 +204,6 @@ func init() {
 	rootCmd.AddCommand(commitCmd)
 
 	// Define flags for the commit command
-	commitCmd.Flags().StringVarP(&tag, "tag", "t", "", "Tag for this commit")
+	commitCmd.Flags().StringSliceVarP(&individualTags, "tag", "t", []string{}, "Individual tag for this commit (can be repeated)")
+	commitCmd.Flags().StringVar(&commaSeparatedTags, "tags", "", "Comma-separated tags for this commit")
 }
