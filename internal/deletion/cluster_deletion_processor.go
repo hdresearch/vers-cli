@@ -3,6 +3,7 @@ package deletion
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
@@ -159,16 +160,24 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 	utils.PrintDeletionSummary(summaryResults, p.styles)
 
+	// Build final status output
+	var finalOutput strings.Builder
+
 	// Cleanup HEAD
 	if len(allDeletedVMIDs) > 0 {
 		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
-			fmt.Println(p.styles.NoData.Render("HEAD cleared (cluster VMs were deleted)"))
+			finalOutput.WriteString(p.styles.NoData.Render("HEAD cleared (cluster VMs were deleted)") + "\n")
 		}
 	}
 
 	if failCount == 0 {
-		fmt.Println()
-		fmt.Println(p.styles.Success.Render("All clusters processed successfully!"))
+		finalOutput.WriteString("\n")
+		finalOutput.WriteString(p.styles.Success.Render("All clusters processed successfully!") + "\n")
+	}
+
+	// Print final status if there's anything to show
+	if finalOutput.Len() > 0 {
+		fmt.Print(finalOutput.String())
 	}
 
 	if failCount > 0 {
@@ -180,18 +189,21 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 
 // confirmDeleteAllWithInfo confirms deletion of all clusters using pre-resolved cluster info
 func (p *ClusterDeletionProcessor) confirmDeleteAllWithInfo(clusterInfos []*utils.ClusterInfo) bool {
+	var output strings.Builder
+
 	headerMsg := fmt.Sprintf("DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusterInfos))
-	fmt.Println(p.styles.Warning.Render(headerMsg))
-	fmt.Println()
+	output.WriteString(p.styles.Warning.Render(headerMsg) + "\n\n")
 
 	for i, clusterInfo := range clusterInfos {
 		listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, clusterInfo.DisplayName, clusterInfo.VmCount)
-		fmt.Println(p.styles.Warning.Render(listItem))
+		output.WriteString(p.styles.Warning.Render(listItem) + "\n")
 	}
 
-	fmt.Println()
-	fmt.Println(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!"))
-	fmt.Println()
+	output.WriteString("\n")
+	output.WriteString(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!") + "\n\n")
+
+	// Print the warning message all at once
+	fmt.Print(output.String())
 
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }

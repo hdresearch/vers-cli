@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -75,11 +76,12 @@ func StartCluster(config *Config, args []string) error {
 	}
 	clusterInfo := response.Data
 
-	// Use information from the response
-	fmt.Printf("Cluster (ID: %s) started successfully with root vm '%s'.\n",
+	// Build success and status output together
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("Cluster (ID: %s) started successfully with root vm '%s'.\n",
 		clusterInfo.ID,
 		clusterInfo.RootVmID,
-	)
+	))
 
 	// Update HEAD to point to the new VM
 	vmTarget := clusterInfo.RootVmID
@@ -89,15 +91,17 @@ func StartCluster(config *Config, args []string) error {
 
 	versDir := ".vers"
 	if _, err := os.Stat(versDir); os.IsNotExist(err) {
-		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
+		output.WriteString("Warning: .vers directory not found. Run 'vers init' first.\n")
 	} else {
 		headFile := filepath.Join(versDir, "HEAD")
 		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
-		fmt.Printf("HEAD now points to: %s\n", vmTarget)
+		output.WriteString(fmt.Sprintf("HEAD now points to: %s\n", vmTarget))
 	}
 
+	// Print all results together
+	fmt.Print(output.String())
 	return nil
 }
 

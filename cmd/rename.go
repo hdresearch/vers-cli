@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -42,7 +44,7 @@ var renameCmd = &cobra.Command{
 
 			if len(args) == 1 {
 				// Only one argument provided, this doesn't make sense for clusters since we can't use HEAD
-				return fmt.Errorf(s.NoData.Render("cluster ID or alias must be provided when renaming clusters"))
+				return errors.New(s.NoData.Render("cluster ID or alias must be provided when renaming clusters"))
 			} else {
 				// Both old ID and new alias provided
 				clusterInfo, err = utils.ResolveClusterIdentifier(apiCtx, client, args[0])
@@ -52,7 +54,9 @@ var renameCmd = &cobra.Command{
 				newAlias = args[1]
 			}
 
-			fmt.Printf(s.Progress.Render("Renaming cluster '%s' to '%s'...\n"), clusterInfo.DisplayName, newAlias)
+			// Build cluster rename output
+			var output strings.Builder
+			output.WriteString(s.Progress.Render(fmt.Sprintf("Renaming cluster '%s' to '%s'...\n", clusterInfo.DisplayName, newAlias)))
 
 			// Create cluster rename request using the resolved cluster ID
 			updateParams := vers.APIClusterUpdateParams{
@@ -67,7 +71,10 @@ var renameCmd = &cobra.Command{
 				return fmt.Errorf(s.NoData.Render("failed to rename cluster '%s': %w"), clusterInfo.DisplayName, err)
 			}
 
-			fmt.Printf(s.Success.Render("✓ Cluster '%s' renamed to '%s'\n"), response.Data.ID, response.Data.Alias)
+			output.WriteString(s.Success.Render(fmt.Sprintf("✓ Cluster '%s' renamed to '%s'\n", response.Data.ID, response.Data.Alias)))
+
+			// Print cluster rename output
+			fmt.Print(output.String())
 		} else {
 			// Handle VM rename
 			if len(args) == 1 {
@@ -76,10 +83,12 @@ var renameCmd = &cobra.Command{
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("no ID provided and %w"), err)
 				}
-				fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
 				newAlias = args[0]
 
-				fmt.Printf(s.Progress.Render("Renaming VM '%s' to '%s'...\n"), headVMID, newAlias)
+				// Build VM rename output for HEAD case
+				var output strings.Builder
+				output.WriteString(s.Progress.Render(fmt.Sprintf("Using current HEAD VM: %s\n", headVMID)))
+				output.WriteString(s.Progress.Render(fmt.Sprintf("Renaming VM '%s' to '%s'...\n", headVMID, newAlias)))
 
 				// Create VM rename request
 				updateParams := vers.APIVmUpdateParams{
@@ -97,7 +106,10 @@ var renameCmd = &cobra.Command{
 				// Create VMInfo from response
 				vmInfo := utils.CreateVMInfoFromUpdateResponse(response.Data)
 
-				fmt.Printf(s.Success.Render("✓ VM '%s' renamed to '%s'\n"), vmInfo.ID, response.Data.Alias)
+				output.WriteString(s.Success.Render(fmt.Sprintf("✓ VM '%s' renamed to '%s'\n", vmInfo.ID, response.Data.Alias)))
+
+				// Print VM rename output
+				fmt.Print(output.String())
 			} else {
 				// Both ID and alias provided
 				vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -106,7 +118,9 @@ var renameCmd = &cobra.Command{
 				}
 				newAlias = args[1]
 
-				fmt.Printf(s.Progress.Render("Renaming VM '%s' to '%s'...\n"), vmInfo.DisplayName, newAlias)
+				// Build VM rename output for specified VM case
+				var output strings.Builder
+				output.WriteString(s.Progress.Render(fmt.Sprintf("Renaming VM '%s' to '%s'...\n", vmInfo.DisplayName, newAlias)))
 
 				// Create VM rename request using the resolved VM ID
 				updateParams := vers.APIVmUpdateParams{
@@ -121,7 +135,10 @@ var renameCmd = &cobra.Command{
 					return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), vmInfo.DisplayName, err)
 				}
 
-				fmt.Printf(s.Success.Render("✓ VM '%s' renamed to '%s'\n"), response.Data.ID, response.Data.Alias)
+				output.WriteString(s.Success.Render(fmt.Sprintf("✓ VM '%s' renamed to '%s'\n", response.Data.ID, response.Data.Alias)))
+
+				// Print VM rename output
+				fmt.Print(output.String())
 			}
 		}
 

@@ -24,8 +24,7 @@ func SuccessMessage(message string, s *styles.KillStyles) {
 
 // SectionHeader prints a formatted section header
 func SectionHeader(title string, s *styles.KillStyles) {
-	fmt.Println()
-	fmt.Println(s.Progress.Render("=== " + title + " ==="))
+	fmt.Println("\n" + s.Progress.Render("=== "+title+" ==="))
 }
 
 // Standard status messages

@@ -73,7 +73,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot upgrade development or unknown versions")
 	}
 
-	fmt.Printf("Current version: %s\n", Version)
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("Current version: %s\n", Version))
 
 	// Check for latest release
 	latest, err := getLatestRelease()
@@ -82,19 +83,24 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	latestVersion := strings.TrimPrefix(latest.TagName, "v")
-	fmt.Printf("Latest version: %s\n", latest.TagName)
+	output.WriteString(fmt.Sprintf("Latest version: %s\n", latest.TagName))
 
 	// Compare versions
 	if currentVersion == latestVersion {
-		fmt.Println("You are already running the latest version!")
+		output.WriteString("You are already running the latest version!\n")
+		fmt.Print(output.String())
 		return nil
 	}
 
 	if checkOnly {
-		fmt.Printf("A new version is available: %s -> %s\n", Version, latest.TagName)
-		fmt.Println("Run 'vers upgrade' to install the update.")
+		output.WriteString(fmt.Sprintf("A new version is available: %s -> %s\n", Version, latest.TagName))
+		output.WriteString("Run 'vers upgrade' to install the update.\n")
+		fmt.Print(output.String())
 		return nil
 	}
+
+	// Print version info first
+	fmt.Print(output.String())
 
 	// Confirm upgrade using shared confirmation utility
 	fmt.Printf("\nUpgrade from %s to %s?\n", Version, latest.TagName)
@@ -181,17 +187,20 @@ func performUpgrade(release *GitHubRelease) error {
 	}
 	defer os.Remove(tempFile)
 
+	// Build verification and installation messages
+	var output strings.Builder
+
 	// Verify checksum if available and not skipped
 	if checksumURL != "" && !skipChecksum {
 		DebugPrint("Verifying checksum from: %s\n", checksumURL)
-		fmt.Println("Verifying download integrity...")
+		output.WriteString("Verifying download integrity...\n")
 
 		if err := verifyChecksum(tempFile, checksumURL); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
-		fmt.Println("✓ Checksum verification passed")
+		output.WriteString("✓ Checksum verification passed\n")
 	} else if skipChecksum {
-		fmt.Println("⚠️  Skipping checksum verification (not recommended)")
+		output.WriteString("⚠️  Skipping checksum verification (not recommended)\n")
 	}
 
 	// Get current executable path
@@ -219,9 +228,11 @@ func performUpgrade(release *GitHubRelease) error {
 	// Clean up backup on success
 	os.Remove(backupPath)
 
-	fmt.Printf("✓ Successfully upgraded to version %s!\n", release.TagName)
-	fmt.Println("Please restart any running vers processes to use the new version.")
+	output.WriteString(fmt.Sprintf("✓ Successfully upgraded to version %s!\n", release.TagName))
+	output.WriteString("Please restart any running vers processes to use the new version.\n")
 
+	// Print all status messages at once
+	fmt.Print(output.String())
 	return nil
 }
 

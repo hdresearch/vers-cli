@@ -17,7 +17,7 @@ func AskConfirmation(prompt ...string) bool {
 		confirmPrompt = prompt[0] + " [y/N]: "
 	}
 
-	fmt.Printf(confirmPrompt)
+	fmt.Print(confirmPrompt)
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
@@ -32,7 +32,7 @@ func AskConfirmation(prompt ...string) bool {
 // AskSpecialConfirmation asks for an exact text match confirmation
 func AskSpecialConfirmation(requiredText string, s *styles.KillStyles) bool {
 	prompt := fmt.Sprintf("Type '%s' to confirm: ", requiredText)
-	fmt.Printf(s.Warning.Render(prompt))
+	fmt.Print(s.Warning.Render(prompt))
 
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')

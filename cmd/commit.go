@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -80,6 +81,9 @@ var commitCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
 
+		// Build initial setup output
+		var setupOutput strings.Builder
+
 		// Determine VM ID to use
 		if len(args) > 0 {
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -87,7 +91,7 @@ var commitCmd = &cobra.Command{
 				return fmt.Errorf("failed to find VM: %w", err)
 			}
 			vmID = vmInfo.ID
-			fmt.Printf("Using provided VM: %s\n", vmInfo.DisplayName)
+			setupOutput.WriteString(fmt.Sprintf("Using provided VM: %s\n", vmInfo.DisplayName))
 		} else {
 			// Use HEAD VM
 			var err error
@@ -95,16 +99,20 @@ var commitCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to get current VM: %w", err)
 			}
-			fmt.Printf("Using current HEAD VM: %s\n", vmID)
+			setupOutput.WriteString(fmt.Sprintf("Using current HEAD VM: %s\n", vmID))
 		}
 
-		fmt.Printf("Creating commit for VM '%s'\n", vmID)
+		setupOutput.WriteString(fmt.Sprintf("Creating commit for VM '%s'\n", vmID))
 		if tag != "" {
-			fmt.Printf("Tagging commit as: %s\n", tag)
+			setupOutput.WriteString(fmt.Sprintf("Tagging commit as: %s\n", tag))
 		}
 
 		// Get VM details for alias information
-		fmt.Println("Creating commit...")
+		setupOutput.WriteString("Creating commit...\n")
+
+		// Print setup messages
+		fmt.Print(setupOutput.String())
+
 		if vmInfo == nil {
 			vmResponse, err := client.API.Vm.Get(apiCtx, vmID)
 			if err != nil {
@@ -120,8 +128,10 @@ var commitCmd = &cobra.Command{
 		}
 		commitResult := response.Data
 
-		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
-		fmt.Printf("Commit ID: %s\n", commitResult.ID)
+		// Build success output
+		var successOutput strings.Builder
+		successOutput.WriteString(fmt.Sprintf("Successfully committed VM '%s'\n", vmInfo.DisplayName))
+		successOutput.WriteString(fmt.Sprintf("Commit ID: %s\n", commitResult.ID))
 
 		// Store commit information in .vers directory
 		versDir := ".vers"
@@ -139,10 +149,12 @@ var commitCmd = &cobra.Command{
 
 			// Save commit info
 			if err := writeCommitToLogFile(versDir, vmInfo.ID, commitInfo); err != nil {
-				fmt.Printf("Warning: Failed to store commit information: %v\n", err)
+				successOutput.WriteString(fmt.Sprintf("Warning: Failed to store commit information: %v\n", err))
 			}
 		}
 
+		// Print final success output
+		fmt.Print(successOutput.String())
 		return nil
 	},
 }

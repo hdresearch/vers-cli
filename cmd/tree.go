@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -112,32 +113,43 @@ func buildAndDisplayTree(cluster vers.APIClusterListResponseData, headVMID strin
 		clusterDisplayName = cluster.ID
 	}
 
-	fmt.Printf("Generating tree for cluster: %s\n", clusterDisplayName)
+	// Build header output
+	var headerOutput strings.Builder
+	headerOutput.WriteString(fmt.Sprintf("Generating tree for cluster: %s\n", clusterDisplayName))
 
 	// Print cluster information header
 	clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", clusterDisplayName, cluster.VmCount))
-	fmt.Println(clusterHeader)
+	headerOutput.WriteString(clusterHeader + "\n")
+
+	// Print header information
+	fmt.Print(headerOutput.String())
 
 	// Validate we have a root VM
 	if cluster.RootVmID == "" {
 		return fmt.Errorf("cluster '%s' has no root VM", clusterDisplayName)
 	}
 
-	// Print the tree starting from the root VM
-	printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID)
+	// Build the tree structure first
+	var treeOutput strings.Builder
+	buildVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID, &treeOutput)
 
-	// Print legend
-	fmt.Println("\nLegend:")
-	fmt.Println(styles.MutedTextStyle.Render("- [R] Running"))
-	fmt.Println(styles.MutedTextStyle.Render("- [P] Paused"))
-	fmt.Println(styles.MutedTextStyle.Render("- [S] Stopped"))
-	fmt.Println(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details."))
+	// Build legend output
+	var legendOutput strings.Builder
+	legendOutput.WriteString("\nLegend:\n")
+	legendOutput.WriteString(styles.MutedTextStyle.Render("- [R] Running") + "\n")
+	legendOutput.WriteString(styles.MutedTextStyle.Render("- [P] Paused") + "\n")
+	legendOutput.WriteString(styles.MutedTextStyle.Render("- [S] Stopped") + "\n")
+	legendOutput.WriteString(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details.") + "\n")
+
+	// Print tree and legend together
+	combinedOutput := treeOutput.String() + legendOutput.String()
+	fmt.Print(combinedOutput)
 
 	return nil
 }
 
-// printVMTreeFromListData prints tree using List response data structure
-func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string) {
+// buildVMTreeFromListData builds tree structure into a string builder instead of printing directly
+func buildVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string, output *strings.Builder) {
 	// Find the current VM in the list
 	var currentVM *vers.VmDto
 	for i := range vms {
@@ -179,9 +191,6 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 	}
 
 	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(displayName))
-	if currentVM.IPAddress != "" {
-		vmInfo += fmt.Sprintf(" (%s)", styles.MutedTextStyle.Render(currentVM.IPAddress))
-	}
 
 	finalStyle := styles.NormalListItemStyle
 	if currentVM.ID == headVMID {
@@ -189,7 +198,8 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 		finalStyle = styles.SelectedListItemStyle
 	}
 
-	fmt.Printf("%s%s%s\n", prefix, connector, finalStyle.Render(vmInfo))
+	// Add this VM's line to the output
+	output.WriteString(fmt.Sprintf("%s%s%s\n", prefix, connector, finalStyle.Render(vmInfo)))
 
 	// Prepare the prefix for children
 	childPrefix := prefix
@@ -199,10 +209,10 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 		childPrefix += "│   "
 	}
 
-	// Print children
+	// Process children recursively
 	for i, childID := range currentVM.Children {
 		isLastChild := i == len(currentVM.Children)-1
-		printVMTreeFromListData(vms, childID, childPrefix, isLastChild, headVMID)
+		buildVMTreeFromListData(vms, childID, childPrefix, isLastChild, headVMID, output)
 	}
 }
 

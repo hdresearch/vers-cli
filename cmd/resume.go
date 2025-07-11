@@ -35,7 +35,7 @@ var resumeCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
+			fmt.Print(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
 		} else {
 			// Use provided identifier
 			var err error

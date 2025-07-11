@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
@@ -27,6 +28,9 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		// Build initial setup output
+		var setupOutput strings.Builder
+
 		// Determine VM identifier to use
 		var identifier string
 		if len(args) == 0 {
@@ -35,12 +39,15 @@ var connectCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
+			setupOutput.WriteString(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
 		} else {
 			identifier = args[0]
 		}
 
-		fmt.Println(s.NoData.Render("Fetching VM information..."))
+		setupOutput.WriteString(s.NoData.Render("Fetching VM information...") + "\n")
+
+		// Print setup messages
+		fmt.Print(setupOutput.String())
 
 		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, identifier)
 		if err != nil {
@@ -58,10 +65,13 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmInfo.DisplayName)
+		// Build connection status output
+		var connectionOutput strings.Builder
+		connectionOutput.WriteString(s.HeadStatus.Render("Connecting to VM "+vmInfo.DisplayName+"...") + "\n")
+		connectionOutput.WriteString(s.HeadStatus.Render(fmt.Sprintf("Connecting to %s on port %d\n", nodeIP, vm.NetworkInfo.SSHPort)))
 
-		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), nodeIP, vm.NetworkInfo.SSHPort)
+		// Print connection status
+		fmt.Print(connectionOutput.String())
 
 		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {

@@ -37,16 +37,20 @@ var rootfsListCmd = &cobra.Command{
 		}
 		data := response.Data
 
+		// Build complete output
+		var output strings.Builder
+
 		if len(data.RootfsNames) == 0 {
-			fmt.Println("No rootfs images found.")
-			return nil
+			output.WriteString("No rootfs images found.\n")
+		} else {
+			output.WriteString("Available rootfs images:\n")
+			for _, name := range data.RootfsNames {
+				output.WriteString(fmt.Sprintf("- %s\n", name))
+			}
 		}
 
-		fmt.Println("Available rootfs images:")
-		for _, name := range data.RootfsNames {
-			fmt.Printf("- %s\n", name)
-		}
-
+		// Print complete list
+		fmt.Print(output.String())
 		return nil
 	},
 }
