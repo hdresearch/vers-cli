@@ -2,7 +2,9 @@ package deletion
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
@@ -167,6 +169,10 @@ func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
 
 	result, err := p.client.API.Vm.Delete(p.ctx, vmID, deleteParams)
 	if err != nil {
+		// Check for the common "HasChildren" error and provide a helpful message
+		if p.isHasChildrenError(err) {
+			return nil, p.createHasChildrenError(vmID)
+		}
 		return nil, err
 	}
 
@@ -175,4 +181,26 @@ func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
 	}
 
 	return result.Data.DeletedIDs, nil
+}
+
+// isHasChildrenError checks if the error is a 409 Conflict with "HasChildren"
+func (p *VMDeletionProcessor) isHasChildrenError(err error) bool {
+	errStr := err.Error()
+	return strings.Contains(errStr, "409 Conflict") && strings.Contains(errStr, "HasChildren")
+}
+
+// createHasChildrenError creates a user-friendly error message for the HasChildren scenario
+func (p *VMDeletionProcessor) createHasChildrenError(vmID string) error {
+	message := fmt.Sprintf(`Cannot delete VM - it has child VMs that would be orphaned.
+
+This VM has child VMs. Deleting it would leave them without a parent,
+which could cause data inconsistency.
+
+To delete this VM and all its children, use the --recursive (-r) flag:
+  vers kill %s -r
+
+To see the VM tree structure, run:
+  vers tree`, vmID)
+
+	return errors.New(message)
 }
