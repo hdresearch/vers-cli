@@ -116,6 +116,9 @@ var logCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		// Build initial output
+		var output strings.Builder
+
 		// Determine VM ID to use
 		if len(args) == 0 {
 			// Use HEAD VM
@@ -124,7 +127,7 @@ var logCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}
-			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmID)
+			output.WriteString(fmt.Sprintf("Showing commit history for current HEAD VM: %s\n", vmID))
 		} else {
 			// Use provided identifier
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -135,7 +138,12 @@ var logCmd = &cobra.Command{
 		}
 
 		// Get VM details
-		fmt.Println(s.NoData.Render("Fetching VM information..."))
+		output.WriteString(s.NoData.Render("Fetching VM information...") + "\n")
+
+		// Print initial setup messages
+		fmt.Print(output.String())
+		output.Reset()
+
 		if vmInfo == nil {
 			// We need to make the API call (HEAD case)
 			response, err := client.API.Vm.Get(apiCtx, vmID)
@@ -231,38 +239,43 @@ var logCmd = &cobra.Command{
 			}
 		}
 
-		// Display the VM info header
-		fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
+		// Build the complete commit history output
+		output.WriteString(fmt.Sprintf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName))))
 
 		// Display commit history
 		for i, commit := range commits {
 			// Format timestamp
 			timestamp := time.Unix(commit.Timestamp, 0).Format("Mon Jan 2 15:04:05 2006 -0700")
 
-			// Display commit info
-			fmt.Printf("%s %s\n", s.CommitID.Render("Commit:"), commit.ID)
+			// Build commit info block
+			output.WriteString(fmt.Sprintf("%s %s\n", s.CommitID.Render("Commit:"), commit.ID))
+
 			if commit.Tag != "" {
-				fmt.Printf("%s\n", s.Tag.Render(commit.Tag))
+				output.WriteString(fmt.Sprintf("%s\n", s.Tag.Render(commit.Tag)))
 			}
+
 			if commit.Alias != "" {
-				fmt.Printf("%s %s\n", s.Alias.Render("Alias:"), commit.Alias)
+				output.WriteString(fmt.Sprintf("%s %s\n", s.Alias.Render("Alias:"), commit.Alias))
 			}
-			fmt.Printf("%s %s\n", s.Author.Render("Author:"), commit.Author)
-			fmt.Printf("%s %s\n", s.Date.Render("Date:"), timestamp)
-			fmt.Printf("%s %s\n", s.VMID.Render("VM:"), commit.VMID)
+
+			output.WriteString(fmt.Sprintf("%s %s\n", s.Author.Render("Author:"), commit.Author))
+			output.WriteString(fmt.Sprintf("%s %s\n", s.Date.Render("Date:"), timestamp))
+			output.WriteString(fmt.Sprintf("%s %s\n", s.VMID.Render("VM:"), commit.VMID))
 
 			message := commit.Message
 			if message == "" {
 				message = "(no commit message)"
 			}
-			fmt.Printf("\n    %s\n", s.CommitMsg.Render(message))
+			output.WriteString(fmt.Sprintf("\n    %s\n", s.CommitMsg.Render(message)))
 
 			// Add divider between commits
 			if i < len(commits)-1 {
-				fmt.Printf("\n%s\n\n", s.Divider.String())
+				output.WriteString(fmt.Sprintf("\n%s\n\n", s.Divider.String()))
 			}
 		}
 
+		// Print the entire commit history at once
+		fmt.Print(output.String())
 		return nil
 	},
 }

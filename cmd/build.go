@@ -46,12 +46,12 @@ func BuildRootfs(config *Config) error {
 
 	// Don't allow user to build "default"
 	if config.Rootfs.Name == "default" {
-		return fmt.Errorf("If you're trying to upload a custom rootfs, please specify a new name for rootfs.name in vers.toml. Otherwise, set builder.name to 'none'.")
+		return fmt.Errorf("if you're trying to upload a custom rootfs, please specify a new name for rootfs.name in vers.toml. Otherwise, set builder.name to 'none'")
 	}
 
 	// Check for Dockerfile
 	if _, err := os.Stat(config.Builder.Dockerfile); os.IsNotExist(err) {
-		return fmt.Errorf("Dockerfile '%s' not found in current directory", config.Builder.Dockerfile)
+		return fmt.Errorf("dockerfile '%s' not found in current directory", config.Builder.Dockerfile)
 	}
 
 	// Create temporary tar archive
@@ -61,7 +61,10 @@ func BuildRootfs(config *Config) error {
 	}
 	defer os.Remove(tempFile.Name()) // Clean up the temp file when done
 
-	fmt.Println("Creating tar archive of working directory...")
+	// Build process output
+	var processOutput strings.Builder
+	processOutput.WriteString("Creating tar archive of working directory...\n")
+
 	if err := createTarArchive(tempFile); err != nil {
 		return fmt.Errorf("failed to create tar archive: %w", err)
 	}
@@ -76,7 +79,10 @@ func BuildRootfs(config *Config) error {
 	defer cancel()
 
 	// Prepare for upload
-	fmt.Printf("Uploading rootfs archive as '%s'...\n", config.Rootfs.Name)
+	processOutput.WriteString(fmt.Sprintf("Uploading rootfs archive as '%s'...\n", config.Rootfs.Name))
+
+	// Print build process messages
+	fmt.Print(processOutput.String())
 
 	// Reading the file into memory for the request
 	fileContent, err := os.ReadFile(tempFile.Name())

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -28,6 +29,9 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		// Build initial setup output
+		var setupOutput strings.Builder
+
 		// Determine VM ID to use - no extra API calls
 		if len(args) == 0 {
 			var err error
@@ -35,7 +39,7 @@ var branchCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
+			setupOutput.WriteString(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
 		} else {
 			var err error
 			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -50,7 +54,10 @@ var branchCmd = &cobra.Command{
 		if vmInfo != nil {
 			progressName = vmInfo.DisplayName
 		}
-		fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
+		setupOutput.WriteString(s.Progress.Render("Creating new VM from: "+progressName) + "\n")
+
+		// Print initial setup messages
+		fmt.Print(setupOutput.String())
 
 		body := vers.APIVmBranchParams{
 			VmBranchParams: vers.VmBranchParams{},
@@ -65,33 +72,38 @@ var branchCmd = &cobra.Command{
 		}
 		branchInfo := response.Data
 
-		// Success message
-		fmt.Printf(s.Success.Render("✓ New VM created successfully!") + "\n")
+		// Build VM details output
+		var detailsOutput strings.Builder
 
-		// VM details
-		fmt.Printf(s.ListHeader.Render("New VM details:") + "\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(branchInfo.ID)) + "\n")
+		// Success message
+		detailsOutput.WriteString(s.Success.Render("✓ New VM created successfully!") + "\n")
+
+		// VM details header
+		detailsOutput.WriteString(s.ListHeader.Render("New VM details:") + "\n")
+		detailsOutput.WriteString(s.ListItem.Render(s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(branchInfo.ID)) + "\n")
 
 		if branchInfo.Alias != "" {
-			fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(branchInfo.Alias)) + "\n")
+			detailsOutput.WriteString(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(branchInfo.Alias)) + "\n")
 		}
 
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("IP Address")+": "+s.CurrentState.Render(branchInfo.IPAddress)) + "\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
+		detailsOutput.WriteString(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
+
+		// Handle checkout logic and build final output
+		var finalOutput strings.Builder
 
 		// Check if user wants to switch to the new VM
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
 			err := utils.SetHead(branchInfo.ID)
 			if err != nil {
 				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
-				fmt.Println(s.Warning.Render(warningMsg))
+				finalOutput.WriteString(s.Warning.Render(warningMsg) + "\n")
 			} else {
 				// Create display name from branch response
 				displayName := branchInfo.Alias
 				if displayName == "" {
 					displayName = branchInfo.ID
 				}
-				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(displayName) + "\n")
+				finalOutput.WriteString(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(displayName) + "\n")
 			}
 		} else {
 			// Show tip about switching
@@ -99,9 +111,13 @@ var branchCmd = &cobra.Command{
 			if switchTarget == "" {
 				switchTarget = branchInfo.ID
 			}
-			fmt.Printf(s.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
-			fmt.Printf(s.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
+			finalOutput.WriteString(s.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
+			finalOutput.WriteString(s.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
 		}
+
+		// Print VM details and final output together
+		combinedOutput := detailsOutput.String() + finalOutput.String()
+		fmt.Print(combinedOutput)
 
 		return nil
 	},

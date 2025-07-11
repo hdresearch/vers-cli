@@ -78,9 +78,11 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 		rootVMDisplayName = cluster.RootVmID
 	}
 
-	fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterDisplayName) + "\n")
+	// Build cluster details section
+	var output strings.Builder
+	output.WriteString(s.HeadStatus.Render("Getting status for cluster: "+clusterDisplayName) + "\n")
+	output.WriteString(s.VMListHeader.Render("Cluster details:") + "\n")
 
-	fmt.Println(s.VMListHeader.Render("Cluster details:"))
 	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
 	// Format cluster info
@@ -91,12 +93,12 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 		s.ClusterData.Render("# VMs: "+fmt.Sprintf("%d", len(cluster.Vms))),
 	)
 	clusterList.Items(clusterInfo_display)
-	fmt.Println(clusterList)
+	output.WriteString(clusterList.String() + "\n")
 
-	fmt.Println(s.VMListHeader.Render("VMs in this cluster:"))
+	output.WriteString(s.VMListHeader.Render("VMs in this cluster:") + "\n")
 
 	if len(cluster.Vms) == 0 {
-		fmt.Println(s.NoData.Render("No VMs found in this cluster."))
+		output.WriteString(s.NoData.Render("No VMs found in this cluster.") + "\n")
 	} else {
 		vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 		for _, vm := range cluster.Vms {
@@ -113,12 +115,14 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 			)
 			vmList.Items(vmInfo)
 		}
-		fmt.Println(vmList)
+		output.WriteString(vmList.String() + "\n")
 	}
 
 	tip := "\nTip: To view all clusters, run: vers status"
-	fmt.Println(s.Tip.Render(tip))
+	output.WriteString(s.Tip.Render(tip) + "\n")
 
+	// Single print operation
+	fmt.Print(output.String())
 	return nil
 }
 
@@ -135,9 +139,11 @@ func handleVMStatus(ctx context.Context, vmIdentifier string, s *styles.StatusSt
 	// Create VMInfo from response
 	vmInfo := utils.CreateVMInfoFromGetResponse(vm)
 
-	fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName) + "\n")
+	// Build VM details section
+	var output strings.Builder
+	output.WriteString(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName) + "\n")
+	output.WriteString(s.VMListHeader.Render("VM details:") + "\n")
 
-	fmt.Println(s.VMListHeader.Render("VM details:"))
 	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
 	// Use data from single API call - no second Vm.Get() needed
@@ -149,18 +155,22 @@ func handleVMStatus(ctx context.Context, vmIdentifier string, s *styles.StatusSt
 	)
 
 	vmList.Items(vmInfo_display)
-	fmt.Println(vmList)
+	output.WriteString(vmList.String() + "\n")
 
 	tip := "\nTip: To view the cluster containing this VM, run: vers status -c " + vm.ClusterID
-	fmt.Println(s.Tip.Render(tip))
+	output.WriteString(s.Tip.Render(tip) + "\n")
 
+	// Single print operation
+	fmt.Print(output.String())
 	return nil
 }
 
 // Handle default status (list all clusters)
 func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 	// List all clusters
-	fmt.Println(s.NoData.Render("Fetching list of clusters..."))
+	var output strings.Builder
+	output.WriteString(s.NoData.Render("Fetching list of clusters...") + "\n")
+
 	response, err := client.API.Cluster.List(ctx)
 	if err != nil {
 		return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %w"), err)
@@ -169,11 +179,12 @@ func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 	clusters := response.Data
 
 	if len(clusters) == 0 {
-		fmt.Println(s.NoData.Render("No clusters found."))
+		output.WriteString(s.NoData.Render("No clusters found.") + "\n")
+		fmt.Print(output.String())
 		return nil
 	}
 
-	fmt.Println(s.VMListHeader.Render("Available clusters:"))
+	output.WriteString(s.VMListHeader.Render("Available clusters:") + "\n")
 	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
 	for _, cluster := range clusters {
@@ -201,12 +212,14 @@ func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 		)
 		clusterList.Items(clusterInfo)
 	}
-	fmt.Println(clusterList)
+	output.WriteString(clusterList.String() + "\n")
 
 	tip := "\nTip: To view VMs in a specific cluster, use: vers status -c <cluster-id>\n" +
 		"To view a specific VM, use: vers status <vm-id>"
-	fmt.Println(s.Tip.Render(tip))
+	output.WriteString(s.Tip.Render(tip) + "\n")
 
+	// Single print operation
+	fmt.Print(output.String())
 	return nil
 }
 
@@ -219,13 +232,15 @@ func displayHeadStatus() error {
 	if err != nil {
 		// Handle different error cases from utils
 		errStr := err.Error()
+		var headOutput string
 		if strings.Contains(errStr, "HEAD not found") {
-			fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)"))
+			headOutput = s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)")
 		} else if strings.Contains(errStr, "HEAD is empty") {
-			fmt.Println(s.HeadStatus.Render("HEAD status: Empty (create a VM with 'vers run')"))
+			headOutput = s.HeadStatus.Render("HEAD status: Empty (create a VM with 'vers run')")
 		} else {
-			fmt.Printf(styles.ErrorTextStyle.Render("HEAD status: Error reading HEAD file (%v)\n"), err)
+			headOutput = styles.ErrorTextStyle.Render(fmt.Sprintf("HEAD status: Error reading HEAD file (%v)", err))
 		}
+		fmt.Println(headOutput)
 		return nil
 	}
 
@@ -234,14 +249,15 @@ func displayHeadStatus() error {
 	defer cancel()
 
 	response, err := client.API.Vm.Get(apiCtx, headVMID)
+	var headOutput string
 	if err != nil {
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headVMID)
+		headOutput = s.HeadStatus.Render(fmt.Sprintf("HEAD status: %s (unable to verify)", headVMID))
 	} else {
 		// Create VMInfo from response
 		vmInfo := utils.CreateVMInfoFromGetResponse(response.Data)
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), vmInfo.DisplayName, vmInfo.State)
+		headOutput = s.HeadStatus.Render(fmt.Sprintf("HEAD status: %s (State: %s)", vmInfo.DisplayName, vmInfo.State))
 	}
-	fmt.Println()
+	fmt.Println(headOutput)
 	return nil
 }
 
