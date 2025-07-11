@@ -36,13 +36,27 @@ Examples:
   vers kill -y -r vm-with-children       # Skip confirmations AND delete children
   vers kill -a -y                        # Delete ALL clusters without confirmation`,
 	Args: func(cmd *cobra.Command, args []string) error {
-		if killAll {
-			if len(args) > 0 {
-				return fmt.Errorf("cannot specify target when using --all flag")
-			}
-			return nil
+		// -a and -c are mutually exclusive
+		if killAll && isCluster {
+			return fmt.Errorf("cannot use --all and --cluster together")
 		}
-		// Allow 0 or more arguments (0 means use HEAD)
+
+		// -a requires no arguments
+		if killAll && len(args) > 0 {
+			return fmt.Errorf("cannot specify targets when using --all")
+		}
+
+		// -c requires at least one argument
+		if isCluster && !killAll && len(args) == 0 {
+			return fmt.Errorf("--cluster requires at least one cluster identifier")
+		}
+
+		// -r only makes sense for VMs, not clusters
+		if recursive && isCluster {
+			return fmt.Errorf("--recursive only applies to VMs, not clusters")
+		}
+
+		// Allow 0 or more arguments for VM operations (0 means use HEAD)
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
