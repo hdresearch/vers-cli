@@ -10,25 +10,27 @@ import (
 )
 
 type VMDeletionProcessor struct {
-	client *vers.Client
-	styles *styles.KillStyles
-	ctx    context.Context
-	force  bool
+	client           *vers.Client
+	styles           *styles.KillStyles
+	ctx              context.Context
+	skipConfirmation bool
+	recursive        bool
 }
 
-func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *VMDeletionProcessor {
+func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool) *VMDeletionProcessor {
 	return &VMDeletionProcessor{
-		client: client,
-		styles: s,
-		ctx:    ctx,
-		force:  force,
+		client:           client,
+		styles:           s,
+		ctx:              ctx,
+		skipConfirmation: skipConfirmation,
+		recursive:        recursive,
 	}
 }
 
 // DeleteHeadVM optimized deletion for HEAD VM (no resolution needed since HEAD is always an ID)
 func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
-	// Get confirmation if not forced
-	if !p.force {
+	// Get confirmation if not skipping confirmations
+	if !p.skipConfirmation {
 		if !utils.ConfirmDeletion("VM", displayName, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil
@@ -43,10 +45,7 @@ func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
 	}
 
 	// Show progress and perform deletion
-	action := "Deleting VM"
-	if p.force {
-		action = "Force deleting VM"
-	}
+	action := p.getDeletionAction()
 
 	deletedVMIDs, err := utils.HandleDeletionResult(1, 1, action, displayName, func() ([]string, error) {
 		return p.deleteVM(vmID)
@@ -127,8 +126,8 @@ func (p *VMDeletionProcessor) DeleteMultipleVMs(identifiers []string) error {
 // DeleteSingleVM deletes a single VM with pre-resolved info
 // Returns the list of deleted VM IDs and any error
 func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex, totalCount int) ([]string, error) {
-	// Get confirmation if not forced
-	if !p.force {
+	// Get confirmation if not skipping confirmations
+	if !p.skipConfirmation {
 		if !utils.ConfirmDeletion("VM", vmInfo.DisplayName, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil, fmt.Errorf("operation cancelled by user")
@@ -142,19 +141,28 @@ func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex,
 	}
 
 	// Show progress and perform deletion
-	action := "Deleting VM"
-	if p.force {
-		action = "Force deleting VM"
-	}
+	action := p.getDeletionAction()
 
 	return utils.HandleDeletionResult(currentIndex, totalCount, action, vmInfo.DisplayName, func() ([]string, error) {
 		return p.deleteVM(vmInfo.ID)
 	}, p.styles)
 }
 
+// getDeletionAction returns the appropriate action description based on flags
+func (p *VMDeletionProcessor) getDeletionAction() string {
+	if p.skipConfirmation && p.recursive {
+		return "Force deleting VM (recursive)"
+	} else if p.skipConfirmation {
+		return "Force deleting VM"
+	} else if p.recursive {
+		return "Deleting VM (recursive)"
+	}
+	return "Deleting VM"
+}
+
 func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
 	deleteParams := vers.APIVmDeleteParams{
-		Recursive: vers.F(p.force),
+		Recursive: vers.F(p.recursive), // Use the recursive flag specifically
 	}
 
 	result, err := p.client.API.Vm.Delete(p.ctx, vmID, deleteParams)

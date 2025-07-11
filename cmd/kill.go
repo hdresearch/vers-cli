@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	force     bool
-	isCluster bool
-	killAll   bool
+	skipConfirmation bool
+	recursive        bool
+	isCluster        bool
+	killAll          bool
 )
 
 var killCmd = &cobra.Command{
@@ -30,7 +31,10 @@ Examples:
   vers kill -c cluster-456def            # Delete single cluster by ID
   vers kill -c my-cluster other-cluster  # Delete multiple clusters by alias
   vers kill -a                           # Delete ALL clusters (use with caution!)
-  vers kill -a --force                   # Delete ALL clusters without confirmation`,
+  vers kill -y                           # Delete HEAD VM without confirmation
+  vers kill -r vm-with-children          # Recursively delete VM and all its children
+  vers kill -y -r vm-with-children       # Skip confirmations AND delete children
+  vers kill -a -y                        # Delete ALL clusters without confirmation`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if killAll {
 			if len(args) > 0 {
@@ -48,7 +52,7 @@ Examples:
 		s := styles.NewKillStyles()
 
 		if killAll {
-			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
+			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
 			return processor.DeleteAllClusters()
 		}
 
@@ -63,16 +67,16 @@ Examples:
 			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
 
 			// Use optimized deletion path for HEAD
-			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
+			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
 			return processor.DeleteHeadVM(headVMID, headVMID)
 		}
 
 		// Delegate to appropriate processor
 		if isCluster {
-			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, force)
+			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
 			return processor.DeleteMultipleClusters(args)
 		} else {
-			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
+			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
 			return processor.DeleteMultipleVMs(args)
 		}
 	},
@@ -80,7 +84,8 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(killCmd)
-	killCmd.Flags().BoolVarP(&force, "force", "f", false, "Force termination without confirmation")
+	killCmd.Flags().BoolVarP(&skipConfirmation, "yes", "y", false, "Skip confirmation prompts")
+	killCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete all children")
 	killCmd.Flags().BoolVarP(&isCluster, "cluster", "c", false, "Target is a cluster instead of a VM")
 	killCmd.Flags().BoolVarP(&killAll, "all", "a", false, "Delete ALL clusters (use with extreme caution)")
 }
