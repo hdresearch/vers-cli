@@ -60,11 +60,17 @@ Examples:
 				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
 			}
 
-			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = headVMID // Fallback to VM ID
+			}
 
-			// Use optimized deletion path for HEAD
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headDisplayName)
+
+			// Use optimized deletion path for HEAD (still pass ID for API calls)
 			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, force)
-			return processor.DeleteHeadVM(headVMID, headVMID)
+			return processor.DeleteHeadVM(headVMID, headDisplayName)
 		}
 
 		// Delegate to appropriate processor

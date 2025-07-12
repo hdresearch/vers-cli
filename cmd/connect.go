@@ -35,7 +35,12 @@ var connectCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = identifier // Fallback to VM ID
+			}
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+headDisplayName) + "\n")
 		} else {
 			identifier = args[0]
 		}
