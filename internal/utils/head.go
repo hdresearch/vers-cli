@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,33 +18,69 @@ const (
 	HeadFile = "HEAD"
 )
 
-// GetCurrentHeadVM returns the VM ID from the current HEAD
+// HeadInfo represents the information stored in the HEAD file
+type HeadInfo struct {
+	ID    string `json:"id"`
+	Alias string `json:"alias,omitempty"`
+}
+
+// DisplayName returns the alias if available, otherwise the ID
+func (h *HeadInfo) DisplayName() string {
+	if h.Alias != "" {
+		return h.Alias
+	}
+	return h.ID
+}
+
+// GetCurrentHeadVM returns the VM ID from the current HEAD (for backward compatibility)
 func GetCurrentHeadVM() (string, error) {
+	headInfo, err := GetCurrentHead()
+	if err != nil {
+		return "", err
+	}
+	return headInfo.ID, nil
+}
+
+// GetCurrentHead returns the complete HEAD information (ID and alias)
+func GetCurrentHead() (*HeadInfo, error) {
 	headFile := filepath.Join(VersDir, HeadFile)
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		return "", fmt.Errorf("HEAD not found. Run 'vers init' first")
+		return nil, fmt.Errorf("HEAD not found. Run 'vers init' first")
 	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
 	if err != nil {
-		return "", fmt.Errorf("error reading HEAD: %w", err)
+		return nil, fmt.Errorf("error reading HEAD: %w", err)
 	}
 
-	// HEAD directly contains a VM ID or alias
-	vmID := strings.TrimSpace(string(headData))
-
-	if vmID == "" {
-		return "", fmt.Errorf("HEAD is empty. Create a VM first with 'vers run'")
+	content := strings.TrimSpace(string(headData))
+	if content == "" {
+		return nil, fmt.Errorf("HEAD is empty. Create a VM first with 'vers run'")
 	}
 
-	return vmID, nil
+	// Try to parse as JSON first (new format)
+	var headInfo HeadInfo
+	if err := json.Unmarshal([]byte(content), &headInfo); err == nil {
+		if headInfo.ID == "" {
+			return nil, fmt.Errorf("HEAD contains invalid data")
+		}
+		return &headInfo, nil
+	}
+
+	// Fallback: treat as plain VM ID (old format for backward compatibility)
+	return &HeadInfo{ID: content, Alias: ""}, nil
 }
 
-// SetHead sets the HEAD to point to a specific VM ID (always stores ID, never alias)
+// SetHead sets the HEAD to point to a specific VM ID (legacy - no alias)
 func SetHead(vmID string) error {
+	return SetHeadWithAlias(vmID, "")
+}
+
+// SetHeadWithAlias sets the HEAD to point to a specific VM with both ID and alias
+func SetHeadWithAlias(vmID, alias string) error {
 	headFile := filepath.Join(VersDir, HeadFile)
 
 	// Ensure .vers directory exists
@@ -51,7 +88,17 @@ func SetHead(vmID string) error {
 		return fmt.Errorf("failed to create .vers directory: %w", err)
 	}
 
-	return os.WriteFile(headFile, []byte(vmID), 0644)
+	headInfo := HeadInfo{
+		ID:    vmID,
+		Alias: alias,
+	}
+
+	data, err := json.Marshal(headInfo)
+	if err != nil {
+		return fmt.Errorf("failed to marshal HEAD info: %w", err)
+	}
+
+	return os.WriteFile(headFile, data, 0644)
 }
 
 // ClearHead clears the HEAD file
@@ -62,22 +109,31 @@ func ClearHead() error {
 
 // GetCurrentHeadVMInfo returns both the HEAD VM ID and its display information
 func GetCurrentHeadVMInfo(ctx context.Context, client *vers.Client) (*VMInfo, error) {
-	headVM, err := GetCurrentHeadVM()
+	headInfo, err := GetCurrentHead()
 	if err != nil {
 		return nil, err
 	}
 
-	return ResolveVMIdentifier(ctx, client, headVM)
+	return ResolveVMIdentifier(ctx, client, headInfo.ID)
 }
 
-// SetHeadFromIdentifier resolves a VM identifier to an ID and sets HEAD
+// GetCurrentHeadDisplayName returns the display name (alias or ID) for HEAD
+func GetCurrentHeadDisplayName() (string, error) {
+	headInfo, err := GetCurrentHead()
+	if err != nil {
+		return "", err
+	}
+	return headInfo.DisplayName(), nil
+}
+
+// SetHeadFromIdentifier resolves a VM identifier to an ID and sets HEAD with alias
 func SetHeadFromIdentifier(ctx context.Context, client *vers.Client, identifier string) (*VMInfo, error) {
 	vmInfo, err := ResolveVMIdentifier(ctx, client, identifier)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := SetHead(vmInfo.ID); err != nil {
+	if err := SetHeadWithAlias(vmInfo.ID, vmInfo.Alias); err != nil {
 		return nil, fmt.Errorf("failed to update HEAD: %w", err)
 	}
 
@@ -86,16 +142,16 @@ func SetHeadFromIdentifier(ctx context.Context, client *vers.Client, identifier 
 
 // CheckVMImpactsHead checks if a specific VM deletion will affect HEAD
 func CheckVMImpactsHead(vmID string) bool {
-	headVM, err := GetCurrentHeadVM()
+	headInfo, err := GetCurrentHead()
 	if err != nil {
 		return false
 	}
-	return headVM == vmID
+	return headInfo.ID == vmID
 }
 
 // CheckClusterImpactsHead checks if a specific cluster deletion will affect HEAD
 func CheckClusterImpactsHead(ctx context.Context, client *vers.Client, clusterID string) bool {
-	headVM, err := GetCurrentHeadVM()
+	headInfo, err := GetCurrentHead()
 	if err != nil {
 		return false
 	}
@@ -103,7 +159,7 @@ func CheckClusterImpactsHead(ctx context.Context, client *vers.Client, clusterID
 	apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	vmResponse, err := client.API.Vm.Get(apiCtx, headVM)
+	vmResponse, err := client.API.Vm.Get(apiCtx, headInfo.ID)
 	if err != nil {
 		return false
 	}
@@ -133,13 +189,13 @@ func ConfirmClusterHeadImpact(ctx context.Context, client *vers.Client, clusterI
 
 // CleanupAfterDeletion clears HEAD if any of the deleted VM IDs match current HEAD
 func CleanupAfterDeletion(deletedVMIDs []string) bool {
-	headVM, err := GetCurrentHeadVM()
+	headInfo, err := GetCurrentHead()
 	if err != nil {
 		return false
 	}
 
 	for _, deletedID := range deletedVMIDs {
-		if headVM == deletedID {
+		if headInfo.ID == deletedID {
 			ClearHead()
 			return true
 		}

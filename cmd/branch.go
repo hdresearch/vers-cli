@@ -31,11 +31,17 @@ var branchCmd = &cobra.Command{
 		// Determine VM ID to use - no extra API calls
 		if len(args) == 0 {
 			var err error
+			// Get HEAD display name instead of just ID
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
+			}
+			// Still need the ID for API calls
 			vmID, err = utils.GetCurrentHeadVM()
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
+			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(headDisplayName) + "\n")
 		} else {
 			var err error
 			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -47,7 +53,12 @@ var branchCmd = &cobra.Command{
 
 		// Show progress with best available name
 		progressName := vmID
-		if vmInfo != nil {
+		if len(args) == 0 {
+			// For HEAD case, use the display name we already got
+			if headDisplayName, err := utils.GetCurrentHeadDisplayName(); err == nil {
+				progressName = headDisplayName
+			}
+		} else if vmInfo != nil {
 			progressName = vmInfo.DisplayName
 		}
 		fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
@@ -81,7 +92,8 @@ var branchCmd = &cobra.Command{
 
 		// Check if user wants to switch to the new VM
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
-			err := utils.SetHead(branchInfo.ID)
+			// Use SetHeadWithAlias to store both ID and alias
+			err := utils.SetHeadWithAlias(branchInfo.ID, branchInfo.Alias)
 			if err != nil {
 				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
 				fmt.Println(s.Warning.Render(warningMsg))
