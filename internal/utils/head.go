@@ -47,7 +47,12 @@ func GetCurrentHead() (*HeadInfo, error) {
 
 	// Check if .vers directory and HEAD file exist
 	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("HEAD not found. Run 'vers init' first")
+		// Check if .vers directory exists
+		if _, versErr := os.Stat(VersDir); os.IsNotExist(versErr) {
+			return nil, fmt.Errorf("HEAD not found. Run 'vers init' first")
+		} else {
+			return nil, fmt.Errorf("HEAD not found. Run 'vers checkout <vm-id>' to set your working VM")
+		}
 	}
 
 	// Read HEAD file
