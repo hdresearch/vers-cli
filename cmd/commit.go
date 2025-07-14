@@ -90,6 +90,7 @@ var commitCmd = &cobra.Command{
 				Tags: vers.F(allTags),
 			},
 		}
+
 		response, err := client.API.Vm.Commit(apiCtx, vmInfo.ID, body)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
@@ -98,6 +99,7 @@ var commitCmd = &cobra.Command{
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
 		fmt.Printf("Commit ID: %s\n", response.Data.CommitID)
 		fmt.Printf("Cluster ID: %s\n", response.Data.ClusterID)
+		fmt.Printf("Host Architecture: %s\n", response.Data.HostArchitecture)
 		if len(allTags) > 0 {
 			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
 		}
