@@ -97,6 +97,7 @@ var commitCmd = &cobra.Command{
 
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
 		fmt.Printf("Commit ID: %s\n", response.Data.CommitID)
+		fmt.Printf("Cluster ID: %s\n", response.Data.ClusterID)
 		if len(allTags) > 0 {
 			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
 		}

@@ -12,7 +12,6 @@ type VMInfo struct {
 	ID          string
 	DisplayName string
 	State       string
-	ClusterID   string
 }
 
 // ResolveVMIdentifier takes a VM ID or alias and returns the VM ID and display info
@@ -33,7 +32,6 @@ func ResolveVMIdentifier(ctx context.Context, client *vers.Client, identifier st
 		ID:          vm.ID,
 		DisplayName: displayName,
 		State:       string(vm.State),
-		ClusterID:   vm.ClusterID,
 	}, nil
 }
 
@@ -48,7 +46,6 @@ func CreateVMInfoFromGetResponse(vm vers.APIVmGetResponseData) *VMInfo {
 		ID:          vm.ID,
 		DisplayName: displayName,
 		State:       string(vm.State),
-		ClusterID:   vm.ClusterID,
 	}
 }
 
@@ -63,6 +60,5 @@ func CreateVMInfoFromUpdateResponse(vm vers.APIVmUpdateResponseData) *VMInfo {
 		ID:          vm.ID,
 		DisplayName: displayName,
 		State:       string(vm.State),
-		ClusterID:   vm.ClusterID,
 	}
 }

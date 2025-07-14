@@ -48,14 +48,15 @@ func NewLogStyles() LogStyles {
 
 // logCommitEntry represents commit information from the API
 type logCommitEntry struct {
-	ID        string   `json:"ID"`
-	Message   string   `json:"Message"`
-	Timestamp int64    `json:"Timestamp"`
-	Tags      []string `json:"Tags"`
-	Author    string   `json:"Author"`
-	VMID      string   `json:"VMID"`
-	Alias     string   `json:"Alias"`
-	ClusterID string   `json:"ClusterID"` // Added cluster ID
+	ID               string   `json:"ID"`
+	Message          string   `json:"Message"`
+	Timestamp        int64    `json:"Timestamp"`
+	Tags             []string `json:"Tags"`
+	Author           string   `json:"Author"`
+	VMID             string   `json:"VMID"`
+	Alias            string   `json:"Alias"`
+	ClusterID        string   `json:"ClusterID"`
+	HostArchitecture string   `json:"HostArchitecture"`
 }
 
 // commitResponse represents the API response structure
@@ -164,6 +165,9 @@ var logCmd = &cobra.Command{
 			fmt.Printf("%s %s\n", s.VMID.Render("VM:"), commit.VMID)
 			if commit.ClusterID != "" {
 				fmt.Printf("%s %s\n", s.Alias.Render("Cluster:"), commit.ClusterID)
+			}
+			if commit.HostArchitecture != "" {
+				fmt.Printf("%s %s\n", s.Alias.Render("Architecture:"), commit.HostArchitecture)
 			}
 
 			message := commit.Message
