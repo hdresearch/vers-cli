@@ -30,7 +30,13 @@ var treeCmd = &cobra.Command{
 				return fmt.Errorf("no cluster ID provided and %w", err)
 			}
 
-			fmt.Printf("Finding cluster for current HEAD VM: %s\n", headVMID)
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = headVMID // Fallback to VM ID
+			}
+
+			fmt.Printf("Finding cluster for current HEAD VM: %s\n", headDisplayName)
 
 			response, err := client.API.Cluster.List(apiCtx)
 			if err != nil {
@@ -63,7 +69,7 @@ var treeCmd = &cobra.Command{
 			}
 
 			if foundCluster == nil {
-				return fmt.Errorf("couldn't find a cluster containing VM '%s'", headVMID)
+				return fmt.Errorf("couldn't find a cluster containing VM '%s'", headDisplayName)
 			}
 
 			return buildAndDisplayTree(*foundCluster, headVMID)
@@ -172,7 +178,7 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 		stateStyle = styles.ErrorTextStyle
 	}
 
-	// Build the VM info string
+	// Build the VM info string - use alias if available, otherwise ID
 	displayName := currentVM.Alias
 	if displayName == "" {
 		displayName = currentVMID

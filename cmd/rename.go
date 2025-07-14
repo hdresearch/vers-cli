@@ -76,10 +76,15 @@ var renameCmd = &cobra.Command{
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("no ID provided and %w"), err)
 				}
-				fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
+				// Get HEAD display name for better UX
+				headDisplayName, err := utils.GetCurrentHeadDisplayName()
+				if err != nil {
+					headDisplayName = headVMID // Fallback to VM ID
+				}
+				fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headDisplayName)
 				newAlias = args[0]
 
-				fmt.Printf(s.Progress.Render("Renaming VM '%s' to '%s'...\n"), headVMID, newAlias)
+				fmt.Printf(s.Progress.Render("Renaming VM '%s' to '%s'...\n"), headDisplayName, newAlias)
 
 				// Create VM rename request
 				updateParams := vers.APIVmUpdateParams{
@@ -91,11 +96,18 @@ var renameCmd = &cobra.Command{
 				// Make API call to rename the VM
 				response, err := client.API.Vm.Update(apiCtx, headVMID, updateParams)
 				if err != nil {
-					return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), headVMID, err)
+					return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), headDisplayName, err)
 				}
 
 				// Create VMInfo from response
 				vmInfo := utils.CreateVMInfoFromUpdateResponse(response.Data)
+
+				// Update HEAD with new alias since we just renamed it
+				err = utils.SetHeadWithAlias(vmInfo.ID, response.Data.Alias)
+				if err != nil {
+					// Don't fail the command, just warn
+					fmt.Printf(s.Warning.Render("WARNING: Failed to update HEAD with new alias: %v\n"), err)
+				}
 
 				fmt.Printf(s.Success.Render("✓ VM '%s' renamed to '%s'\n"), vmInfo.ID, response.Data.Alias)
 			} else {
@@ -119,6 +131,15 @@ var renameCmd = &cobra.Command{
 				response, err := client.API.Vm.Update(apiCtx, vmInfo.ID, updateParams)
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("failed to rename VM '%s': %w"), vmInfo.DisplayName, err)
+				}
+
+				// If this VM is the current HEAD, update HEAD with new alias
+				if utils.CheckVMImpactsHead(vmInfo.ID) {
+					err = utils.SetHeadWithAlias(vmInfo.ID, response.Data.Alias)
+					if err != nil {
+						// Don't fail the command, just warn
+						fmt.Printf(s.Warning.Render("WARNING: Failed to update HEAD with new alias: %v\n"), err)
+					}
 				}
 
 				fmt.Printf(s.Success.Render("✓ VM '%s' renamed to '%s'\n"), response.Data.ID, response.Data.Alias)

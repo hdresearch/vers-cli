@@ -35,7 +35,12 @@ var resumeCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+vmID) + "\n")
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = vmID // Fallback to VM ID
+			}
+			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+headDisplayName) + "\n")
 		} else {
 			// Use provided identifier
 			var err error
@@ -55,8 +60,14 @@ var resumeCmd = &cobra.Command{
 
 		// Make API call to resume the VM
 		if vmInfo == nil {
-			utils.ProgressCounter(1, 1, "Resuming VM", vmID, &s)
+			// For HEAD case, get display name for progress
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = vmID // Fallback to VM ID
+			}
+			utils.ProgressCounter(1, 1, "Resuming VM", headDisplayName, &s)
 		} else {
+			// We already have display name from resolution
 			utils.ProgressCounter(1, 1, "Resuming VM", vmInfo.DisplayName, &s)
 		}
 
@@ -65,6 +76,11 @@ var resumeCmd = &cobra.Command{
 			displayName := vmID
 			if vmInfo != nil {
 				displayName = vmInfo.DisplayName
+			} else {
+				// For HEAD case, try to get display name
+				if headDisplayName, err := utils.GetCurrentHeadDisplayName(); err == nil {
+					displayName = headDisplayName
+				}
 			}
 			return fmt.Errorf(s.NoData.Render("failed to resume VM '%s': %w"), displayName, err)
 		}

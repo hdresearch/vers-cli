@@ -214,8 +214,8 @@ func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 func displayHeadStatus() error {
 	s := styles.NewStatusStyles()
 
-	// Get HEAD VM ID first
-	headVMID, err := utils.GetCurrentHeadVM()
+	// Get HEAD display name directly using the new function
+	headDisplayName, err := utils.GetCurrentHeadDisplayName()
 	if err != nil {
 		// Handle different error cases from utils
 		errStr := err.Error()
@@ -229,17 +229,23 @@ func displayHeadStatus() error {
 		return nil
 	}
 
-	// Try to get VM details to show alias if available
+	// Try to get VM details to show state
+	headVMID, err := utils.GetCurrentHeadVM()
+	if err != nil {
+		// This shouldn't happen if GetCurrentHeadDisplayName worked, but fallback
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s"), headDisplayName)
+		fmt.Println()
+		return nil
+	}
+
 	apiCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	response, err := client.API.Vm.Get(apiCtx, headVMID)
 	if err != nil {
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headVMID)
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)"), headDisplayName)
 	} else {
-		// Create VMInfo from response
-		vmInfo := utils.CreateVMInfoFromGetResponse(response.Data)
-		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), vmInfo.DisplayName, vmInfo.State)
+		fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)"), headDisplayName, response.Data.State)
 	}
 	fmt.Println()
 	return nil
