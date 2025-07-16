@@ -179,9 +179,6 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 	}
 
 	vmInfo := fmt.Sprintf("%s %s", stateStyle.Render(stateSymbol), styles.BaseTextStyle.Render(displayName))
-	if currentVM.IPAddress != "" {
-		vmInfo += fmt.Sprintf(" (%s)", styles.MutedTextStyle.Render(currentVM.IPAddress))
-	}
 
 	finalStyle := styles.NormalListItemStyle
 	if currentVM.ID == headVMID {
