@@ -51,7 +51,7 @@ func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (vers
 	return response.Data, versHost, nil
 }
 
-func HostIsLocal(hostName string) bool {
+func IsHostLocal(hostName string) bool {
 	// RFC 5735
 	const LOOPBACK = "127.0.0.1"
 	return hostName == "localhost" || hostName == "0.0.0.0" || hostName == LOOPBACK

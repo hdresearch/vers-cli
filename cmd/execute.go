@@ -107,7 +107,7 @@ var executeCmd = &cobra.Command{
 		// If we're connecting to a local machine, then use a connection string with local VM IPs. Else, use the public (DNAT'd) connection string
 		sshHost := versHost
 		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
-		if utils.HostIsLocal(versHost) {
+		if utils.IsHostLocal(versHost) {
 			sshHost = vm.IPAddress
 			sshPort = "22"
 		}
