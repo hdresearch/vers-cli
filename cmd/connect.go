@@ -80,12 +80,12 @@ var connectCmd = &cobra.Command{
 		sshHost := versHost
 		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
 		if utils.HostIsLocal(versHost) {
-			sshHost = vm.NetworkInfo.GuestIP
+			sshHost = vm.IPAddress
 			sshPort = "22"
 		}
 
 		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), sshHost, sshPort)
+		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %s\n"), sshHost, sshPort)
 
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", sshHost),

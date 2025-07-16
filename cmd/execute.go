@@ -108,7 +108,7 @@ var executeCmd = &cobra.Command{
 		sshHost := versHost
 		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
 		if utils.HostIsLocal(versHost) {
-			sshHost = vm.NetworkInfo.GuestIP
+			sshHost = vm.IPAddress
 			sshPort = "22"
 		}
 
