@@ -23,7 +23,7 @@ func validateAPIKey(apiKey string) error {
 	}
 
 	validateEndpoint := baseURL
-	validateEndpoint.Path += "/api/validate"
+	validateEndpoint.Path = strings.TrimSuffix(validateEndpoint.Path, "/") + "/api/validate"
 
 	payload := map[string]string{
 		"api_key": apiKey,
