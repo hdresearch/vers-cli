@@ -418,8 +418,6 @@ func TestCopyCommandIntegration(t *testing.T) {
 			errorMessage: "failed to get VM information",
 			vmSpecific:   true,
 		},
-		// Skip tests that require HEAD VM since it's not available in test environment
-		// These would be better as manual integration tests
 	}
 
 	for _, tt := range tests {
