@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -473,5 +474,97 @@ func TestCopyCommandIntegration(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCopyCommandWithRealHEAD tests copy command with actual HEAD setup
+func TestCopyCommandWithRealHEAD(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "vers-copy-head-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	defer os.Chdir(originalDir)
+
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Set up a HEAD VM
+	testVMID := "test-vm-12345678-1234-1234-1234-123456789abc"
+	err = utils.SetHead(testVMID)
+	if err != nil {
+		t.Fatalf("Failed to set HEAD: %v", err)
+	}
+
+	// Test that 2-arg copy finds HEAD
+	cmd := &cobra.Command{
+		Use:  "copy [vm-id|alias] <source> <destination>",
+		Args: cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 2 {
+				headVMID, err := utils.GetCurrentHeadVM()
+				if err != nil {
+					return fmt.Errorf("no VM ID provided and %w", err)
+				}
+				if headVMID != testVMID {
+					return fmt.Errorf("expected HEAD VM %s, got %s", testVMID, headVMID)
+				}
+			}
+			return nil // Success - HEAD was found correctly
+		},
+	}
+
+	cmd.SetArgs([]string{"./local-file", "/remote/path"})
+	err = cmd.Execute()
+	if err != nil {
+		t.Errorf("Failed to use HEAD: %v", err)
+	}
+}
+
+// TestHEADUtilities tests the HEAD utility functions
+func TestHEADUtilities(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "vers-head-utils-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current directory: %v", err)
+	}
+	defer os.Chdir(originalDir)
+
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
+
+	// Test no HEAD file
+	_, err = utils.GetCurrentHeadVM()
+	if err == nil || !strings.Contains(err.Error(), "HEAD not found") {
+		t.Errorf("Expected 'HEAD not found' error, got: %v", err)
+	}
+
+	// Test set and get HEAD
+	testVMID := "test-vm-12345678-1234-1234-1234-123456789abc"
+	err = utils.SetHead(testVMID)
+	if err != nil {
+		t.Fatalf("Failed to set HEAD: %v", err)
+	}
+
+	headVM, err := utils.GetCurrentHeadVM()
+	if err != nil {
+		t.Fatalf("Failed to get HEAD: %v", err)
+	}
+	if headVM != testVMID {
+		t.Errorf("Expected HEAD VM %s, got %s", testVMID, headVM)
 	}
 }
