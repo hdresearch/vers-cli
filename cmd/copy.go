@@ -105,7 +105,7 @@ Examples:
 
 		// Prepare SCP command
 		scpTarget := fmt.Sprintf("root@%s", sshHost)
-		
+
 		// Determine if we're uploading or downloading
 		var scpSource, scpDest string
 		if strings.HasPrefix(source, "/") && !strings.HasPrefix(destination, "/") {

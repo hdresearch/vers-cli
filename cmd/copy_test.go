@@ -104,7 +104,7 @@ func TestCopyCommandArgumentParsing(t *testing.T) {
 
 			// Set the arguments first
 			cmd.SetArgs(tt.args)
-			
+
 			// Execute the command, which will validate arguments and call RunE
 			err := cmd.Execute()
 
