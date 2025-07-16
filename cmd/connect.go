@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
@@ -47,6 +48,16 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
 		}
 
+		// If no node IP in headers, use default vers URL
+		versHost := nodeIP
+		if strings.TrimSpace(versHost) == "" {
+			versUrl, err := auth.GetVersUrl()
+			if err != nil {
+				return err
+			}
+			versHost = versUrl.Hostname()
+		}
+
 		// Create VMInfo from the response
 		vmInfo := utils.CreateVMInfoFromGetResponse(vm)
 
@@ -61,16 +72,24 @@ var connectCmd = &cobra.Command{
 		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmInfo.DisplayName)
 
 		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), nodeIP, vm.NetworkInfo.SSHPort)
+		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %d\n"), versHost, vm.NetworkInfo.SSHPort)
 
 		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
+		// If we're connecting to a local machine, then use a connection string with local VM IPs. Else, use the public (DNAT'd) connection string
+		sshHost := versHost
+		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
+		if utils.HostIsLocal(versHost) {
+			sshHost = vm.NetworkInfo.GuestIP
+			sshPort = "22"
+		}
+
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", nodeIP),
-			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
+			fmt.Sprintf("root@%s", sshHost),
+			"-p", sshPort,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
 			"-o", "IdentitiesOnly=yes", // Only use the specified identity file

@@ -33,18 +33,26 @@ func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (vers
 	nodeIP := rawResponse.Header.Get("X-Node-IP")
 
 	// Use the node IP from headers or fallback to env override, and then static load balancer host
-	var hostIP string
+	var versHost string
 	if nodeIP != "" {
-		hostIP = nodeIP
+		versHost = nodeIP
 	} else {
-		hostIP, err = auth.GetVersUrlHost()
+		versUrl, err := auth.GetVersUrl()
 		if err != nil {
 			return vers.APIVmGetResponseData{}, "", fmt.Errorf("failed to get host IP: %w", err)
 		}
+
+		versHost = versUrl.Hostname()
 		if os.Getenv("VERS_DEBUG") == "true" {
-			fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", hostIP)
+			fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", versHost)
 		}
 	}
 
-	return response.Data, hostIP, nil
+	return response.Data, versHost, nil
+}
+
+func HostIsLocal(hostName string) bool {
+	// RFC 5735
+	const LOOPBACK = "127.0.0.1"
+	return hostName == "localhost" || hostName == "0.0.0.0" || hostName == LOOPBACK
 }
