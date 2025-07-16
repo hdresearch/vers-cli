@@ -221,6 +221,7 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 		source         string
 		destination    string
 		isUpload       bool
+		recursive      bool
 		expectedArgs   []string
 		expectedSource string
 		expectedDest   string
@@ -233,6 +234,7 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			source:      "./local-file.txt",
 			destination: "/remote/path/file.txt",
 			isUpload:    true,
+			recursive:   false,
 			expectedArgs: []string{
 				"scp",
 				"-P", "2222",
@@ -256,6 +258,7 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			source:      "/remote/path/file.txt",
 			destination: "./local-file.txt",
 			isUpload:    false,
+			recursive:   false,
 			expectedArgs: []string{
 				"scp",
 				"-P", "2222",
@@ -279,6 +282,7 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			source:      "./local-file.txt",
 			destination: "/remote/path/file.txt",
 			isUpload:    true,
+			recursive:   false,
 			expectedArgs: []string{
 				"scp",
 				"-P", "22",
@@ -293,6 +297,56 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			},
 			expectedSource: "./local-file.txt",
 			expectedDest:   "root@127.0.0.1:/remote/path/file.txt",
+		},
+		{
+			name:        "recursive upload command construction",
+			sshHost:     "192.168.1.100",
+			sshPort:     "2222",
+			keyPath:     "/path/to/key",
+			source:      "./local-dir/",
+			destination: "/remote/path/",
+			isUpload:    true,
+			recursive:   true,
+			expectedArgs: []string{
+				"scp",
+				"-P", "2222",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "IdentitiesOnly=yes",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", "LogLevel=ERROR",
+				"-i", "/path/to/key",
+				"-r",
+				"./local-dir/",
+				"root@192.168.1.100:/remote/path/",
+			},
+			expectedSource: "./local-dir/",
+			expectedDest:   "root@192.168.1.100:/remote/path/",
+		},
+		{
+			name:        "recursive download command construction",
+			sshHost:     "192.168.1.100",
+			sshPort:     "2222",
+			keyPath:     "/path/to/key",
+			source:      "/remote/dir/",
+			destination: "./local-dir/",
+			isUpload:    false,
+			recursive:   true,
+			expectedArgs: []string{
+				"scp",
+				"-P", "2222",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "IdentitiesOnly=yes",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", "LogLevel=ERROR",
+				"-i", "/path/to/key",
+				"-r",
+				"root@192.168.1.100:/remote/dir/",
+				"./local-dir/",
+			},
+			expectedSource: "root@192.168.1.100:/remote/dir/",
+			expectedDest:   "./local-dir/",
 		},
 	}
 
@@ -320,9 +374,15 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 				"-o", "PreferredAuthentications=publickey",
 				"-o", "LogLevel=ERROR",
 				"-i", tt.keyPath,
-				scpSource,
-				scpDest,
 			}
+
+			// Add recursive flag if enabled
+			if tt.recursive {
+				expectedArgs = append(expectedArgs, "-r")
+			}
+
+			// Add source and destination
+			expectedArgs = append(expectedArgs, scpSource, scpDest)
 
 			// Verify the constructed arguments match expectations
 			if len(expectedArgs) != len(tt.expectedArgs) {

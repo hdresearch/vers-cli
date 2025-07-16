@@ -23,7 +23,8 @@ var copyCmd = &cobra.Command{
 Examples:
   vers copy vm-123 ./local-file.txt /remote/path/
   vers copy vm-123 /remote/path/file.txt ./local-file.txt
-  vers copy ./local-file.txt /remote/path/  (uses HEAD VM)`,
+  vers copy ./local-file.txt /remote/path/  (uses HEAD VM)
+  vers copy -r ./local-dir/ /remote/path/  (recursive directory copy)`,
 	Args: cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var vmIdentifier string
@@ -88,6 +89,12 @@ Examples:
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
+		// Check if recursive flag is set
+		recursive, err := cmd.Flags().GetBool("recursive")
+		if err != nil {
+			return fmt.Errorf("failed to get recursive flag: %w", err)
+		}
+
 		// Determine SSH connection details
 		sshHost := versHost
 		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
@@ -127,7 +134,7 @@ Examples:
 		}
 
 		// Create the SCP command
-		scpCmd := exec.Command("scp",
+		scpArgs := []string{
 			"-P", sshPort,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null",
@@ -135,8 +142,17 @@ Examples:
 			"-o", "PreferredAuthentications=publickey",
 			"-o", "LogLevel=ERROR",
 			"-i", keyPath,
-			scpSource,
-			scpDest)
+		}
+
+		// Add recursive flag if enabled
+		if recursive {
+			scpArgs = append(scpArgs, "-r")
+		}
+
+		// Add source and destination
+		scpArgs = append(scpArgs, scpSource, scpDest)
+
+		scpCmd := exec.Command("scp", scpArgs...)
 
 		// Connect command output to current terminal
 		scpCmd.Stdout = os.Stdout
@@ -158,4 +174,5 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(copyCmd)
+	copyCmd.Flags().BoolP("recursive", "r", false, "Recursively copy directories")
 }
