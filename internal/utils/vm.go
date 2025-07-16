@@ -10,7 +10,8 @@ import (
 // VMInfo contains both ID and display name for a VM
 type VMInfo struct {
 	ID          string
-	DisplayName string
+	Alias       string // Raw alias from API (can be empty)
+	DisplayName string // Computed display name (alias if available, otherwise ID)
 	State       string
 }
 
@@ -30,6 +31,7 @@ func ResolveVMIdentifier(ctx context.Context, client *vers.Client, identifier st
 
 	return &VMInfo{
 		ID:          vm.ID,
+		Alias:       vm.Alias,
 		DisplayName: displayName,
 		State:       string(vm.State),
 	}, nil
@@ -44,6 +46,7 @@ func CreateVMInfoFromGetResponse(vm vers.APIVmGetResponseData) *VMInfo {
 
 	return &VMInfo{
 		ID:          vm.ID,
+		Alias:       vm.Alias,
 		DisplayName: displayName,
 		State:       string(vm.State),
 	}
@@ -58,6 +61,7 @@ func CreateVMInfoFromUpdateResponse(vm vers.APIVmUpdateResponseData) *VMInfo {
 
 	return &VMInfo{
 		ID:          vm.ID,
+		Alias:       vm.Alias,
 		DisplayName: displayName,
 		State:       string(vm.State),
 	}

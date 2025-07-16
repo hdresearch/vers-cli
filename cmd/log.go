@@ -124,7 +124,12 @@ var logCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}
-			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmID)
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = vmID // Fallback to VM ID
+			}
+			fmt.Printf("Showing commit history for current HEAD VM: %s\n", headDisplayName)
 		} else {
 			// Use provided identifier
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -180,7 +185,7 @@ var logCmd = &cobra.Command{
 				Timestamp: time.Now().Unix(), // Use current time as we don't have the exact commit time
 				Author:    "unknown",         // No author info from API
 				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName,
+				Alias:     vmInfo.Alias, // Use raw alias field from VMInfo
 			}
 
 			// Add to our commits list
@@ -226,7 +231,7 @@ var logCmd = &cobra.Command{
 					Timestamp: time.Now().Unix(),
 					Author:    "user@example.com",
 					VMID:      vmInfo.ID,
-					Alias:     vmInfo.DisplayName,
+					Alias:     vmInfo.Alias, // Use raw alias from VMInfo
 				},
 			}
 		}

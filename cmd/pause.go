@@ -35,7 +35,12 @@ var pauseCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", vmID)
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = vmID // Fallback to VM ID
+			}
+			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headDisplayName)
 		} else {
 			// Use provided identifier
 			var err error
@@ -55,8 +60,12 @@ var pauseCmd = &cobra.Command{
 
 		// Make API call to pause the VM
 		if vmInfo == nil {
-			// We're pausing HEAD VM, show progress with ID
-			utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
+			// We're pausing HEAD VM, get display name for progress
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				headDisplayName = vmID // Fallback to VM ID
+			}
+			utils.ProgressCounter(1, 1, "Pausing VM", headDisplayName, &s)
 		} else {
 			// We already have display name from resolution
 			utils.ProgressCounter(1, 1, "Pausing VM", vmInfo.DisplayName, &s)
@@ -67,6 +76,11 @@ var pauseCmd = &cobra.Command{
 			displayName := vmID
 			if vmInfo != nil {
 				displayName = vmInfo.DisplayName
+			} else {
+				// For HEAD case, try to get display name
+				if headDisplayName, err := utils.GetCurrentHeadDisplayName(); err == nil {
+					displayName = headDisplayName
+				}
 			}
 			return fmt.Errorf(s.NoData.Render("failed to pause VM '%s': %w"), displayName, err)
 		}

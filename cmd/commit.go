@@ -95,10 +95,27 @@ var commitCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to get current VM: %w", err)
 			}
-			fmt.Printf("Using current HEAD VM: %s\n", vmID)
+			// Get HEAD display name for better UX
+			headDisplayName, err := utils.GetCurrentHeadDisplayName()
+			if err != nil {
+				// Fallback to VM ID if we can't get display name
+				headDisplayName = vmID
+			}
+			fmt.Printf("Using current HEAD VM: %s\n", headDisplayName)
 		}
 
-		fmt.Printf("Creating commit for VM '%s'\n", vmID)
+		// Get display name for progress messages
+		progressName := vmID
+		if len(args) > 0 && vmInfo != nil {
+			progressName = vmInfo.DisplayName
+		} else if len(args) == 0 {
+			// For HEAD case, get display name
+			if headDisplayName, err := utils.GetCurrentHeadDisplayName(); err == nil {
+				progressName = headDisplayName
+			}
+		}
+
+		fmt.Printf("Creating commit for VM '%s'\n", progressName)
 		if tag != "" {
 			fmt.Printf("Tagging commit as: %s\n", tag)
 		}
@@ -126,7 +143,7 @@ var commitCmd = &cobra.Command{
 		// Store commit information in .vers directory
 		versDir := ".vers"
 		if _, err := os.Stat(versDir); !os.IsNotExist(err) {
-			// Create commit info
+			// Create commit info using separate alias and display name
 			commitInfo := logCommitEntry{
 				ID:        commitResult.ID,
 				Message:   fmt.Sprintf("Commit %s", commitResult.ID),
@@ -134,7 +151,7 @@ var commitCmd = &cobra.Command{
 				Tag:       tag,
 				Author:    "user", // Could be improved to use actual user info
 				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName, // This will be alias if available, otherwise ID
+				Alias:     vmInfo.Alias, // Use the raw alias field (can be empty)
 			}
 
 			// Save commit info
