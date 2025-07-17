@@ -21,7 +21,9 @@ func validateAPIKey(apiKey string) error {
 	if err != nil {
 		return fmt.Errorf("error getting API URL: %w", err)
 	}
-	validateURL := baseURL + "/api/validate"
+
+	validateEndpoint := baseURL
+	validateEndpoint.Path = strings.TrimRight(validateEndpoint.Path, "/") + "/api/validate"
 
 	payload := map[string]string{
 		"api_key": apiKey,
@@ -32,7 +34,7 @@ func validateAPIKey(apiKey string) error {
 		return fmt.Errorf("error preparing validation request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", validateURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", validateEndpoint.String(), bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("error creating validation request: %w", err)
 	}
