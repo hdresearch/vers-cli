@@ -77,6 +77,16 @@ var executeCmd = &cobra.Command{
 			commandArgs = args
 		}
 
+		// If no node IP in headers, use default vers URL
+		versHost := nodeIP
+		if strings.TrimSpace(versHost) == "" {
+			versUrl, err := auth.GetVersUrl()
+			if err != nil {
+				return err
+			}
+			versHost = versUrl.Hostname()
+		}
+
 		// Join the command arguments
 		commandStr = strings.Join(commandArgs, " ")
 
@@ -94,10 +104,18 @@ var executeCmd = &cobra.Command{
 			return fmt.Errorf("failed to get or create SSH key: %w", err)
 		}
 
+		// If we're connecting to a local machine, then use a connection string with local VM IPs. Else, use the public (DNAT'd) connection string
+		sshHost := versHost
+		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
+		if utils.IsHostLocal(versHost) {
+			sshHost = vm.IPAddress
+			sshPort = "22"
+		}
+
 		// Create the SSH command with the provided command string
 		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", nodeIP),
-			"-p", fmt.Sprintf("%d", vm.NetworkInfo.SSHPort),
+			fmt.Sprintf("root@%s", sshHost),
+			"-p", sshPort,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
 			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
