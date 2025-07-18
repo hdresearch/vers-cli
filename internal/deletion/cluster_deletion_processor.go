@@ -10,18 +10,20 @@ import (
 )
 
 type ClusterDeletionProcessor struct {
-	client *vers.Client
-	styles *styles.KillStyles
-	ctx    context.Context
-	force  bool
+	client           *vers.Client
+	styles           *styles.KillStyles
+	ctx              context.Context
+	skipConfirmation bool
+	recursive        bool
 }
 
-func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *ClusterDeletionProcessor {
+func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool) *ClusterDeletionProcessor {
 	return &ClusterDeletionProcessor{
-		client: client,
-		styles: s,
-		ctx:    ctx,
-		force:  force,
+		client:           client,
+		styles:           s,
+		ctx:              ctx,
+		skipConfirmation: skipConfirmation,
+		recursive:        recursive,
 	}
 }
 
@@ -86,8 +88,8 @@ func (p *ClusterDeletionProcessor) DeleteMultipleClusters(identifiers []string) 
 // DeleteSingleCluster deletes a single cluster with pre-resolved info
 // Returns the list of deleted VM IDs and any error
 func (p *ClusterDeletionProcessor) DeleteSingleCluster(clusterInfo *utils.ClusterInfo, currentIndex, totalCount int) ([]string, error) {
-	// Get confirmation if not forced
-	if !p.force {
+	// Get confirmation if not skipping confirmations
+	if !p.skipConfirmation {
 		if !utils.ConfirmClusterDeletion(clusterInfo.DisplayName, clusterInfo.VmCount, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil, fmt.Errorf("operation cancelled by user")
@@ -101,7 +103,8 @@ func (p *ClusterDeletionProcessor) DeleteSingleCluster(clusterInfo *utils.Cluste
 	}
 
 	// Show progress and perform deletion
-	return utils.HandleDeletionResult(currentIndex, totalCount, "Deleting cluster", clusterInfo.DisplayName, func() ([]string, error) {
+	action := p.getDeletionAction()
+	return utils.HandleDeletionResult(currentIndex, totalCount, action, clusterInfo.DisplayName, func() ([]string, error) {
 		return p.deleteCluster(clusterInfo.ID)
 	}, p.styles)
 }
@@ -126,7 +129,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 		clusterInfos = append(clusterInfos, clusterInfo)
 	}
 
-	if !p.force && !p.confirmDeleteAllWithInfo(clusterInfos) {
+	if !p.skipConfirmation && !p.confirmDeleteAllWithInfo(clusterInfos) {
 		utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
 		return nil
 	}
@@ -194,6 +197,18 @@ func (p *ClusterDeletionProcessor) confirmDeleteAllWithInfo(clusterInfos []*util
 	fmt.Println()
 
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
+}
+
+// getDeletionAction returns the appropriate action description based on flags
+func (p *ClusterDeletionProcessor) getDeletionAction() string {
+	if p.skipConfirmation && p.recursive {
+		return "Force deleting cluster (recursive)"
+	} else if p.skipConfirmation {
+		return "Force deleting cluster"
+	} else if p.recursive {
+		return "Deleting cluster (recursive)"
+	}
+	return "Deleting cluster"
 }
 
 func (p *ClusterDeletionProcessor) deleteCluster(clusterID string) ([]string, error) {

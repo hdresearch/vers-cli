@@ -2,7 +2,9 @@ package deletion
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
@@ -10,25 +12,27 @@ import (
 )
 
 type VMDeletionProcessor struct {
-	client *vers.Client
-	styles *styles.KillStyles
-	ctx    context.Context
-	force  bool
+	client           *vers.Client
+	styles           *styles.KillStyles
+	ctx              context.Context
+	skipConfirmation bool
+	recursive        bool
 }
 
-func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, force bool) *VMDeletionProcessor {
+func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool) *VMDeletionProcessor {
 	return &VMDeletionProcessor{
-		client: client,
-		styles: s,
-		ctx:    ctx,
-		force:  force,
+		client:           client,
+		styles:           s,
+		ctx:              ctx,
+		skipConfirmation: skipConfirmation,
+		recursive:        recursive,
 	}
 }
 
 // DeleteHeadVM optimized deletion for HEAD VM (no resolution needed since HEAD is always an ID)
 func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
-	// Get confirmation if not forced
-	if !p.force {
+	// Get confirmation if not skipping confirmations
+	if !p.skipConfirmation {
 		if !utils.ConfirmDeletion("VM", displayName, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil
@@ -43,10 +47,7 @@ func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
 	}
 
 	// Show progress and perform deletion
-	action := "Deleting VM"
-	if p.force {
-		action = "Force deleting VM"
-	}
+	action := p.getDeletionAction()
 
 	deletedVMIDs, err := utils.HandleDeletionResult(1, 1, action, displayName, func() ([]string, error) {
 		return p.deleteVM(vmID)
@@ -127,8 +128,8 @@ func (p *VMDeletionProcessor) DeleteMultipleVMs(identifiers []string) error {
 // DeleteSingleVM deletes a single VM with pre-resolved info
 // Returns the list of deleted VM IDs and any error
 func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex, totalCount int) ([]string, error) {
-	// Get confirmation if not forced
-	if !p.force {
+	// Get confirmation if not skipping confirmations
+	if !p.skipConfirmation {
 		if !utils.ConfirmDeletion("VM", vmInfo.DisplayName, p.styles) {
 			utils.OperationCancelled(p.styles)
 			return nil, fmt.Errorf("operation cancelled by user")
@@ -142,23 +143,36 @@ func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex,
 	}
 
 	// Show progress and perform deletion
-	action := "Deleting VM"
-	if p.force {
-		action = "Force deleting VM"
-	}
+	action := p.getDeletionAction()
 
 	return utils.HandleDeletionResult(currentIndex, totalCount, action, vmInfo.DisplayName, func() ([]string, error) {
 		return p.deleteVM(vmInfo.ID)
 	}, p.styles)
 }
 
+// getDeletionAction returns the appropriate action description based on flags
+func (p *VMDeletionProcessor) getDeletionAction() string {
+	if p.skipConfirmation && p.recursive {
+		return "Force deleting VM (recursive)"
+	} else if p.skipConfirmation {
+		return "Force deleting VM"
+	} else if p.recursive {
+		return "Deleting VM (recursive)"
+	}
+	return "Deleting VM"
+}
+
 func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
 	deleteParams := vers.APIVmDeleteParams{
-		Recursive: vers.F(p.force),
+		Recursive: vers.F(p.recursive), // Use the recursive flag specifically
 	}
 
 	result, err := p.client.API.Vm.Delete(p.ctx, vmID, deleteParams)
 	if err != nil {
+		// Check for the common "HasChildren" error and provide a helpful message
+		if p.isHasChildrenError(err) {
+			return nil, p.createHasChildrenError(vmID)
+		}
 		return nil, err
 	}
 
@@ -167,4 +181,26 @@ func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
 	}
 
 	return result.Data.DeletedIDs, nil
+}
+
+// isHasChildrenError checks if the error is a 409 Conflict with "HasChildren"
+func (p *VMDeletionProcessor) isHasChildrenError(err error) bool {
+	errStr := err.Error()
+	return strings.Contains(errStr, "409 Conflict") && strings.Contains(errStr, "HasChildren")
+}
+
+// createHasChildrenError creates a user-friendly error message for the HasChildren scenario
+func (p *VMDeletionProcessor) createHasChildrenError(vmID string) error {
+	message := fmt.Sprintf(`Cannot delete VM - it has child VMs that would be orphaned.
+
+This VM has child VMs. Deleting it would leave them without a parent,
+which could cause data inconsistency.
+
+To delete this VM and all its children, use the --recursive (-r) flag:
+  vers kill %s -r
+
+To see the VM tree structure, run:
+  vers tree`, vmID)
+
+	return errors.New(message)
 }
