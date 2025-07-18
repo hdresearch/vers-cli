@@ -66,7 +66,7 @@ type commitResponse struct {
 
 // logCmd represents the log command
 var logCmd = &cobra.Command{
-	Use:   "log [vm-id|alias]",
+	Use:   "history [vm-id|alias]",
 	Short: "Display commit history",
 	Long:  `Shows the commit history for the current VM or a specified VM ID or alias.`,
 	Args:  cobra.MaximumNArgs(1),
