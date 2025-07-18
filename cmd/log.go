@@ -2,11 +2,7 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -50,48 +46,22 @@ func NewLogStyles() LogStyles {
 	}
 }
 
-// readCommitLogFile reads commit information from a JSON log file
-func readCommitLogFile(versDir, vmID string) ([]logCommitEntry, error) {
-	logFile := filepath.Join(versDir, "logs", "commits", vmID+".json")
-
-	// Check if log file exists
-	if _, err := os.Stat(logFile); os.IsNotExist(err) {
-		return nil, nil // No error, just no log file
-	}
-
-	data, err := os.ReadFile(logFile)
-	if err != nil {
-		return nil, fmt.Errorf("error reading commit log: %w", err)
-	}
-
-	var commits []logCommitEntry
-	if err := json.Unmarshal(data, &commits); err != nil {
-		return nil, fmt.Errorf("error parsing commit log: %w", err)
-	}
-
-	return commits, nil
+// logCommitEntry represents commit information from the API
+type logCommitEntry struct {
+	ID               string   `json:"ID"`
+	Message          string   `json:"Message"`
+	Timestamp        int64    `json:"Timestamp"`
+	Tags             []string `json:"Tags"`
+	Author           string   `json:"Author"`
+	VMID             string   `json:"VMID"`
+	Alias            string   `json:"Alias"`
+	ClusterID        string   `json:"ClusterID"`
+	HostArchitecture string   `json:"HostArchitecture"`
 }
 
-// writeCommitLogFile writes commit information to a JSON log file
-func writeCommitLogFile(versDir string, vmID string, commits []logCommitEntry) error {
-	// Ensure logs/commits directory exists
-	commitsDir := filepath.Join(versDir, "logs", "commits")
-	if err := os.MkdirAll(commitsDir, 0755); err != nil {
-		return fmt.Errorf("error creating commits directory: %w", err)
-	}
-
-	logFile := filepath.Join(commitsDir, vmID+".json")
-
-	data, err := json.MarshalIndent(commits, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling commit data: %w", err)
-	}
-
-	if err := os.WriteFile(logFile, data, 0644); err != nil {
-		return fmt.Errorf("error writing commit log: %w", err)
-	}
-
-	return nil
+// commitResponse represents the API response structure
+type commitResponse struct {
+	Commits []logCommitEntry `json:"commits"`
 }
 
 // logCmd represents the log command
@@ -104,12 +74,6 @@ var logCmd = &cobra.Command{
 		var vmID string
 		var vmInfo *utils.VMInfo
 		s := NewLogStyles()
-		versDir := ".vers"
-
-		// Check if .vers directory exists
-		if _, err := os.Stat(versDir); os.IsNotExist(err) {
-			return fmt.Errorf(".vers directory not found. Run 'vers init' first")
-		}
 
 		// Initialize SDK client and context
 		baseCtx := context.Background()
@@ -134,101 +98,37 @@ var logCmd = &cobra.Command{
 			vmID = vmInfo.ID
 		}
 
-		// Get VM details
+		// Get VM details if we don't have them
 		fmt.Println(s.NoData.Render("Fetching VM information..."))
 		if vmInfo == nil {
-			// We need to make the API call (HEAD case)
 			response, err := client.API.Vm.Get(apiCtx, vmID)
 			if err != nil {
 				return fmt.Errorf("failed to get VM information: %w", err)
 			}
-			// Create VMInfo from the response
 			vmInfo = utils.CreateVMInfoFromGetResponse(response.Data)
 		}
 
-		// First, try to read existing commit log (use VM ID for file operations)
-		commits, err := readCommitLogFile(versDir, vmInfo.ID)
+		// Fetch commit history from the API
+		fmt.Println(s.NoData.Render("Fetching commit history from server..."))
+
+		// Make API call to get commits for this VM
+		var commitResp commitResponse
+		err := client.Get(apiCtx, fmt.Sprintf("/api/vm/%s/commits", vmID), nil, &commitResp)
 		if err != nil {
-			commits = []logCommitEntry{}
-			fmt.Printf("Warning: %v\n", err)
+			// If API call fails, show a helpful message
+			fmt.Println(s.NoData.Render("No commit history found for this VM."))
+			fmt.Println(s.NoData.Render("Commits will appear here after you run 'vers commit'."))
+			return nil
 		}
 
-		// Check if we need to add a new commit record for this VM
-		foundCurrentVM := false
-		for _, commit := range commits {
-			if commit.VMID == vmInfo.ID {
-				foundCurrentVM = true
-				break
-			}
-		}
+		commits := commitResp.Commits
 
-		// If we don't have a commit record for this VM and we successfully got VM details,
-		// create a new commit info record using data from the API
-		if !foundCurrentVM {
-			// Create a simple message from VM display name
-			message := fmt.Sprintf("VM %s", vmInfo.DisplayName)
-
-			// Use State as additional info
-			if vmInfo.State != "" {
-				message = fmt.Sprintf("VM %s (%s)", vmInfo.DisplayName, vmInfo.State)
-			}
-
-			// Create commit info for this VM using API data
-			commitInfo := logCommitEntry{
-				ID:        fmt.Sprintf("c%s", strings.Replace(vmInfo.ID, "vm-", "", 1)),
-				Message:   message,
-				Timestamp: time.Now().Unix(), // Use current time as we don't have the exact commit time
-				Author:    "unknown",         // No author info from API
-				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName,
-			}
-
-			// Add to our commits list
-			commits = append(commits, commitInfo)
-
-			// Save updated commits list
-			if err := writeCommitLogFile(versDir, vmInfo.ID, commits); err != nil {
-				fmt.Printf("Warning: Failed to update commit log: %v\n", err)
-			}
-		}
-
-		// Sort commits by timestamp (newest first)
-		sort.Slice(commits, func(i, j int) bool {
-			return commits[i].Timestamp > commits[j].Timestamp
-		})
-
-		// If no commits found, use mock data
+		// If no commits found, show helpful message
 		if len(commits) == 0 {
-			fmt.Println(s.NoData.Render("No commit history found. Using mock data for demonstration."))
-
-			// Mock data for demonstration
-			commits = []logCommitEntry{
-				{
-					ID:        "c123456789abcdef",
-					Message:   "Initial commit",
-					Timestamp: time.Now().Add(-48 * time.Hour).Unix(),
-					Author:    "user@example.com",
-					VMID:      "vm-ancestor-123",
-					Alias:     "initial-vm",
-				},
-				{
-					ID:        "c234567890abcdef",
-					Message:   "Add feature X",
-					Timestamp: time.Now().Add(-24 * time.Hour).Unix(),
-					Tag:       "v0.1.0",
-					Author:    "user@example.com",
-					VMID:      "vm-parent-456",
-					Alias:     "feature-x",
-				},
-				{
-					ID:        "c345678901abcdef",
-					Message:   "Fix bug in feature X",
-					Timestamp: time.Now().Unix(),
-					Author:    "user@example.com",
-					VMID:      vmInfo.ID,
-					Alias:     vmInfo.DisplayName,
-				},
-			}
+			fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
+			fmt.Println(s.NoData.Render("No commits found for this VM."))
+			fmt.Println(s.NoData.Render("Run 'vers commit' to create your first commit."))
+			return nil
 		}
 
 		// Display the VM info header
@@ -241,15 +141,34 @@ var logCmd = &cobra.Command{
 
 			// Display commit info
 			fmt.Printf("%s %s\n", s.CommitID.Render("Commit:"), commit.ID)
-			if commit.Tag != "" {
-				fmt.Printf("%s\n", s.Tag.Render(commit.Tag))
+
+			// Display tags if they exist
+			if len(commit.Tags) > 0 {
+				// Filter out empty tags and join with commas
+				var nonEmptyTags []string
+				for _, tag := range commit.Tags {
+					if strings.TrimSpace(tag) != "" {
+						nonEmptyTags = append(nonEmptyTags, strings.TrimSpace(tag))
+					}
+				}
+				if len(nonEmptyTags) > 0 {
+					tagsStr := strings.Join(nonEmptyTags, ", ")
+					fmt.Printf("%s\n", s.Tag.Render(tagsStr))
+				}
 			}
-			if commit.Alias != "" {
+
+			if commit.Alias != "" && commit.Alias != commit.VMID {
 				fmt.Printf("%s %s\n", s.Alias.Render("Alias:"), commit.Alias)
 			}
 			fmt.Printf("%s %s\n", s.Author.Render("Author:"), commit.Author)
 			fmt.Printf("%s %s\n", s.Date.Render("Date:"), timestamp)
 			fmt.Printf("%s %s\n", s.VMID.Render("VM:"), commit.VMID)
+			if commit.ClusterID != "" {
+				fmt.Printf("%s %s\n", s.Alias.Render("Cluster:"), commit.ClusterID)
+			}
+			if commit.HostArchitecture != "" {
+				fmt.Printf("%s %s\n", s.Alias.Render("Architecture:"), commit.HostArchitecture)
+			}
 
 			message := commit.Message
 			if message == "" {
