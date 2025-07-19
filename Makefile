@@ -7,7 +7,7 @@ BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 NAME ?= vers-cli
 DESCRIPTION ?= A CLI tool for version management
 AUTHOR ?= Tynan Daly
-REPOSITORY ?= https://github.com/tynandaly/vers-cli
+REPOSITORY ?= https://github.com/hdresearch/vers-cli
 LICENSE ?= MIT
 
 # Build flags
