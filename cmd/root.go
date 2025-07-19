@@ -25,7 +25,7 @@ var (
 	Name        = "vers-cli"
 	Description = "A CLI tool for version management"
 	Author      = "the VERS team"
-	Repository  = "https://github.com/tynandaly/vers-cli"
+	Repository  = "https://github.com/hdresearch/vers-cli"
 	License     = "MIT"
 )
 
