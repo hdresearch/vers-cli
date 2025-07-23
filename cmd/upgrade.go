@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hdresearch/vers-cli/internal/utils"
+	update "github.com/hdresearch/vers-cli/internal/update"
 	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -90,7 +90,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		fmt.Println("You are already running the latest version!")
 
 		// Reset the update check timer since we manually checked
-		utils.UpdateCheckTime()
+		update.UpdateCheckTime()
 
 		return nil
 	}
@@ -112,7 +112,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	err = performUpgrade(latest)
 	if err == nil {
 		// Reset the update check timer after successful upgrade
-		utils.UpdateCheckTime()
+		update.UpdateCheckTime()
 	}
 
 	return err
