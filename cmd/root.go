@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	vers "github.com/hdresearch/vers-sdk-go"
-	"github.com/joho/godotenv"
+	"github.com/joho/godotenv" // Import godotenv
 	"github.com/spf13/cobra"
 )
 
@@ -122,9 +123,17 @@ interaction capabilities, and more.`,
 			cmd.CalledAs() == "help" ||
 			cmd.Name() == "upgrade"
 
-		if !skipUpdateCheck {
-			// Check for updates (non-blocking)
-			handleUpdateCheck()
+		if !skipUpdateCheck && utils.ShouldCheckForUpdate() {
+			// Check for updates in background
+			go func() {
+				DebugPrint("Checking for updates...\n")
+				hasUpdate, latestVersion, err := utils.CheckForUpdates(Version, Repository, verbose)
+				if err == nil && hasUpdate {
+					fmt.Printf("💡 Update available: %s -> %s (run 'vers upgrade')\n\n", Version, latestVersion)
+				}
+				// Update the check time regardless of result
+				utils.UpdateCheckTime()
+			}()
 		}
 
 		if cmd.Name() == "login" || cmd.Name() == "help" || cmd.CalledAs() == "help" {

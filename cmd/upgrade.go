@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hdresearch/vers-cli/internal/config"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -89,11 +89,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	if currentVersion == latestVersion {
 		fmt.Println("You are already running the latest version!")
 
-		// Clear update state since we're on the latest version
-		if cliConfig, err := config.LoadCLIConfig(); err == nil {
-			cliConfig.ClearUpdateState()
-			config.SaveCLIConfig(cliConfig)
-		}
+		// Reset the update check timer since we manually checked
+		utils.UpdateCheckTime()
 
 		return nil
 	}
@@ -101,13 +98,6 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	if checkOnly {
 		fmt.Printf("A new version is available: %s -> %s\n", Version, latest.TagName)
 		fmt.Println("Run 'vers upgrade' to install the update.")
-
-		// Update CLI config with available version
-		if cliConfig, err := config.LoadCLIConfig(); err == nil {
-			cliConfig.SetAvailableVersion(latest.TagName)
-			config.SaveCLIConfig(cliConfig)
-		}
-
 		return nil
 	}
 
@@ -121,11 +111,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	// Perform upgrade
 	err = performUpgrade(latest)
 	if err == nil {
-		// Clear update state after successful upgrade
-		if cliConfig, err := config.LoadCLIConfig(); err == nil {
-			cliConfig.ClearUpdateState()
-			config.SaveCLIConfig(cliConfig)
-		}
+		// Reset the update check timer after successful upgrade
+		utils.UpdateCheckTime()
 	}
 
 	return err

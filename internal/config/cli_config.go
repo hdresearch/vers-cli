@@ -15,18 +15,9 @@ type CLIConfig struct {
 
 // UpdateCheckConfig holds update checking state
 type UpdateCheckConfig struct {
-	LastCheck        time.Time `json:"last_check"`
-	NextCheck        time.Time `json:"next_check"`
-	AvailableVersion string    `json:"available_version,omitempty"`
-	SkippedVersion   string    `json:"skipped_version,omitempty"`
-	CheckInterval    int64     `json:"check_interval"` // in seconds
-}
-
-// DefaultUpdateCheckConfig returns the default update check configuration
-func DefaultUpdateCheckConfig() UpdateCheckConfig {
-	return UpdateCheckConfig{
-		CheckInterval: 3600, // 1 hour in seconds
-	}
+	LastCheck     time.Time `json:"last_check"`
+	NextCheck     time.Time `json:"next_check"`
+	CheckInterval int64     `json:"check_interval"` // in seconds, default 3600 (1 hour)
 }
 
 // GetCLIConfigPath returns the path to the CLI config file
@@ -54,7 +45,9 @@ func LoadCLIConfig() (*CLIConfig, error) {
 	// If config file doesn't exist, return default config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return &CLIConfig{
-			UpdateCheck: DefaultUpdateCheckConfig(),
+			UpdateCheck: UpdateCheckConfig{
+				CheckInterval: 3600, // 1 hour
+			},
 		}, nil
 	}
 
@@ -104,32 +97,4 @@ func (c *CLIConfig) ShouldCheckForUpdate() bool {
 func (c *CLIConfig) SetNextCheckTime() {
 	c.UpdateCheck.LastCheck = time.Now()
 	c.UpdateCheck.NextCheck = time.Now().Add(time.Duration(c.UpdateCheck.CheckInterval) * time.Second)
-}
-
-// SetAvailableVersion sets the available version and clears skipped version if different
-func (c *CLIConfig) SetAvailableVersion(version string) {
-	c.UpdateCheck.AvailableVersion = version
-	// If this is a different version than what was skipped, clear the skip
-	if c.UpdateCheck.SkippedVersion != version {
-		c.UpdateCheck.SkippedVersion = ""
-	}
-}
-
-// SkipVersion marks a version as skipped
-func (c *CLIConfig) SkipVersion(version string) {
-	c.UpdateCheck.SkippedVersion = version
-	c.UpdateCheck.AvailableVersion = ""
-}
-
-// ClearUpdateState clears the update state (called after successful upgrade)
-func (c *CLIConfig) ClearUpdateState() {
-	c.UpdateCheck.AvailableVersion = ""
-	c.UpdateCheck.SkippedVersion = ""
-	c.SetNextCheckTime()
-}
-
-// HasAvailableUpdate returns true if there's an available update that hasn't been skipped
-func (c *CLIConfig) HasAvailableUpdate() bool {
-	return c.UpdateCheck.AvailableVersion != "" &&
-		c.UpdateCheck.AvailableVersion != c.UpdateCheck.SkippedVersion
 }
