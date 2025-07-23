@@ -37,7 +37,7 @@ func CheckForUpdates(currentVersion, repository string, verbose bool) (bool, str
 	}
 
 	// Get latest release
-	latest, err := getLatestRelease(repository, verbose)
+	latest, err := GetLatestRelease(repository, false, verbose)
 	if err != nil {
 		if verbose {
 			fmt.Printf("[DEBUG] Failed to check for updates: %v\n", err)
@@ -53,6 +53,54 @@ func CheckForUpdates(currentVersion, repository string, verbose bool) (bool, str
 	// Check if there's an update available
 	hasUpdate := currentVersion != latestVersion
 	return hasUpdate, latest.TagName, nil
+}
+
+// GetLatestRelease fetches the latest release from GitHub
+// If includePrerelease is true, it will return the latest release including prereleases
+func GetLatestRelease(repository string, includePrerelease bool, verbose bool) (*GitHubRelease, error) {
+	// Extract owner/repo from Repository constant
+	repoURL := strings.TrimPrefix(repository, "https://github.com/")
+
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases", repoURL)
+	if !includePrerelease {
+		apiURL += "/latest"
+	}
+
+	if verbose {
+		fmt.Printf("[DEBUG] Fetching release info from: %s\n", apiURL)
+	}
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch release info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+	}
+
+	if includePrerelease {
+		var releases []GitHubRelease
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+			return nil, fmt.Errorf("failed to decode release info: %w", err)
+		}
+
+		// Find the latest release (including prereleases)
+		for _, release := range releases {
+			if !release.Draft {
+				return &release, nil
+			}
+		}
+		return nil, fmt.Errorf("no releases found")
+	}
+
+	var release GitHubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return nil, fmt.Errorf("failed to decode release info: %w", err)
+	}
+
+	return &release, nil
 }
 
 // ShouldCheckForUpdate determines if it's time to check for updates
@@ -74,31 +122,4 @@ func UpdateCheckTime() {
 
 	cliConfig.SetNextCheckTime()
 	config.SaveCLIConfig(cliConfig)
-}
-
-func getLatestRelease(repository string, verbose bool) (*GitHubRelease, error) {
-	// Extract owner/repo from Repository constant
-	repoURL := strings.TrimPrefix(repository, "https://github.com/")
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repoURL)
-
-	if verbose {
-		fmt.Printf("[DEBUG] Fetching release info from: %s\n", apiURL)
-	}
-
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch release info: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
-	}
-
-	var release GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("failed to decode release info: %w", err)
-	}
-
-	return &release, nil
 }
