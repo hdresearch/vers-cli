@@ -10,7 +10,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/auth"
 	vers "github.com/hdresearch/vers-sdk-go"
-	"github.com/joho/godotenv" // Import godotenv
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -114,6 +114,17 @@ interaction capabilities, and more.`,
 		// Set verbose environment variable for other packages to use
 		if verbose {
 			os.Setenv("VERS_VERBOSE", "true")
+		}
+
+		// Skip update check for certain commands
+		skipUpdateCheck := cmd.Name() == "login" ||
+			cmd.Name() == "help" ||
+			cmd.CalledAs() == "help" ||
+			cmd.Name() == "upgrade"
+
+		if !skipUpdateCheck {
+			// Check for updates (non-blocking)
+			handleUpdateCheck()
 		}
 
 		if cmd.Name() == "login" || cmd.Name() == "help" || cmd.CalledAs() == "help" {

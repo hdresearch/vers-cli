@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/config"
 	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -87,12 +88,26 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	// Compare versions
 	if currentVersion == latestVersion {
 		fmt.Println("You are already running the latest version!")
+
+		// Clear update state since we're on the latest version
+		if cliConfig, err := config.LoadCLIConfig(); err == nil {
+			cliConfig.ClearUpdateState()
+			config.SaveCLIConfig(cliConfig)
+		}
+
 		return nil
 	}
 
 	if checkOnly {
 		fmt.Printf("A new version is available: %s -> %s\n", Version, latest.TagName)
 		fmt.Println("Run 'vers upgrade' to install the update.")
+
+		// Update CLI config with available version
+		if cliConfig, err := config.LoadCLIConfig(); err == nil {
+			cliConfig.SetAvailableVersion(latest.TagName)
+			config.SaveCLIConfig(cliConfig)
+		}
+
 		return nil
 	}
 
@@ -104,7 +119,16 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	// Perform upgrade
-	return performUpgrade(latest)
+	err = performUpgrade(latest)
+	if err == nil {
+		// Clear update state after successful upgrade
+		if cliConfig, err := config.LoadCLIConfig(); err == nil {
+			cliConfig.ClearUpdateState()
+			config.SaveCLIConfig(cliConfig)
+		}
+	}
+
+	return err
 }
 
 func getLatestRelease() (*GitHubRelease, error) {
