@@ -2,68 +2,36 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
-var tag string
+var individualTags []string
+var commaSeparatedTags string
 
-// logCommitEntry represents commit information (shared with log.go)
-type logCommitEntry struct {
-	ID        string
-	Message   string
-	Timestamp int64
-	Tag       string
-	Author    string
-	VMID      string
-	Alias     string
-}
+// combineAllTags combines tags from both --tag and --tags flags
+func combineAllTags() []string {
+	var allTags []string
 
-// writeCommitToLogFile writes commit information to a JSON log file
-func writeCommitToLogFile(versDir string, vmID string, commit logCommitEntry) error {
-	// Read existing commits
-	logFile := filepath.Join(versDir, "logs", "commits", vmID+".json")
-	var commits []logCommitEntry
+	// Add individual tags from --tag flags
+	allTags = append(allTags, individualTags...)
 
-	// Ensure logs/commits directory exists
-	commitsDir := filepath.Join(versDir, "logs", "commits")
-	if err := os.MkdirAll(commitsDir, 0755); err != nil {
-		return fmt.Errorf("error creating commits directory: %w", err)
-	}
-
-	// Check if log file exists and read existing commits
-	if _, err := os.Stat(logFile); err == nil {
-		data, err := os.ReadFile(logFile)
-		if err != nil {
-			return fmt.Errorf("error reading commit log: %w", err)
-		}
-
-		if err := json.Unmarshal(data, &commits); err != nil {
-			return fmt.Errorf("error parsing commit log: %w", err)
+	// Add comma-separated tags from --tags flag
+	if commaSeparatedTags != "" {
+		commaTags := strings.Split(commaSeparatedTags, ",")
+		for _, tag := range commaTags {
+			if trimmed := strings.TrimSpace(tag); trimmed != "" {
+				allTags = append(allTags, trimmed)
+			}
 		}
 	}
 
-	// Add new commit to the list
-	commits = append(commits, commit)
-
-	// Write updated commits list
-	data, err := json.MarshalIndent(commits, "", "  ")
-	if err != nil {
-		return fmt.Errorf("error marshaling commit data: %w", err)
-	}
-
-	if err := os.WriteFile(logFile, data, 0644); err != nil {
-		return fmt.Errorf("error writing commit log: %w", err)
-	}
-
-	return nil
+	return allTags
 }
 
 // commitCmd represents the commit command
@@ -102,9 +70,12 @@ var commitCmd = &cobra.Command{
 			setupOutput.WriteString(fmt.Sprintf("Using current HEAD VM: %s\n", vmID))
 		}
 
+		// Combine all tags from both flag types
+		allTags := combineAllTags()
+
 		setupOutput.WriteString(fmt.Sprintf("Creating commit for VM '%s'\n", vmID))
-		if tag != "" {
-			setupOutput.WriteString(fmt.Sprintf("Tagging commit as: %s\n", tag))
+		if len(allTags) > 0 {
+			setupOutput.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(allTags, ", ")))
 		}
 
 		// Get VM details for alias information
@@ -121,36 +92,25 @@ var commitCmd = &cobra.Command{
 			vmInfo = utils.CreateVMInfoFromGetResponse(vmResponse.Data)
 		}
 
-		// Call the SDK to commit the VM state
-		response, err := client.API.Vm.Commit(apiCtx, vmInfo.ID)
+		body := vers.APIVmCommitParams{
+			VmCommitRequest: vers.VmCommitRequestParam{
+				Tags: vers.F(allTags),
+			},
+		}
+
+		response, err := client.API.Vm.Commit(apiCtx, vmInfo.ID, body)
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
 		}
-		commitResult := response.Data
 
 		// Build success output
 		var successOutput strings.Builder
 		successOutput.WriteString(fmt.Sprintf("Successfully committed VM '%s'\n", vmInfo.DisplayName))
-		successOutput.WriteString(fmt.Sprintf("Commit ID: %s\n", commitResult.ID))
-
-		// Store commit information in .vers directory
-		versDir := ".vers"
-		if _, err := os.Stat(versDir); !os.IsNotExist(err) {
-			// Create commit info
-			commitInfo := logCommitEntry{
-				ID:        commitResult.ID,
-				Message:   fmt.Sprintf("Commit %s", commitResult.ID),
-				Timestamp: time.Now().Unix(),
-				Tag:       tag,
-				Author:    "user", // Could be improved to use actual user info
-				VMID:      vmInfo.ID,
-				Alias:     vmInfo.DisplayName, // This will be alias if available, otherwise ID
-			}
-
-			// Save commit info
-			if err := writeCommitToLogFile(versDir, vmInfo.ID, commitInfo); err != nil {
-				successOutput.WriteString(fmt.Sprintf("Warning: Failed to store commit information: %v\n", err))
-			}
+		successOutput.WriteString(fmt.Sprintf("Commit ID: %s\n", response.Data.CommitID))
+		successOutput.WriteString(fmt.Sprintf("Cluster ID: %s\n", response.Data.ClusterID))
+		successOutput.WriteString(fmt.Sprintf("Host Architecture: %s\n", response.Data.HostArchitecture))
+		if len(allTags) > 0 {
+			successOutput.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(allTags, ", ")))
 		}
 
 		// Print final success output
@@ -163,5 +123,6 @@ func init() {
 	rootCmd.AddCommand(commitCmd)
 
 	// Define flags for the commit command
-	commitCmd.Flags().StringVarP(&tag, "tag", "t", "", "Tag for this commit")
+	commitCmd.Flags().StringSliceVarP(&individualTags, "tag", "t", []string{}, "Individual tag for this commit (can be repeated)")
+	commitCmd.Flags().StringVar(&commaSeparatedTags, "tags", "", "Comma-separated tags for this commit")
 }

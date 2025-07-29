@@ -103,7 +103,9 @@ var branchCmd = &cobra.Command{
 				if displayName == "" {
 					displayName = branchInfo.ID
 				}
-				finalOutput.WriteString(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(displayName) + "\n")
+				// Use the new successStyle from main branch but keep batched output
+				successStyle := s.Success.Padding(0, 0)
+				finalOutput.WriteString(successStyle.Render("✓ HEAD now points to: ") + s.VMID.Render(displayName) + "\n")
 			}
 		} else {
 			// Show tip about switching
