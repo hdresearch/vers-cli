@@ -48,5 +48,5 @@ var (
 			Foreground(Primary)
 
 	VmIDStyle = BaseTextStyle.
-			Background(TerminalSilver)
+			Foreground(TerminalLime)
 )
