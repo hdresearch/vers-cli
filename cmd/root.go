@@ -27,7 +27,7 @@ var (
 	Description = "A CLI tool for version management"
 	Author      = "the VERS team"
 	Repository  = "https://github.com/hdresearch/vers-cli"
-	License     = "MIT" // Have we had a discussion around this point?
+	License     = "MIT"
 )
 
 // Global vars for configuration and SDK client
