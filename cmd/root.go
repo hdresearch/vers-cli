@@ -11,7 +11,7 @@ import (
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/update"
 	vers "github.com/hdresearch/vers-sdk-go"
-	"github.com/joho/godotenv" // Import godotenv
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ var (
 	Description = "A CLI tool for version management"
 	Author      = "the VERS team"
 	Repository  = "https://github.com/hdresearch/vers-cli"
-	License     = "MIT"
+	License     = "MIT" // Have we had a discussion around this point?
 )
 
 // Global vars for configuration and SDK client
@@ -124,6 +124,8 @@ interaction capabilities, and more.`,
 			cmd.Name() == "upgrade"
 
 		if !skipUpdateCheck && update.ShouldCheckForUpdate() {
+			// Update the check time regardless of result
+			update.UpdateCheckTime()
 			// Check for updates in background
 			go func() {
 				DebugPrint("Checking for updates...\n")
@@ -131,8 +133,6 @@ interaction capabilities, and more.`,
 				if err == nil && hasUpdate {
 					fmt.Printf("💡 Update available: %s -> %s (run 'vers upgrade')\n\n", Version, latestVersion)
 				}
-				// Update the check time regardless of result
-				update.UpdateCheckTime()
 			}()
 		}
 

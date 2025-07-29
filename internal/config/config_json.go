@@ -44,8 +44,11 @@ func LoadCLIConfig() (*CLIConfig, error) {
 
 	// If config file doesn't exist, return default config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		now := time.Now()
 		return &CLIConfig{
 			UpdateCheck: UpdateCheckConfig{
+				LastCheck:     now,
+				NextCheck:     now,  // Check immediately on first run
 				CheckInterval: 3600, // 1 hour
 			},
 		}, nil
@@ -64,6 +67,11 @@ func LoadCLIConfig() (*CLIConfig, error) {
 	// Ensure we have default values for missing fields
 	if config.UpdateCheck.CheckInterval == 0 {
 		config.UpdateCheck.CheckInterval = 3600
+	}
+
+	// Fix zero times that might exist from old configs
+	if config.UpdateCheck.NextCheck.IsZero() {
+		config.UpdateCheck.NextCheck = time.Now()
 	}
 
 	return &config, nil
