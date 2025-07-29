@@ -57,8 +57,7 @@ func validateAPIKey(apiKey string) error {
 		return fmt.Errorf("validation failed with status %d - please try again", resp.StatusCode)
 	}
 
-	// Key validated successfully
-	fmt.Println("API key validated successfully")
+	// Key validated successfully - no need to print here, will be batched later
 	return nil
 }
 
@@ -73,7 +72,7 @@ func secureReadAPIKey() (string, error) {
 	}
 
 	// Print a newline since ReadPassword doesn't echo one
-	fmt.Println()
+	fmt.Print("\n")
 
 	apiKey := strings.TrimSpace(string(bytePassword))
 	if apiKey == "" {
@@ -102,8 +101,14 @@ You can get your API key from: https://vers.sh/dashboard`,
 			}
 		}
 
+		// Build validation and success output
+		var output strings.Builder
+		output.WriteString("Validating API key...\n")
+
+		// Print validation status
+		fmt.Print(output.String())
+
 		// Validate the API key - validation must succeed to continue
-		fmt.Println("Validating API key...")
 		err := validateAPIKey(token)
 		if err != nil {
 			return err // Stop here if validation fails
@@ -115,7 +120,12 @@ You can get your API key from: https://vers.sh/dashboard`,
 			return fmt.Errorf("error saving API key: %w", err)
 		}
 
-		fmt.Println("Successfully authenticated with Vers")
+		// Build and print success messages
+		var successOutput strings.Builder
+		successOutput.WriteString("API key validated successfully\n")
+		successOutput.WriteString("Successfully authenticated with Vers\n")
+		fmt.Print(successOutput.String())
+
 		return nil
 	},
 }

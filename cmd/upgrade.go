@@ -73,6 +73,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot upgrade development or unknown versions")
 	}
 
+	// Build version comparison output
 	var output strings.Builder
 	output.WriteString(fmt.Sprintf("Current version: %s\n", Version))
 
@@ -103,9 +104,12 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	fmt.Print(output.String())
 
 	// Confirm upgrade using shared confirmation utility
-	fmt.Printf("\nUpgrade from %s to %s?\n", Version, latest.TagName)
+	var confirmationOutput strings.Builder
+	confirmationOutput.WriteString(fmt.Sprintf("\nUpgrade from %s to %s?\n", Version, latest.TagName))
+	fmt.Print(confirmationOutput.String())
+
 	if !confirmation.AskConfirmation() {
-		fmt.Println("Upgrade cancelled.")
+		fmt.Print("Upgrade cancelled.\n")
 		return nil
 	}
 
@@ -177,8 +181,12 @@ func performUpgrade(release *GitHubRelease) error {
 		return fmt.Errorf("no compatible binary found for %s-%s", runtime.GOOS, runtime.GOARCH)
 	}
 
+	// Build download status output
+	var downloadOutput strings.Builder
+	downloadOutput.WriteString(fmt.Sprintf("Downloading %s...\n", binaryName))
+	fmt.Print(downloadOutput.String())
+
 	DebugPrint("Downloading binary from: %s\n", binaryURL)
-	fmt.Printf("Downloading %s...\n", binaryName)
 
 	// Download the new binary
 	tempFile, err := downloadFile(binaryURL, binarySize)
@@ -347,7 +355,7 @@ func downloadFile(url string, expectedSize int64) (string, error) {
 		}
 	}
 
-	fmt.Println() // New line after progress
+	fmt.Print("\n") // New line after progress - using Print instead of Println
 	return tempFile.Name(), nil
 }
 
