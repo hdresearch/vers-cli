@@ -90,7 +90,8 @@ var branchCmd = &cobra.Command{
 				if displayName == "" {
 					displayName = branchInfo.ID
 				}
-				fmt.Printf(s.Success.Render("✓ HEAD now points to: ") + s.BranchName.Render(displayName) + "\n")
+				successStyle := s.Success.Padding(0, 0)
+				fmt.Printf(successStyle.Render("✓ HEAD now points to: ") + s.VMID.Render(displayName) + "\n")
 			}
 		} else {
 			// Show tip about switching
