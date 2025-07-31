@@ -48,7 +48,7 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 	defer cancel()
 
 	// Create parameters for FromCluster variant
-	params := vers.ClusterCreateParamsClusterFromCommitParamsParams{
+	params := vers.ClusterCreateRequestClusterFromCommitParamsParamsParam{
 		CommitKey: vers.F(commitKey),
 	}
 
@@ -67,8 +67,8 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 
 	// Create cluster parameters
 	clusterParams := vers.APIClusterNewParams{
-		ClusterCreateParams: vers.ClusterCreateParamsClusterFromCommitParams{
-			ClusterType: vers.F(vers.ClusterCreateParamsClusterFromCommitParamsClusterTypeFromCommit),
+		ClusterCreateRequest: vers.ClusterCreateRequestClusterFromCommitParamsParam{
+			ClusterType: vers.F(vers.ClusterCreateRequestClusterFromCommitParamsClusterTypeFromCommit),
 			Params:      vers.F(params),
 		},
 	}

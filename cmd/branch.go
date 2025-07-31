@@ -53,10 +53,10 @@ var branchCmd = &cobra.Command{
 		fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
 
 		body := vers.APIVmBranchParams{
-			VmBranchParams: vers.VmBranchParams{},
+			VmBranchRequest: vers.VmBranchRequestParam{},
 		}
 		if alias != "" {
-			body.VmBranchParams.Alias = vers.F(alias)
+			body.VmBranchRequest.Alias = vers.F(alias)
 		}
 
 		response, err := client.API.Vm.Branch(apiCtx, vmID, body)
