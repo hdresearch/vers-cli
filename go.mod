@@ -7,7 +7,6 @@ toolchain go1.24.1
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/charmbracelet/lipgloss v1.1.0
-	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.17
 	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.9.1
 	golang.org/x/term v0.32.0
@@ -19,6 +18,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
+	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.17.0.20250731004839-158fd7f6a8fe // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
