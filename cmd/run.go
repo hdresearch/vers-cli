@@ -44,7 +44,7 @@ func StartCluster(config *Config, args []string) error {
 	defer cancel()
 
 	// Create base parameters
-	params := vers.ClusterCreateParamsNewClusterParamsParams{
+	params := vers.ClusterCreateRequestNewClusterParamsParamsParam{
 		MemSizeMib:       vers.F(config.Machine.MemSizeMib),
 		VcpuCount:        vers.F(config.Machine.VcpuCount),
 		RootfsName:       vers.F(config.Rootfs.Name),
@@ -63,8 +63,8 @@ func StartCluster(config *Config, args []string) error {
 
 	// Create cluster parameters with modified params
 	clusterParams := vers.APIClusterNewParams{
-		ClusterCreateParams: vers.ClusterCreateParamsNewClusterParams{
-			ClusterType: vers.F(vers.ClusterCreateParamsNewClusterParamsClusterTypeNew),
+		ClusterCreateRequest: vers.ClusterCreateRequestNewClusterParamsParam{
+			ClusterType: vers.F(vers.ClusterCreateRequestNewClusterParamsClusterTypeNew),
 			Params:      vers.F(params),
 		},
 	}
