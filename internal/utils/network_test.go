@@ -14,7 +14,7 @@ import (
 )
 
 // Mock server setup helpers
-func setupMockServer(tb testing.TB, nodeIP string, statusCode int) *httptest.Server {
+func setupMockServer(_ testing.TB, nodeIP string, statusCode int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify the request has proper authorization
 		authHeader := r.Header.Get("Authorization")

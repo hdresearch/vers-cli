@@ -49,6 +49,9 @@ var commitCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
 		defer cancel()
 
+		// Build initial setup output
+		var setupOutput strings.Builder
+
 		// Determine VM ID to use
 		if len(args) > 0 {
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -56,7 +59,7 @@ var commitCmd = &cobra.Command{
 				return fmt.Errorf("failed to find VM: %w", err)
 			}
 			vmID = vmInfo.ID
-			fmt.Printf("Using provided VM: %s\n", vmInfo.DisplayName)
+			setupOutput.WriteString(fmt.Sprintf("Using provided VM: %s\n", vmInfo.DisplayName))
 		} else {
 			// Use HEAD VM
 			var err error
@@ -64,19 +67,23 @@ var commitCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to get current VM: %w", err)
 			}
-			fmt.Printf("Using current HEAD VM: %s\n", vmID)
+			setupOutput.WriteString(fmt.Sprintf("Using current HEAD VM: %s\n", vmID))
 		}
 
 		// Combine all tags from both flag types
 		allTags := combineAllTags()
 
-		fmt.Printf("Creating commit for VM '%s'\n", vmID)
+		setupOutput.WriteString(fmt.Sprintf("Creating commit for VM '%s'\n", vmID))
 		if len(allTags) > 0 {
-			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
+			setupOutput.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(allTags, ", ")))
 		}
 
 		// Get VM details for alias information
-		fmt.Println("Creating commit...")
+		setupOutput.WriteString("Creating commit...\n")
+
+		// Print setup messages
+		fmt.Print(setupOutput.String())
+
 		if vmInfo == nil {
 			vmResponse, err := client.API.Vm.Get(apiCtx, vmID)
 			if err != nil {
@@ -96,14 +103,18 @@ var commitCmd = &cobra.Command{
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
 		}
 
-		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
-		fmt.Printf("Commit ID: %s\n", response.Data.CommitID)
-		fmt.Printf("Cluster ID: %s\n", response.Data.ClusterID)
-		fmt.Printf("Host Architecture: %s\n", response.Data.HostArchitecture)
+		// Build success output
+		var successOutput strings.Builder
+		successOutput.WriteString(fmt.Sprintf("Successfully committed VM '%s'\n", vmInfo.DisplayName))
+		successOutput.WriteString(fmt.Sprintf("Commit ID: %s\n", response.Data.CommitID))
+		successOutput.WriteString(fmt.Sprintf("Cluster ID: %s\n", response.Data.ClusterID))
+		successOutput.WriteString(fmt.Sprintf("Host Architecture: %s\n", response.Data.HostArchitecture))
 		if len(allTags) > 0 {
-			fmt.Printf("Tags: %s\n", strings.Join(allTags, ", "))
+			successOutput.WriteString(fmt.Sprintf("Tags: %s\n", strings.Join(allTags, ", ")))
 		}
 
+		// Print final success output
+		fmt.Print(successOutput.String())
 		return nil
 	},
 }

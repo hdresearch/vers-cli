@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -80,12 +81,13 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 	}
 	clusterInfo := response.Data
 
-	// Use information from the response
-	fmt.Printf("Cluster (ID: %s) started successfully from commit %s with root vm '%s'.\n",
+	// Build success and status output together
+	var output strings.Builder
+	output.WriteString(fmt.Sprintf("Cluster (ID: %s) started successfully from commit %s with root vm '%s'.\n",
 		clusterInfo.ID,
 		commitKey,
 		clusterInfo.RootVmID,
-	)
+	))
 
 	// Update HEAD to point to the new VM (simplified architecture)
 	vmTarget := clusterInfo.RootVmID
@@ -95,15 +97,17 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 
 	versDir := ".vers"
 	if _, err := os.Stat(versDir); os.IsNotExist(err) {
-		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
+		output.WriteString("Warning: .vers directory not found. Run 'vers init' first.\n")
 	} else {
 		headFile := filepath.Join(versDir, "HEAD")
 		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
-		fmt.Printf("HEAD now points to: %s (from commit %s)\n", vmTarget, commitKey)
+		output.WriteString(fmt.Sprintf("HEAD now points to: %s (from commit %s)\n", vmTarget, commitKey))
 	}
 
+	// Print all results together
+	fmt.Print(output.String())
 	return nil
 }
 

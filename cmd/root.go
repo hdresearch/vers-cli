@@ -72,7 +72,9 @@ func getVersionInfo() *MetadataInfo {
 // DebugPrint prints debug information only when verbose mode is enabled
 func DebugPrint(format string, args ...interface{}) {
 	if verbose {
-		fmt.Printf("[DEBUG] "+format, args...)
+		var output strings.Builder
+		output.WriteString(fmt.Sprintf("[DEBUG] "+format, args...))
+		fmt.Print(output.String())
 	}
 }
 
@@ -89,10 +91,14 @@ interaction capabilities, and more.`,
 			versionInfo := getVersionInfo()
 			jsonOutput, err := json.MarshalIndent(versionInfo, "", "  ")
 			if err != nil {
-				fmt.Printf("Error marshalling version info: %v\n", err)
+				var errorOutput strings.Builder
+				errorOutput.WriteString(fmt.Sprintf("Error marshalling version info: %v\n", err))
+				fmt.Print(errorOutput.String())
 				os.Exit(1)
 			}
-			fmt.Println(string(jsonOutput))
+			var output strings.Builder
+			output.WriteString(string(jsonOutput) + "\n")
+			fmt.Print(output.String())
 			return
 		}
 
@@ -102,7 +108,7 @@ interaction capabilities, and more.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Handle version flags before any authentication
 		if version, _ := cmd.Flags().GetBool("version"); version {
-			fmt.Println(Version)
+			fmt.Print(Version + "\n")
 			os.Exit(0)
 		}
 
@@ -158,7 +164,7 @@ func Execute() {
 		// Check if the error is a 401 Unauthorized
 		if strings.Contains(err.Error(), "401") ||
 			strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
-			fmt.Println("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
+			fmt.Print("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.\n")
 			os.Exit(1)
 		}
 		os.Exit(1)
