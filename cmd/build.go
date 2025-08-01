@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-sdk-go"
 	"github.com/hdresearch/vers-sdk-go/option"
 	"github.com/spf13/cobra"
@@ -62,8 +63,10 @@ func BuildRootfs(config *Config) error {
 	defer os.Remove(tempFile.Name()) // Clean up the temp file when done
 
 	// Build process output
-	var processOutput strings.Builder
-	processOutput.WriteString("Creating tar archive of working directory...\n")
+	process := output.New()
+	process.WriteLine("Creating tar archive of working directory...").
+		WriteLinef("Uploading rootfs archive as '%s'...", config.Rootfs.Name).
+		Print()
 
 	if err := createTarArchive(tempFile); err != nil {
 		return fmt.Errorf("failed to create tar archive: %w", err)
@@ -77,12 +80,6 @@ func BuildRootfs(config *Config) error {
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
-
-	// Prepare for upload
-	processOutput.WriteString(fmt.Sprintf("Uploading rootfs archive as '%s'...\n", config.Rootfs.Name))
-
-	// Print build process messages
-	fmt.Print(processOutput.String())
 
 	// Reading the file into memory for the request
 	fileContent, err := os.ReadFile(tempFile.Name())

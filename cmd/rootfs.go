@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
@@ -38,19 +39,18 @@ var rootfsListCmd = &cobra.Command{
 		data := response.Data
 
 		// Build complete output
-		var output strings.Builder
+		result := output.New()
 
 		if len(data.RootfsNames) == 0 {
-			output.WriteString("No rootfs images found.\n")
+			result.WriteLine("No rootfs images found.")
 		} else {
-			output.WriteString("Available rootfs images:\n")
+			result.WriteLine("Available rootfs images:")
 			for _, name := range data.RootfsNames {
-				output.WriteString(fmt.Sprintf("- %s\n", name))
+				result.WriteLinef("- %s", name)
 			}
 		}
 
-		// Print complete list
-		fmt.Print(output.String())
+		result.Print()
 		return nil
 	},
 }

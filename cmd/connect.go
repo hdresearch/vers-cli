@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
@@ -28,8 +29,8 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Build initial setup output
-		var setupOutput strings.Builder
+		// Setup phase
+		setup := output.New()
 
 		// Determine VM identifier to use
 		var identifier string
@@ -39,15 +40,13 @@ var connectCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			setupOutput.WriteString(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
+			setup.WriteStyledLine(s.HeadStatus, "Using current HEAD VM: "+identifier)
 		} else {
 			identifier = args[0]
 		}
 
-		setupOutput.WriteString(s.NoData.Render("Fetching VM information...") + "\n")
-
-		// Print setup messages
-		fmt.Print(setupOutput.String())
+		setup.WriteStyledLine(s.NoData, "Fetching VM information...").
+			Print()
 
 		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, identifier)
 		if err != nil {
@@ -75,12 +74,10 @@ var connectCmd = &cobra.Command{
 			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
 		}
 
-		// Build initial connection status output
-		var connectionOutput strings.Builder
-		connectionOutput.WriteString(s.HeadStatus.Render("Connecting to VM "+vmInfo.DisplayName+"...") + "\n")
-
-		// Print initial connection status
-		fmt.Print(connectionOutput.String())
+		// Connection status
+		connection := output.New()
+		connection.WriteStyledLine(s.HeadStatus, "Connecting to VM "+vmInfo.DisplayName+"...").
+			Print()
 
 		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
 		if err != nil {
@@ -95,12 +92,10 @@ var connectCmd = &cobra.Command{
 			sshPort = "22"
 		}
 
-		// Build final connection debug output
-		var debugOutput strings.Builder
-		debugOutput.WriteString(s.HeadStatus.Render(fmt.Sprintf("Connecting to %s on port %s\n", sshHost, sshPort)))
-
-		// Print debug info about connection
-		fmt.Print(debugOutput.String())
+		// Debug connection info
+		debug := output.New()
+		debug.WriteStyledLinef(s.HeadStatus, "Connecting to %s on port %s", sshHost, sshPort).
+			Print()
 
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", sshHost),

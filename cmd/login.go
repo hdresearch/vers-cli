@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -101,12 +102,8 @@ You can get your API key from: https://vers.sh/dashboard`,
 			}
 		}
 
-		// Build validation and success output
-		var output strings.Builder
-		output.WriteString("Validating API key...\n")
-
-		// Print validation status
-		fmt.Print(output.String())
+		// Show validation status
+		output.ImmediateLine("Validating API key...")
 
 		// Validate the API key - validation must succeed to continue
 		err := validateAPIKey(token)
@@ -121,10 +118,10 @@ You can get your API key from: https://vers.sh/dashboard`,
 		}
 
 		// Build and print success messages
-		var successOutput strings.Builder
-		successOutput.WriteString("API key validated successfully\n")
-		successOutput.WriteString("Successfully authenticated with Vers\n")
-		fmt.Print(successOutput.String())
+		success := output.New()
+		success.WriteLine("API key validated successfully").
+			WriteLine("Successfully authenticated with Vers").
+			Print()
 
 		return nil
 	},

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -73,9 +74,9 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot upgrade development or unknown versions")
 	}
 
-	// Build version comparison output
-	var output strings.Builder
-	output.WriteString(fmt.Sprintf("Current version: %s\n", Version))
+	// Version comparison phase
+	versionCheck := output.New()
+	versionCheck.WriteLinef("Current version: %s", Version)
 
 	// Check for latest release
 	latest, err := getLatestRelease()
@@ -84,32 +85,29 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	latestVersion := strings.TrimPrefix(latest.TagName, "v")
-	output.WriteString(fmt.Sprintf("Latest version: %s\n", latest.TagName))
+	versionCheck.WriteLinef("Latest version: %s", latest.TagName)
 
 	// Compare versions
 	if currentVersion == latestVersion {
-		output.WriteString("You are already running the latest version!\n")
-		fmt.Print(output.String())
+		versionCheck.WriteLine("You are already running the latest version!").Print()
 		return nil
 	}
 
 	if checkOnly {
-		output.WriteString(fmt.Sprintf("A new version is available: %s -> %s\n", Version, latest.TagName))
-		output.WriteString("Run 'vers upgrade' to install the update.\n")
-		fmt.Print(output.String())
+		versionCheck.WriteLinef("A new version is available: %s -> %s", Version, latest.TagName).
+			WriteLine("Run 'vers upgrade' to install the update.").
+			Print()
 		return nil
 	}
 
 	// Print version info first
-	fmt.Print(output.String())
+	versionCheck.Print()
 
-	// Confirm upgrade using shared confirmation utility
-	var confirmationOutput strings.Builder
-	confirmationOutput.WriteString(fmt.Sprintf("\nUpgrade from %s to %s?\n", Version, latest.TagName))
-	fmt.Print(confirmationOutput.String())
+	// Confirmation phase
+	fmt.Printf("\nUpgrade from %s to %s?\n", Version, latest.TagName)
 
 	if !confirmation.AskConfirmation() {
-		fmt.Print("Upgrade cancelled.\n")
+		output.ImmediateLine("Upgrade cancelled.")
 		return nil
 	}
 
@@ -181,10 +179,8 @@ func performUpgrade(release *GitHubRelease) error {
 		return fmt.Errorf("no compatible binary found for %s-%s", runtime.GOOS, runtime.GOARCH)
 	}
 
-	// Build download status output
-	var downloadOutput strings.Builder
-	downloadOutput.WriteString(fmt.Sprintf("Downloading %s...\n", binaryName))
-	fmt.Print(downloadOutput.String())
+	// Download phase
+	fmt.Printf("Downloading %s...\n", binaryName)
 
 	DebugPrint("Downloading binary from: %s\n", binaryURL)
 
@@ -195,20 +191,20 @@ func performUpgrade(release *GitHubRelease) error {
 	}
 	defer os.Remove(tempFile)
 
-	// Build verification and installation messages
-	var output strings.Builder
+	// Verification and installation phase
+	install := output.New()
 
 	// Verify checksum if available and not skipped
 	if checksumURL != "" && !skipChecksum {
 		DebugPrint("Verifying checksum from: %s\n", checksumURL)
-		output.WriteString("Verifying download integrity...\n")
+		install.WriteLine("Verifying download integrity...")
 
 		if err := verifyChecksum(tempFile, checksumURL); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
-		output.WriteString("✓ Checksum verification passed\n")
+		install.WriteLine("✓ Checksum verification passed")
 	} else if skipChecksum {
-		output.WriteString("⚠️  Skipping checksum verification (not recommended)\n")
+		install.WriteLine("⚠️  Skipping checksum verification (not recommended)")
 	}
 
 	// Get current executable path
@@ -236,11 +232,10 @@ func performUpgrade(release *GitHubRelease) error {
 	// Clean up backup on success
 	os.Remove(backupPath)
 
-	output.WriteString(fmt.Sprintf("✓ Successfully upgraded to version %s!\n", release.TagName))
-	output.WriteString("Please restart any running vers processes to use the new version.\n")
+	install.WriteLinef("✓ Successfully upgraded to version %s!", release.TagName).
+		WriteLine("Please restart any running vers processes to use the new version.").
+		Print()
 
-	// Print all status messages at once
-	fmt.Print(output.String())
 	return nil
 }
 
@@ -355,7 +350,7 @@ func downloadFile(url string, expectedSize int64) (string, error) {
 		}
 	}
 
-	fmt.Print("\n") // New line after progress - using Print instead of Println
+	fmt.Print("\n") // New line after progress
 	return tempFile.Name(), nil
 }
 
