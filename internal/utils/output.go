@@ -1,37 +1,31 @@
 package utils
 
 import (
-	"fmt"
-
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/styles"
 )
 
 // ProgressCounter formats and prints progress messages like [1/5] Doing something...
 func ProgressCounter(current, total int, action, target string, s *styles.KillStyles) {
-	if total > 1 {
-		msg := fmt.Sprintf("[%d/%d] %s '%s'...", current, total, action, target)
-		fmt.Println(s.Progress.Render(msg))
-	} else {
-		msg := fmt.Sprintf("%s '%s'...", action, target)
-		fmt.Println(s.Progress.Render(msg))
-	}
+	output.ProgressCounter(current, total, action, target, s.Progress)
 }
 
 // SuccessMessage prints a standardized success message
 func SuccessMessage(message string, s *styles.KillStyles) {
-	fmt.Println(s.Success.Render("SUCCESS: " + message))
+	output.SuccessMessage(message, s.Success)
 }
 
 // SectionHeader prints a formatted section header
 func SectionHeader(title string, s *styles.KillStyles) {
-	fmt.Println("\n" + s.Progress.Render("=== "+title+" ==="))
+	output.SectionHeader(title, s.Progress)
 }
 
-// Standard status messages
+// OperationCancelled prints a standard cancellation message
 func OperationCancelled(s *styles.KillStyles) {
-	fmt.Println(s.NoData.Render("Operation cancelled"))
+	output.OperationCancelled(s.NoData)
 }
 
+// NoDataFound prints a standard "no data found" message
 func NoDataFound(message string, s *styles.KillStyles) {
-	fmt.Println(s.NoData.Render(message))
+	output.NoDataFound(message, s.NoData)
 }

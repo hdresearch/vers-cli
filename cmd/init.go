@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/hdresearch/vers-cli/internal/assets"
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -80,7 +80,7 @@ var initCmd = &cobra.Command{
 		}
 
 		// Build final output message
-		var output strings.Builder
+		finalOutput := output.New()
 
 		// Create vers.toml file if it doesn't exist
 		versTomlPath := "vers.toml"
@@ -130,24 +130,21 @@ var initCmd = &cobra.Command{
 			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
 				return fmt.Errorf("error creating vers.toml file: %w", err)
 			}
-			output.WriteString(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
+			finalOutput.WriteStyledLine(styles.MutedTextStyle, "Created vers.toml with default configuration")
 		} else {
-			output.WriteString(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
+			finalOutput.WriteStyledLine(styles.MutedTextStyle, "vers.toml already exists, skipping")
 		}
 
 		logoStyle := styles.AppStyle.Foreground(styles.TerminalMagenta)
-		output.WriteString(logoStyle.Render(`	
+		finalOutput.WriteStyled(logoStyle, `	
 		▗▖  ▗▖▗▄▄▄▖▗▄▄▖  ▗▄▄▖
 		▐▌  ▐▌▐▌   ▐▌ ▐▌▐▌   
 		▐▌  ▐▌▐▛▀▀▘▐▛▀▚▖ ▝▀▚▖
 		 ▝▚▞▘ ▐▙▄▄▖▐▌ ▐▌▗▄▄▞▘						 
-   `))
-		output.WriteString("\n")
+   `).NewLine().
+			WriteStyledLinef(styles.MutedTextStyle, "Initialized vers repository in %s directory", versDir).
+			Print()
 
-		output.WriteString(styles.MutedTextStyle.Render(fmt.Sprintf("Initialized vers repository in %s directory\n", versDir)))
-
-		// Print all final status together
-		fmt.Print(output.String())
 		return nil
 	},
 }

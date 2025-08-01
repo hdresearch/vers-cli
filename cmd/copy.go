@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
@@ -36,8 +37,8 @@ Examples:
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Build initial setup output
-		var setupOutput strings.Builder
+		// Setup phase
+		setup := output.New()
 
 		// Parse arguments based on count
 		if len(args) == 2 {
@@ -49,7 +50,7 @@ Examples:
 			vmIdentifier = headVMID
 			source = args[0]
 			destination = args[1]
-			setupOutput.WriteString(s.HeadStatus.Render("Using current HEAD VM: "+vmIdentifier) + "\n")
+			setup.WriteStyledLine(s.HeadStatus, "Using current HEAD VM: "+vmIdentifier)
 		} else {
 			// VM specified
 			vmIdentifier = args[0]
@@ -57,10 +58,8 @@ Examples:
 			destination = args[2]
 		}
 
-		setupOutput.WriteString(s.NoData.Render("Fetching VM information...") + "\n")
-
-		// Print setup messages
-		fmt.Print(setupOutput.String())
+		setup.WriteStyledLine(s.NoData, "Fetching VM information...").
+			Print()
 
 		// Get VM and node information
 		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, vmIdentifier)
@@ -112,8 +111,8 @@ Examples:
 		// Prepare SCP command
 		scpTarget := fmt.Sprintf("root@%s", sshHost)
 
-		// Build operation status output
-		var operationOutput strings.Builder
+		// Operation status
+		operation := output.New()
 
 		// Determine if we're uploading or downloading
 		var scpSource, scpDest string
@@ -121,29 +120,28 @@ Examples:
 			// Downloading from remote to local
 			scpSource = fmt.Sprintf("%s:%s", scpTarget, source)
 			scpDest = destination
-			operationOutput.WriteString(s.HeadStatus.Render(fmt.Sprintf("Downloading %s from VM %s to %s\n", source, vmInfo.DisplayName, destination)))
+			operation.WriteStyledLinef(s.HeadStatus, "Downloading %s from VM %s to %s", source, vmInfo.DisplayName, destination)
 		} else if !strings.HasPrefix(source, "/") && strings.HasPrefix(destination, "/") {
 			// Uploading from local to remote
 			scpSource = source
 			scpDest = fmt.Sprintf("%s:%s", scpTarget, destination)
-			operationOutput.WriteString(s.HeadStatus.Render(fmt.Sprintf("Uploading %s to VM %s at %s\n", source, vmInfo.DisplayName, destination)))
+			operation.WriteStyledLinef(s.HeadStatus, "Uploading %s to VM %s at %s", source, vmInfo.DisplayName, destination)
 		} else {
 			// Auto-detect based on file existence
 			if _, err := os.Stat(source); err == nil {
 				// Local file exists, upload
 				scpSource = source
 				scpDest = fmt.Sprintf("%s:%s", scpTarget, destination)
-				operationOutput.WriteString(s.HeadStatus.Render(fmt.Sprintf("Uploading %s to VM %s at %s\n", source, vmInfo.DisplayName, destination)))
+				operation.WriteStyledLinef(s.HeadStatus, "Uploading %s to VM %s at %s", source, vmInfo.DisplayName, destination)
 			} else {
 				// Assume remote file, download
 				scpSource = fmt.Sprintf("%s:%s", scpTarget, source)
 				scpDest = destination
-				operationOutput.WriteString(s.HeadStatus.Render(fmt.Sprintf("Downloading %s from VM %s to %s\n", source, vmInfo.DisplayName, destination)))
+				operation.WriteStyledLinef(s.HeadStatus, "Downloading %s from VM %s to %s", source, vmInfo.DisplayName, destination)
 			}
 		}
 
-		// Print operation status
-		fmt.Print(operationOutput.String())
+		operation.Print()
 
 		// Create the SCP command
 		scpArgs := []string{
@@ -179,8 +177,8 @@ Examples:
 			return fmt.Errorf(s.NoData.Render("failed to run SCP command: %w"), err)
 		}
 
-		// Build and print success message
-		fmt.Print(s.HeadStatus.Render("File copy completed successfully\n"))
+		// Success message
+		output.ImmediateStyledLine(s.HeadStatus, "File copy completed successfully")
 		return nil
 	},
 }

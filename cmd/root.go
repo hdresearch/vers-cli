@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/joho/godotenv" // Import godotenv
 	"github.com/spf13/cobra"
@@ -72,9 +73,8 @@ func getVersionInfo() *MetadataInfo {
 // DebugPrint prints debug information only when verbose mode is enabled
 func DebugPrint(format string, args ...interface{}) {
 	if verbose {
-		var output strings.Builder
-		output.WriteString(fmt.Sprintf("[DEBUG] "+format, args...))
-		fmt.Print(output.String())
+		debug := output.New()
+		debug.WriteLinef("[DEBUG] "+format, args...).Print()
 	}
 }
 
@@ -91,14 +91,12 @@ interaction capabilities, and more.`,
 			versionInfo := getVersionInfo()
 			jsonOutput, err := json.MarshalIndent(versionInfo, "", "  ")
 			if err != nil {
-				var errorOutput strings.Builder
-				errorOutput.WriteString(fmt.Sprintf("Error marshalling version info: %v\n", err))
-				fmt.Print(errorOutput.String())
+				errorOutput := output.New()
+				errorOutput.WriteLinef("Error marshalling version info: %v", err).Print()
 				os.Exit(1)
 			}
-			var output strings.Builder
-			output.WriteString(string(jsonOutput) + "\n")
-			fmt.Print(output.String())
+			versionOutput := output.New()
+			versionOutput.WriteLine(string(jsonOutput)).Print()
 			return
 		}
 

@@ -2,8 +2,8 @@ package utils
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/styles"
 )
 
@@ -17,29 +17,21 @@ type SummaryResults struct {
 
 // PrintDeletionSummary prints results for multiple target deletions
 func PrintDeletionSummary(results SummaryResults, s *styles.KillStyles) {
-	var output strings.Builder
-
-	output.WriteString("\n") // Replace SectionHeader spacing
-	output.WriteString(s.Progress.Render("=== Operation Summary ===") + "\n")
-
-	successMsg := fmt.Sprintf("Successfully processed: %d %s", results.SuccessCount, results.ItemType)
-	output.WriteString(s.Success.Render(successMsg) + "\n")
-
-	if results.FailCount > 0 {
-		failMsg := fmt.Sprintf("Failed to process: %d %s", results.FailCount, results.ItemType)
-		output.WriteString(s.Error.Render(failMsg) + "\n")
-
-		if len(results.Errors) > 0 {
-			output.WriteString("\n")
-			output.WriteString(s.Warning.Render("Error details:") + "\n")
-			for _, error := range results.Errors {
-				errorDetail := fmt.Sprintf("  - %s", error)
-				output.WriteString(s.Warning.Render(errorDetail) + "\n")
-			}
-		}
+	outputResults := output.DeletionSummaryResults{
+		SuccessCount: results.SuccessCount,
+		FailCount:    results.FailCount,
+		Errors:       results.Errors,
+		ItemType:     results.ItemType,
 	}
 
-	fmt.Print(output.String())
+	styleSet := output.DeletionStyleSet{
+		Progress: s.Progress,
+		Success:  s.Success,
+		Error:    s.Error,
+		Warning:  s.Warning,
+	}
+
+	output.PrintDeletionSummary(outputResults, styleSet)
 }
 
 // HandleDeletionResult displays progress, performs deletion, and handles the result
@@ -52,7 +44,7 @@ func HandleDeletionResult(currentIndex, totalCount int, action, displayName stri
 	deletedIDs, err := deletionFunc()
 	if err != nil {
 		failMsg := fmt.Sprintf("FAILED: %s", err.Error())
-		fmt.Println(s.Error.Render(failMsg))
+		output.ImmediateStyledLine(s.Error, failMsg)
 		return nil, err
 	}
 

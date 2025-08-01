@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss/list"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
@@ -79,9 +80,9 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 	}
 
 	// Build cluster details section
-	var output strings.Builder
-	output.WriteString(s.HeadStatus.Render("Getting status for cluster: "+clusterDisplayName) + "\n")
-	output.WriteString(s.VMListHeader.Render("Cluster details:") + "\n")
+	clusterStatus := output.New()
+	clusterStatus.WriteStyledLine(s.HeadStatus, "Getting status for cluster: "+clusterDisplayName).
+		WriteStyledLine(s.VMListHeader, "Cluster details:")
 
 	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
@@ -93,12 +94,12 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 		s.ClusterData.Render("# VMs: "+fmt.Sprintf("%d", len(cluster.Vms))),
 	)
 	clusterList.Items(clusterInfo_display)
-	output.WriteString(clusterList.String() + "\n")
+	clusterStatus.WriteStyledLine(s.VMListHeader, clusterList.String())
 
-	output.WriteString(s.VMListHeader.Render("VMs in this cluster:") + "\n")
+	clusterStatus.WriteStyledLine(s.VMListHeader, "VMs in this cluster:")
 
 	if len(cluster.Vms) == 0 {
-		output.WriteString(s.NoData.Render("No VMs found in this cluster.") + "\n")
+		clusterStatus.WriteStyledLine(s.NoData, "No VMs found in this cluster.")
 	} else {
 		vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 		for _, vm := range cluster.Vms {
@@ -115,14 +116,13 @@ func handleClusterStatus(ctx context.Context, clusterID string, s *styles.Status
 			)
 			vmList.Items(vmInfo)
 		}
-		output.WriteString(vmList.String() + "\n")
+		clusterStatus.Write(vmList.String()).NewLine()
 	}
 
 	tip := "\nTip: To view all clusters, run: vers status"
-	output.WriteString(s.Tip.Render(tip) + "\n")
+	clusterStatus.WriteStyledLine(s.Tip, tip).
+		Print()
 
-	// Single print operation
-	fmt.Print(output.String())
 	return nil
 }
 
@@ -140,9 +140,9 @@ func handleVMStatus(ctx context.Context, vmIdentifier string, s *styles.StatusSt
 	vmInfo := utils.CreateVMInfoFromGetResponse(vm)
 
 	// Build VM details section
-	var output strings.Builder
-	output.WriteString(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName) + "\n")
-	output.WriteString(s.VMListHeader.Render("VM details:") + "\n")
+	vmStatus := output.New()
+	vmStatus.WriteStyledLine(s.HeadStatus, "Getting status for VM: "+vmInfo.DisplayName).
+		WriteStyledLine(s.VMListHeader, "VM details:")
 
 	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
@@ -155,21 +155,20 @@ func handleVMStatus(ctx context.Context, vmIdentifier string, s *styles.StatusSt
 	)
 
 	vmList.Items(vmInfo_display)
-	output.WriteString(vmList.String() + "\n")
+	vmStatus.Write(vmList.String()).NewLine()
 
 	tip := "\nTip: To view the cluster containing this VM, run: vers status -c " + vm.ClusterID
-	output.WriteString(s.Tip.Render(tip) + "\n")
+	vmStatus.WriteStyledLine(s.Tip, tip).
+		Print()
 
-	// Single print operation
-	fmt.Print(output.String())
 	return nil
 }
 
 // Handle default status (list all clusters)
 func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 	// List all clusters
-	var output strings.Builder
-	output.WriteString(s.NoData.Render("Fetching list of clusters...") + "\n")
+	defaultStatus := output.New()
+	defaultStatus.WriteStyledLine(s.NoData, "Fetching list of clusters...")
 
 	response, err := client.API.Cluster.List(ctx)
 	if err != nil {
@@ -179,12 +178,12 @@ func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 	clusters := response.Data
 
 	if len(clusters) == 0 {
-		output.WriteString(s.NoData.Render("No clusters found.") + "\n")
-		fmt.Print(output.String())
+		defaultStatus.WriteStyledLine(s.NoData, "No clusters found.").
+			Print()
 		return nil
 	}
 
-	output.WriteString(s.VMListHeader.Render("Available clusters:") + "\n")
+	defaultStatus.WriteStyledLine(s.VMListHeader, "Available clusters:")
 	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 
 	for _, cluster := range clusters {
@@ -212,14 +211,13 @@ func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
 		)
 		clusterList.Items(clusterInfo)
 	}
-	output.WriteString(clusterList.String() + "\n")
+	defaultStatus.Write(clusterList.String()).NewLine()
 
 	tip := "\nTip: To view VMs in a specific cluster, use: vers status -c <cluster-id>\n" +
 		"To view a specific VM, use: vers status <vm-id>"
-	output.WriteString(s.Tip.Render(tip) + "\n")
+	defaultStatus.WriteStyledLine(s.Tip, tip).
+		Print()
 
-	// Single print operation
-	fmt.Print(output.String())
 	return nil
 }
 

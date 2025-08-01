@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/hdresearch/vers-sdk-go"
@@ -29,8 +29,8 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Build initial setup output
-		var setupOutput strings.Builder
+		// Setup phase
+		setup := output.New()
 
 		// Determine VM ID to use - no extra API calls
 		if len(args) == 0 {
@@ -39,7 +39,8 @@ var branchCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
 			}
-			setupOutput.WriteString(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
+			setup.WriteStyled(s.Tip, "Using current HEAD VM: ").
+				WriteStyledLine(s.VMID, vmID)
 		} else {
 			var err error
 			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -54,10 +55,8 @@ var branchCmd = &cobra.Command{
 		if vmInfo != nil {
 			progressName = vmInfo.DisplayName
 		}
-		setupOutput.WriteString(s.Progress.Render("Creating new VM from: "+progressName) + "\n")
-
-		// Print initial setup messages
-		fmt.Print(setupOutput.String())
+		setup.WriteStyledLine(s.Progress, "Creating new VM from: "+progressName).
+			Print()
 
 		body := vers.APIVmBranchParams{
 			VmBranchRequest: vers.VmBranchRequestParam{},
@@ -72,31 +71,25 @@ var branchCmd = &cobra.Command{
 		}
 		branchInfo := response.Data
 
-		// Build VM details output
-		var detailsOutput strings.Builder
-
-		// Success message
-		detailsOutput.WriteString(s.Success.Render("✓ New VM created successfully!") + "\n")
-
-		// VM details header
-		detailsOutput.WriteString(s.ListHeader.Render("New VM details:") + "\n")
-		detailsOutput.WriteString(s.ListItem.Render(s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(branchInfo.ID)) + "\n")
+		// Details and final output combined
+		details := output.New()
+		details.WriteStyledLine(s.Success, "✓ New VM created successfully!").
+			WriteStyledLine(s.ListHeader, "New VM details:").
+			WriteStyledLine(s.ListItem, s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(branchInfo.ID))
 
 		if branchInfo.Alias != "" {
-			detailsOutput.WriteString(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(branchInfo.Alias)) + "\n")
+			details.WriteStyledLine(s.ListItem, s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(branchInfo.Alias))
 		}
 
-		detailsOutput.WriteString(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
+		details.WriteStyledLine(s.ListItem, s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))).
+			NewLine()
 
-		// Handle checkout logic and build final output
-		var finalOutput strings.Builder
-
-		// Check if user wants to switch to the new VM
+		// Handle checkout logic
 		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
 			err := utils.SetHead(branchInfo.ID)
 			if err != nil {
 				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
-				finalOutput.WriteString(s.Warning.Render(warningMsg) + "\n")
+				details.WriteStyledLine(s.Warning, warningMsg)
 			} else {
 				// Create display name from branch response
 				displayName := branchInfo.Alias
@@ -105,7 +98,8 @@ var branchCmd = &cobra.Command{
 				}
 				// Use the new successStyle from main branch but keep batched output
 				successStyle := s.Success.Padding(0, 0)
-				finalOutput.WriteString(successStyle.Render("✓ HEAD now points to: ") + s.VMID.Render(displayName) + "\n")
+				details.WriteStyled(successStyle, "✓ HEAD now points to: ").
+					WriteStyledLine(s.VMID, displayName)
 			}
 		} else {
 			// Show tip about switching
@@ -113,14 +107,11 @@ var branchCmd = &cobra.Command{
 			if switchTarget == "" {
 				switchTarget = branchInfo.ID
 			}
-			finalOutput.WriteString(s.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
-			finalOutput.WriteString(s.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
+			details.WriteStyledLine(s.Tip, "Use --checkout or -c to switch to the new VM").
+				WriteStyledLine(s.Tip, "Run 'vers checkout "+switchTarget+"' to switch to this VM")
 		}
 
-		// Print VM details and final output together
-		combinedOutput := detailsOutput.String() + finalOutput.String()
-		fmt.Print(combinedOutput)
-
+		details.Print()
 		return nil
 	},
 }
