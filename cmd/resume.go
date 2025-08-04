@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -55,9 +56,9 @@ var resumeCmd = &cobra.Command{
 
 		// Make API call to resume the VM
 		if vmInfo == nil {
-			utils.ProgressCounter(1, 1, "Resuming VM", vmID, &s)
+			output.ProgressCounter(1, 1, "Resuming VM", vmID, s.Progress)
 		} else {
-			utils.ProgressCounter(1, 1, "Resuming VM", vmInfo.DisplayName, &s)
+			output.ProgressCounter(1, 1, "Resuming VM", vmInfo.DisplayName, s.Progress)
 		}
 
 		response, err := client.API.Vm.Update(apiCtx, vmID, updateParams)
@@ -74,7 +75,7 @@ var resumeCmd = &cobra.Command{
 			vmInfo = utils.CreateVMInfoFromUpdateResponse(response.Data)
 		}
 
-		utils.SuccessMessage(fmt.Sprintf("VM '%s' resumed successfully", vmInfo.DisplayName), &s)
+		output.SuccessMessage(fmt.Sprintf("VM '%s' resumed successfully", vmInfo.DisplayName), s.Success)
 		fmt.Printf(s.HeadStatus.Render("VM state: %s\n"), response.Data.State)
 		return nil
 	},

@@ -92,13 +92,13 @@ func (p *ClusterDeletionProcessor) DeleteSingleCluster(clusterInfo *utils.Cluste
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
 		if !utils.ConfirmClusterDeletion(clusterInfo.DisplayName, clusterInfo.VmCount, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
 
 		// Check HEAD impact for this specific cluster
 		if !utils.ConfirmClusterHeadImpact(p.ctx, p.client, clusterInfo.ID, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
 	}
@@ -119,7 +119,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	if len(response.Data) == 0 {
-		utils.NoDataFound("No clusters found to delete.", p.styles)
+		output.NoDataFound("No clusters found to delete.", p.styles.NoData)
 		return nil
 	}
 
@@ -131,7 +131,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	if !p.skipConfirmation && !p.confirmDeleteAllWithInfo(clusterInfos) {
-		utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
+		output.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles.NoData)
 		return nil
 	}
 

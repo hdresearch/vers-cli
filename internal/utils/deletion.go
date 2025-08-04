@@ -38,7 +38,7 @@ func PrintDeletionSummary(results SummaryResults, s *styles.KillStyles) {
 // This is the common pattern used by both VM and cluster processors
 func HandleDeletionResult(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
 	// Show progress
-	ProgressCounter(currentIndex, totalCount, action, displayName, s)
+	output.ProgressCounter(currentIndex, totalCount, action, displayName, s.Progress)
 
 	// Perform the deletion
 	deletedIDs, err := deletionFunc()
@@ -48,6 +48,6 @@ func HandleDeletionResult(currentIndex, totalCount int, action, displayName stri
 		return nil, err
 	}
 
-	SuccessMessage("Deleted successfully", s)
+	output.SuccessMessage("Deleted successfully", s.Success)
 	return deletedIDs, nil
 }

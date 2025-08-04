@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/output"
-	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -72,7 +71,7 @@ var rootfsDeleteCmd = &cobra.Command{
 			reader := bufio.NewReader(os.Stdin)
 			input, err := reader.ReadString('\n')
 			if err != nil || (!strings.EqualFold(strings.TrimSpace(input), "y") && !strings.EqualFold(strings.TrimSpace(input), "yes")) {
-				utils.OperationCancelled(&s)
+				output.OperationCancelled(s.NoData)
 				return nil
 			}
 		}
@@ -81,14 +80,14 @@ var rootfsDeleteCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		utils.ProgressCounter(1, 1, "Deleting rootfs", rootfsName, &s)
+		output.ProgressCounter(1, 1, "Deleting rootfs", rootfsName, s.Progress)
 		response, err := client.API.Rootfs.Delete(apiCtx, rootfsName)
 		if err != nil {
 			return fmt.Errorf("failed to delete rootfs '%s': %w", rootfsName, err)
 		}
 		data := response.Data
 
-		utils.SuccessMessage(fmt.Sprintf("Successfully deleted rootfs '%s'", data.RootfsName), &s)
+		output.SuccessMessage(fmt.Sprintf("Successfully deleted rootfs '%s'", data.RootfsName), s.Success)
 		return nil
 	},
 }
