@@ -17,25 +17,27 @@ type SummaryResults struct {
 
 // PrintDeletionSummary prints results for multiple target deletions
 func PrintDeletionSummary(results SummaryResults, s *styles.KillStyles) {
-	outputResults := output.DeletionSummaryResults{
-		SuccessCount: results.SuccessCount,
-		FailCount:    results.FailCount,
-		Errors:       results.Errors,
-		ItemType:     results.ItemType,
+	summary := output.New()
+
+	summary.NewLine().
+		WriteStyledLine(s.Progress, "=== Operation Summary ===").
+		WriteStyledLine(s.Success, fmt.Sprintf("SUCCESS: Successfully processed: %d %s", results.SuccessCount, results.ItemType))
+
+	if results.FailCount > 0 {
+		summary.WriteStyledLine(s.Error, fmt.Sprintf("Failed to process: %d %s", results.FailCount, results.ItemType))
+
+		if len(results.Errors) > 0 {
+			summary.NewLine().WriteStyledLine(s.Warning, "Error details:")
+			for _, error := range results.Errors {
+				summary.WriteStyledLine(s.Warning, fmt.Sprintf("  - %s", error))
+			}
+		}
 	}
 
-	styleSet := output.DeletionStyleSet{
-		Progress: s.Progress,
-		Success:  s.Success,
-		Error:    s.Error,
-		Warning:  s.Warning,
-	}
-
-	output.PrintDeletionSummary(outputResults, styleSet)
+	summary.Print()
 }
 
 // HandleDeletionResult displays progress, performs deletion, and handles the result
-// This is the common pattern used by both VM and cluster processors
 func HandleDeletionResult(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
 	// Show progress
 	output.ProgressCounter(currentIndex, totalCount, action, displayName, s.Progress)

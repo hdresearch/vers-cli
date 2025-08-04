@@ -17,7 +17,7 @@ func New() *Writer {
 	return &Writer{}
 }
 
-// --- Core methods (keep only what's actually used) ---
+// --- Core methods ---
 
 func (w *Writer) Write(text string) *Writer {
 	w.builder.WriteString(text)
@@ -67,7 +67,7 @@ func (w *Writer) IsEmpty() bool {
 	return w.builder.Len() == 0
 }
 
-// --- Standalone functions (these are what you actually use) ---
+// --- Standalone functions ---
 
 // ProgressCounter outputs progress messages like "[1/5] Doing something..."
 func ProgressCounter(current, total int, action, target string, style lipgloss.Style) {
@@ -103,38 +103,4 @@ func ImmediateLine(text string) {
 // ImmediateStyledLine outputs styled text with newline immediately
 func ImmediateStyledLine(style lipgloss.Style, text string) {
 	fmt.Println(style.Render(text))
-}
-
-// PrintDeletionSummary outputs a deletion summary
-func PrintDeletionSummary(results DeletionSummaryResults, s DeletionStyleSet) {
-	summary := New()
-	summary.NewLine().WriteStyledLine(s.Progress, "=== Operation Summary ===")
-	summary.WriteStyledLine(s.Success, fmt.Sprintf("SUCCESS: Successfully processed: %d %s", results.SuccessCount, results.ItemType))
-
-	if results.FailCount > 0 {
-		summary.WriteStyledLine(s.Error, fmt.Sprintf("Failed to process: %d %s", results.FailCount, results.ItemType))
-		if len(results.Errors) > 0 {
-			summary.NewLine().WriteStyledLine(s.Warning, "Error details:")
-			for _, error := range results.Errors {
-				summary.WriteStyledLine(s.Warning, fmt.Sprintf("  - %s", error))
-			}
-		}
-	}
-	summary.Print()
-}
-
-// DeletionSummaryResults represents summary data for deletion operations
-type DeletionSummaryResults struct {
-	SuccessCount int
-	FailCount    int
-	Errors       []string
-	ItemType     string
-}
-
-// DeletionStyleSet represents the styles needed for deletion summary output
-type DeletionStyleSet struct {
-	Progress lipgloss.Style
-	Success  lipgloss.Style
-	Error    lipgloss.Style
-	Warning  lipgloss.Style
 }

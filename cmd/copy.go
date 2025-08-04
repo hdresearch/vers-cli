@@ -37,7 +37,7 @@ Examples:
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Setup phase
+		// Setup output
 		setup := output.New()
 
 		// Parse arguments based on count

@@ -204,7 +204,7 @@ func performUpgrade(release *GitHubRelease) error {
 		}
 		install.WriteLine("✓ Checksum verification passed")
 	} else if skipChecksum {
-		install.WriteLine("⚠️  Skipping checksum verification (not recommended)")
+		install.WriteLine("Skipping checksum verification (not recommended)")
 	}
 
 	// Get current executable path

@@ -29,7 +29,7 @@ var branchCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Setup phase
+		// Setup output
 		setup := output.New()
 
 		// Determine VM ID to use - no extra API calls
@@ -96,7 +96,6 @@ var branchCmd = &cobra.Command{
 				if displayName == "" {
 					displayName = branchInfo.ID
 				}
-				// Use the new successStyle from main branch but keep batched output
 				successStyle := s.Success.Padding(0, 0)
 				details.WriteStyled(successStyle, "✓ HEAD now points to: ").
 					WriteStyledLine(s.VMID, displayName)

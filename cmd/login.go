@@ -58,7 +58,7 @@ func validateAPIKey(apiKey string) error {
 		return fmt.Errorf("validation failed with status %d - please try again", resp.StatusCode)
 	}
 
-	// Key validated successfully - no need to print here, will be batched later
+	// Key validated successfully
 	return nil
 }
 

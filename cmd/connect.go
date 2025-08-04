@@ -29,7 +29,7 @@ var connectCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Setup phase
+		// Setup output
 		setup := output.New()
 
 		// Determine VM identifier to use
