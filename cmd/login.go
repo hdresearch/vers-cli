@@ -102,9 +102,6 @@ You can get your API key from: https://vers.sh/dashboard`,
 			}
 		}
 
-		// Show validation status
-		output.ImmediateLine("Validating API key...")
-
 		// Validate the API key - validation must succeed to continue
 		err := validateAPIKey(token)
 		if err != nil {
