@@ -3,33 +3,17 @@ package cmd
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"runtime"
 	"strings"
-	"time"
 
+	update "github.com/hdresearch/vers-cli/internal/update"
 	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
 )
-
-// GitHubRelease represents a GitHub release
-type GitHubRelease struct {
-	TagName    string `json:"tag_name"`
-	Name       string `json:"name"`
-	Body       string `json:"body"`
-	Draft      bool   `json:"draft"`
-	Prerelease bool   `json:"prerelease"`
-	Assets     []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-		Size               int64  `json:"size"`
-	} `json:"assets"`
-	PublishedAt time.Time `json:"published_at"`
-}
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
@@ -75,8 +59,8 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Current version: %s\n", Version)
 
-	// Check for latest release
-	latest, err := getLatestRelease()
+	// Check for latest release using shared update package
+	latest, err := update.GetLatestRelease(Repository, prerelease, verbose)
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -87,6 +71,10 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	// Compare versions
 	if currentVersion == latestVersion {
 		fmt.Println("You are already running the latest version!")
+
+		// Reset the update check timer since we manually checked
+		update.UpdateCheckTime()
+
 		return nil
 	}
 
@@ -104,54 +92,16 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	// Perform upgrade
-	return performUpgrade(latest)
+	err = performUpgrade(latest)
+	if err == nil {
+		// Reset the update check timer after successful upgrade
+		update.UpdateCheckTime()
+	}
+
+	return err
 }
 
-func getLatestRelease() (*GitHubRelease, error) {
-	// Extract owner/repo from Repository constant
-	repoURL := strings.TrimPrefix(Repository, "https://github.com/")
-
-	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/releases", repoURL)
-	if !prerelease {
-		apiURL += "/latest"
-	}
-
-	DebugPrint("Fetching release info from: %s\n", apiURL)
-
-	resp, err := http.Get(apiURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch release info: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
-	}
-
-	if prerelease {
-		var releases []GitHubRelease
-		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-			return nil, fmt.Errorf("failed to decode release info: %w", err)
-		}
-
-		// Find the latest release (including prereleases)
-		for _, release := range releases {
-			if !release.Draft {
-				return &release, nil
-			}
-		}
-		return nil, fmt.Errorf("no releases found")
-	}
-
-	var release GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("failed to decode release info: %w", err)
-	}
-
-	return &release, nil
-}
-
-func performUpgrade(release *GitHubRelease) error {
+func performUpgrade(release *update.GitHubRelease) error {
 	// Find the appropriate binary for current platform
 	binaryName := getBinaryName()
 	var binaryURL, checksumURL string
