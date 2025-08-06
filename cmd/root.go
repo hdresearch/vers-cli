@@ -10,8 +10,9 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/output"
+	"github.com/hdresearch/vers-cli/internal/update"
 	vers "github.com/hdresearch/vers-sdk-go"
-	"github.com/joho/godotenv" // Import godotenv
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -118,6 +119,25 @@ interaction capabilities, and more.`,
 		// Set verbose environment variable for other packages to use
 		if verbose {
 			os.Setenv("VERS_VERBOSE", "true")
+		}
+
+		// Skip update check for certain commands
+		skipUpdateCheck := cmd.Name() == "login" ||
+			cmd.Name() == "help" ||
+			cmd.CalledAs() == "help" ||
+			cmd.Name() == "upgrade"
+
+		if !skipUpdateCheck && update.ShouldCheckForUpdate() {
+			// Update the check time regardless of result
+			update.UpdateCheckTime()
+			// Check for updates in background
+			go func() {
+				DebugPrint("Checking for updates...\n")
+				hasUpdate, latestVersion, err := update.CheckForUpdates(Version, Repository, verbose)
+				if err == nil && hasUpdate {
+					fmt.Printf("💡 Update available: %s -> %s (run 'vers upgrade')\n\n", Version, latestVersion)
+				}
+			}()
 		}
 
 		if cmd.Name() == "login" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
