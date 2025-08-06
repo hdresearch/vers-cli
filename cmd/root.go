@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/update"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/joho/godotenv"
@@ -73,7 +74,8 @@ func getVersionInfo() *MetadataInfo {
 // DebugPrint prints debug information only when verbose mode is enabled
 func DebugPrint(format string, args ...interface{}) {
 	if verbose {
-		fmt.Printf("[DEBUG] "+format, args...)
+		debug := output.New()
+		debug.WriteLinef("[DEBUG] "+format, args...).Print()
 	}
 }
 
@@ -90,10 +92,12 @@ interaction capabilities, and more.`,
 			versionInfo := getVersionInfo()
 			jsonOutput, err := json.MarshalIndent(versionInfo, "", "  ")
 			if err != nil {
-				fmt.Printf("Error marshalling version info: %v\n", err)
+				errorOutput := output.New()
+				errorOutput.WriteLinef("Error marshalling version info: %v", err).Print()
 				os.Exit(1)
 			}
-			fmt.Println(string(jsonOutput))
+			versionOutput := output.New()
+			versionOutput.WriteLine(string(jsonOutput)).Print()
 			return
 		}
 
@@ -103,7 +107,7 @@ interaction capabilities, and more.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Handle version flags before any authentication
 		if version, _ := cmd.Flags().GetBool("version"); version {
-			fmt.Println(Version)
+			fmt.Print(Version + "\n")
 			os.Exit(0)
 		}
 
@@ -178,7 +182,7 @@ func Execute() {
 		// Check if the error is a 401 Unauthorized
 		if strings.Contains(err.Error(), "401") ||
 			strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
-			fmt.Println("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
+			fmt.Print("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.\n")
 			os.Exit(1)
 		}
 		os.Exit(1)

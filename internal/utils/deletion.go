@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/styles"
 )
 
@@ -16,40 +17,39 @@ type SummaryResults struct {
 
 // PrintDeletionSummary prints results for multiple target deletions
 func PrintDeletionSummary(results SummaryResults, s *styles.KillStyles) {
-	SectionHeader("Operation Summary", s)
+	summary := output.New()
 
-	successMsg := fmt.Sprintf("Successfully processed: %d %s", results.SuccessCount, results.ItemType)
-	fmt.Println(s.Success.Render(successMsg))
+	summary.NewLine().
+		WriteStyledLine(s.Progress, "=== Operation Summary ===").
+		WriteStyledLine(s.Success, fmt.Sprintf("SUCCESS: Successfully processed: %d %s", results.SuccessCount, results.ItemType))
 
 	if results.FailCount > 0 {
-		failMsg := fmt.Sprintf("Failed to process: %d %s", results.FailCount, results.ItemType)
-		fmt.Println(s.Error.Render(failMsg))
+		summary.WriteStyledLine(s.Error, fmt.Sprintf("Failed to process: %d %s", results.FailCount, results.ItemType))
 
 		if len(results.Errors) > 0 {
-			fmt.Println()
-			fmt.Println(s.Warning.Render("Error details:"))
+			summary.NewLine().WriteStyledLine(s.Warning, "Error details:")
 			for _, error := range results.Errors {
-				errorDetail := fmt.Sprintf("  - %s", error)
-				fmt.Println(s.Warning.Render(errorDetail))
+				summary.WriteStyledLine(s.Warning, fmt.Sprintf("  - %s", error))
 			}
 		}
 	}
+
+	summary.Print()
 }
 
 // HandleDeletionResult displays progress, performs deletion, and handles the result
-// This is the common pattern used by both VM and cluster processors
 func HandleDeletionResult(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
 	// Show progress
-	ProgressCounter(currentIndex, totalCount, action, displayName, s)
+	output.ProgressCounter(currentIndex, totalCount, action, displayName, s.Progress)
 
 	// Perform the deletion
 	deletedIDs, err := deletionFunc()
 	if err != nil {
 		failMsg := fmt.Sprintf("FAILED: %s", err.Error())
-		fmt.Println(s.Error.Render(failMsg))
+		output.ImmediateStyledLine(s.Error, failMsg)
 		return nil, err
 	}
 
-	SuccessMessage("Deleted successfully", s)
+	output.SuccessMessage("Deleted successfully", s.Success)
 	return deletedIDs, nil
 }

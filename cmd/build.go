@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-sdk-go"
 	"github.com/hdresearch/vers-sdk-go/option"
 	"github.com/spf13/cobra"
@@ -46,12 +47,12 @@ func BuildRootfs(config *Config) error {
 
 	// Don't allow user to build "default"
 	if config.Rootfs.Name == "default" {
-		return fmt.Errorf("If you're trying to upload a custom rootfs, please specify a new name for rootfs.name in vers.toml. Otherwise, set builder.name to 'none'.")
+		return fmt.Errorf("if you're trying to upload a custom rootfs, please specify a new name for rootfs.name in vers.toml. Otherwise, set builder.name to 'none'")
 	}
 
 	// Check for Dockerfile
 	if _, err := os.Stat(config.Builder.Dockerfile); os.IsNotExist(err) {
-		return fmt.Errorf("Dockerfile '%s' not found in current directory", config.Builder.Dockerfile)
+		return fmt.Errorf("dockerfile '%s' not found in current directory", config.Builder.Dockerfile)
 	}
 
 	// Create temporary tar archive
@@ -61,7 +62,12 @@ func BuildRootfs(config *Config) error {
 	}
 	defer os.Remove(tempFile.Name()) // Clean up the temp file when done
 
-	fmt.Println("Creating tar archive of working directory...")
+	// Build process output
+	process := output.New()
+	process.WriteLine("Creating tar archive of working directory...").
+		WriteLinef("Uploading rootfs archive as '%s'...", config.Rootfs.Name).
+		Print()
+
 	if err := createTarArchive(tempFile); err != nil {
 		return fmt.Errorf("failed to create tar archive: %w", err)
 	}
@@ -74,9 +80,6 @@ func BuildRootfs(config *Config) error {
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
-
-	// Prepare for upload
-	fmt.Printf("Uploading rootfs archive as '%s'...\n", config.Rootfs.Name)
 
 	// Reading the file into memory for the request
 	fileContent, err := os.ReadFile(tempFile.Name())

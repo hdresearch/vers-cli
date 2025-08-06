@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -112,32 +113,44 @@ func buildAndDisplayTree(cluster vers.APIClusterListResponseData, headVMID strin
 		clusterDisplayName = cluster.ID
 	}
 
-	fmt.Printf("Generating tree for cluster: %s\n", clusterDisplayName)
+	// Header phase
+	header := output.New()
+	header.WriteLinef("Generating tree for cluster: %s", clusterDisplayName)
 
 	// Print cluster information header
 	clusterHeader := styles.HeaderStyle.Render(fmt.Sprintf("Cluster: %s (Total VMs: %d)", clusterDisplayName, cluster.VmCount))
-	fmt.Println(clusterHeader)
+	header.WriteLine(clusterHeader).
+		Print()
 
 	// Validate we have a root VM
 	if cluster.RootVmID == "" {
 		return fmt.Errorf("cluster '%s' has no root VM", clusterDisplayName)
 	}
 
-	// Print the tree starting from the root VM
-	printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID)
+	// Tree phase - build the tree structure
+	tree := output.New()
+	buildVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID, tree)
 
-	// Print legend
-	fmt.Println("\nLegend:")
-	fmt.Println(styles.MutedTextStyle.Render("- [R] Running"))
-	fmt.Println(styles.MutedTextStyle.Render("- [P] Paused"))
-	fmt.Println(styles.MutedTextStyle.Render("- [S] Stopped"))
-	fmt.Println(styles.HelpStyle.Render("Use 'vers status -c <id>' for VM details."))
+	// Legend phase
+	legend := output.New()
+	legend.NewLine().
+		WriteLine("Legend:").
+		WriteStyledLine(styles.MutedTextStyle, "- [R] Running").
+		WriteStyledLine(styles.MutedTextStyle, "- [P] Paused").
+		WriteStyledLine(styles.MutedTextStyle, "- [S] Stopped").
+		WriteStyledLine(styles.HelpStyle, "Use 'vers status -c <id>' for VM details.")
+
+	// Print tree and legend together
+	combined := output.New()
+	combined.Write(tree.String()).
+		Write(legend.String()).
+		Print()
 
 	return nil
 }
 
-// printVMTreeFromListData prints tree using List response data structure
-func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string) {
+// buildVMTreeFromListData builds tree structure into an output writer instead of printing directly
+func buildVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLast bool, headVMID string, tree *output.Writer) {
 	// Find the current VM in the list
 	var currentVM *vers.VmDto
 	for i := range vms {
@@ -186,7 +199,8 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 		finalStyle = styles.SelectedListItemStyle
 	}
 
-	fmt.Printf("%s%s%s\n", prefix, connector, finalStyle.Render(vmInfo))
+	// Add this VM's line to the tree
+	tree.WriteLinef("%s%s%s", prefix, connector, finalStyle.Render(vmInfo))
 
 	// Prepare the prefix for children
 	childPrefix := prefix
@@ -196,10 +210,10 @@ func printVMTreeFromListData(vms []vers.VmDto, currentVMID, prefix string, isLas
 		childPrefix += "│   "
 	}
 
-	// Print children
+	// Process children recursively
 	for i, childID := range currentVM.Children {
 		isLastChild := i == len(currentVM.Children)-1
-		printVMTreeFromListData(vms, childID, childPrefix, isLastChild, headVMID)
+		buildVMTreeFromListData(vms, childID, childPrefix, isLastChild, headVMID, tree)
 	}
 }
 

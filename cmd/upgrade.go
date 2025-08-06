@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	update "github.com/hdresearch/vers-cli/internal/update"
 	confirmation "github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/spf13/cobra"
@@ -57,7 +58,9 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot upgrade development or unknown versions")
 	}
 
-	fmt.Printf("Current version: %s\n", Version)
+	// Version comparison phase
+	versionCheck := output.New()
+	versionCheck.WriteLinef("Current version: %s", Version)
 
 	// Check for latest release using shared update package
 	latest, err := update.GetLatestRelease(Repository, prerelease, verbose)
@@ -66,11 +69,11 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	latestVersion := strings.TrimPrefix(latest.TagName, "v")
-	fmt.Printf("Latest version: %s\n", latest.TagName)
+	versionCheck.WriteLinef("Latest version: %s", latest.TagName)
 
 	// Compare versions
 	if currentVersion == latestVersion {
-		fmt.Println("You are already running the latest version!")
+		versionCheck.WriteLine("You are already running the latest version!").Print()
 
 		// Reset the update check timer since we manually checked
 		update.UpdateCheckTime()
@@ -79,15 +82,20 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	}
 
 	if checkOnly {
-		fmt.Printf("A new version is available: %s -> %s\n", Version, latest.TagName)
-		fmt.Println("Run 'vers upgrade' to install the update.")
+		versionCheck.WriteLinef("A new version is available: %s -> %s", Version, latest.TagName).
+			WriteLine("Run 'vers upgrade' to install the update.").
+			Print()
 		return nil
 	}
 
-	// Confirm upgrade using shared confirmation utility
+	// Print version info first
+	versionCheck.Print()
+
+	// Confirmation phase
 	fmt.Printf("\nUpgrade from %s to %s?\n", Version, latest.TagName)
+
 	if !confirmation.AskConfirmation() {
-		fmt.Println("Upgrade cancelled.")
+		output.ImmediateLine("Upgrade cancelled.")
 		return nil
 	}
 
@@ -121,8 +129,10 @@ func performUpgrade(release *update.GitHubRelease) error {
 		return fmt.Errorf("no compatible binary found for %s-%s", runtime.GOOS, runtime.GOARCH)
 	}
 
-	DebugPrint("Downloading binary from: %s\n", binaryURL)
+	// Download phase
 	fmt.Printf("Downloading %s...\n", binaryName)
+
+	DebugPrint("Downloading binary from: %s\n", binaryURL)
 
 	// Download the new binary
 	tempFile, err := downloadFile(binaryURL, binarySize)
@@ -131,17 +141,20 @@ func performUpgrade(release *update.GitHubRelease) error {
 	}
 	defer os.Remove(tempFile)
 
+	// Verification and installation phase
+	install := output.New()
+
 	// Verify checksum if available and not skipped
 	if checksumURL != "" && !skipChecksum {
 		DebugPrint("Verifying checksum from: %s\n", checksumURL)
-		fmt.Println("Verifying download integrity...")
+		install.WriteLine("Verifying download integrity...")
 
 		if err := verifyChecksum(tempFile, checksumURL); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
-		fmt.Println("✓ Checksum verification passed")
+		install.WriteLine("✓ Checksum verification passed")
 	} else if skipChecksum {
-		fmt.Println("⚠️  Skipping checksum verification (not recommended)")
+		install.WriteLine("Skipping checksum verification (not recommended)")
 	}
 
 	// Get current executable path
@@ -169,8 +182,9 @@ func performUpgrade(release *update.GitHubRelease) error {
 	// Clean up backup on success
 	os.Remove(backupPath)
 
-	fmt.Printf("✓ Successfully upgraded to version %s!\n", release.TagName)
-	fmt.Println("Please restart any running vers processes to use the new version.")
+	install.WriteLinef("✓ Successfully upgraded to version %s!", release.TagName).
+		WriteLine("Please restart any running vers processes to use the new version.").
+		Print()
 
 	return nil
 }
@@ -286,7 +300,7 @@ func downloadFile(url string, expectedSize int64) (string, error) {
 		}
 	}
 
-	fmt.Println() // New line after progress
+	fmt.Print("\n") // New line after progress
 	return tempFile.Name(), nil
 }
 

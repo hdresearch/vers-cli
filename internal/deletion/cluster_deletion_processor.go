@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -91,13 +92,13 @@ func (p *ClusterDeletionProcessor) DeleteSingleCluster(clusterInfo *utils.Cluste
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
 		if !utils.ConfirmClusterDeletion(clusterInfo.DisplayName, clusterInfo.VmCount, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
 
 		// Check HEAD impact for this specific cluster
 		if !utils.ConfirmClusterHeadImpact(p.ctx, p.client, clusterInfo.ID, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
 	}
@@ -118,7 +119,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	if len(response.Data) == 0 {
-		utils.NoDataFound("No clusters found to delete.", p.styles)
+		output.NoDataFound("No clusters found to delete.", p.styles.NoData)
 		return nil
 	}
 
@@ -130,7 +131,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	if !p.skipConfirmation && !p.confirmDeleteAllWithInfo(clusterInfos) {
-		utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
+		output.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles.NoData)
 		return nil
 	}
 
@@ -162,16 +163,24 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 	utils.PrintDeletionSummary(summaryResults, p.styles)
 
+	// Final status output
+	finalStatus := output.New()
+
 	// Cleanup HEAD
 	if len(allDeletedVMIDs) > 0 {
 		if utils.CleanupAfterDeletion(allDeletedVMIDs) {
-			fmt.Println(p.styles.NoData.Render("HEAD cleared (cluster VMs were deleted)"))
+			finalStatus.WriteStyledLine(p.styles.NoData, "HEAD cleared (cluster VMs were deleted)")
 		}
 	}
 
 	if failCount == 0 {
-		fmt.Println()
-		fmt.Println(p.styles.Success.Render("All clusters processed successfully!"))
+		finalStatus.NewLine().
+			WriteStyledLine(p.styles.Success, "All clusters processed successfully!")
+	}
+
+	// Print final status if there's anything to show
+	if !finalStatus.IsEmpty() {
+		finalStatus.Print()
 	}
 
 	if failCount > 0 {
@@ -183,18 +192,20 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 
 // confirmDeleteAllWithInfo confirms deletion of all clusters using pre-resolved cluster info
 func (p *ClusterDeletionProcessor) confirmDeleteAllWithInfo(clusterInfos []*utils.ClusterInfo) bool {
+	warning := output.New()
+
 	headerMsg := fmt.Sprintf("DANGER: You are about to delete ALL %d clusters and their VMs:", len(clusterInfos))
-	fmt.Println(p.styles.Warning.Render(headerMsg))
-	fmt.Println()
+	warning.WriteStyledLine(p.styles.Warning, headerMsg).NewLine()
 
 	for i, clusterInfo := range clusterInfos {
 		listItem := fmt.Sprintf("  %d. Cluster '%s' (%d VMs)", i+1, clusterInfo.DisplayName, clusterInfo.VmCount)
-		fmt.Println(p.styles.Warning.Render(listItem))
+		warning.WriteStyledLine(p.styles.Warning, listItem)
 	}
 
-	fmt.Println()
-	fmt.Println(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!"))
-	fmt.Println()
+	warning.NewLine().
+		WriteStyledLine(p.styles.Warning, "This action is IRREVERSIBLE and will delete ALL your data!").
+		NewLine().
+		Print()
 
 	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -56,10 +57,10 @@ var pauseCmd = &cobra.Command{
 		// Make API call to pause the VM
 		if vmInfo == nil {
 			// We're pausing HEAD VM, show progress with ID
-			utils.ProgressCounter(1, 1, "Pausing VM", vmID, &s)
+			output.ProgressCounter(1, 1, "Pausing VM", vmID, s.Progress)
 		} else {
 			// We already have display name from resolution
-			utils.ProgressCounter(1, 1, "Pausing VM", vmInfo.DisplayName, &s)
+			output.ProgressCounter(1, 1, "Pausing VM", vmInfo.DisplayName, s.Progress)
 		}
 
 		response, err := client.API.Vm.Update(apiCtx, vmID, updateParams)
@@ -78,7 +79,7 @@ var pauseCmd = &cobra.Command{
 
 		// Use utils for success message
 		successMsg := fmt.Sprintf("VM '%s' paused successfully", vmInfo.DisplayName)
-		utils.SuccessMessage(successMsg, &s)
+		output.SuccessMessage(successMsg, s.Success)
 
 		fmt.Printf(s.HeadStatus.Render("VM state: %s\n"), response.Data.State)
 		return nil

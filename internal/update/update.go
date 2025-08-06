@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/config"
+	"github.com/hdresearch/vers-cli/internal/output"
 )
 
 // GitHubRelease represents a GitHub release
@@ -31,7 +32,8 @@ func CheckForUpdates(currentVersion, repository string, verbose bool) (bool, str
 	currentVersion = strings.TrimPrefix(currentVersion, "v")
 	if currentVersion == "dev" || currentVersion == "unknown" {
 		if verbose {
-			fmt.Printf("[DEBUG] Skipping update check for development version\n")
+			debug := output.New()
+			debug.WriteLinef("[DEBUG] Skipping update check for development version").Print()
 		}
 		return false, "", nil
 	}
@@ -40,14 +42,16 @@ func CheckForUpdates(currentVersion, repository string, verbose bool) (bool, str
 	latest, err := GetLatestRelease(repository, false, verbose)
 	if err != nil {
 		if verbose {
-			fmt.Printf("[DEBUG] Failed to check for updates: %v\n", err)
+			debug := output.New()
+			debug.WriteLinef("[DEBUG] Failed to check for updates: %v", err).Print()
 		}
 		return false, "", nil // Don't error out - just skip the check
 	}
 
 	latestVersion := strings.TrimPrefix(latest.TagName, "v")
 	if verbose {
-		fmt.Printf("[DEBUG] Current: %s, Latest: %s\n", currentVersion, latestVersion)
+		debug := output.New()
+		debug.WriteLinef("[DEBUG] Current: %s, Latest: %s", currentVersion, latestVersion).Print()
 	}
 
 	// Check if there's an update available
@@ -67,7 +71,8 @@ func GetLatestRelease(repository string, includePrerelease bool, verbose bool) (
 	}
 
 	if verbose {
-		fmt.Printf("[DEBUG] Fetching release info from: %s\n", apiURL)
+		debug := output.New()
+		debug.WriteLinef("[DEBUG] Fetching release info from: %s", apiURL).Print()
 	}
 
 	resp, err := http.Get(apiURL)

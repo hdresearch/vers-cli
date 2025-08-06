@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -58,7 +59,6 @@ func validateAPIKey(apiKey string) error {
 	}
 
 	// Key validated successfully
-	fmt.Println("API key validated successfully")
 	return nil
 }
 
@@ -73,7 +73,7 @@ func secureReadAPIKey() (string, error) {
 	}
 
 	// Print a newline since ReadPassword doesn't echo one
-	fmt.Println()
+	fmt.Print("\n")
 
 	apiKey := strings.TrimSpace(string(bytePassword))
 	if apiKey == "" {
@@ -103,7 +103,6 @@ You can get your API key from: https://vers.sh/dashboard`,
 		}
 
 		// Validate the API key - validation must succeed to continue
-		fmt.Println("Validating API key...")
 		err := validateAPIKey(token)
 		if err != nil {
 			return err // Stop here if validation fails
@@ -115,7 +114,12 @@ You can get your API key from: https://vers.sh/dashboard`,
 			return fmt.Errorf("error saving API key: %w", err)
 		}
 
-		fmt.Println("Successfully authenticated with Vers")
+		// Build and print success messages
+		success := output.New()
+		success.WriteLine("API key validated successfully").
+			WriteLine("Successfully authenticated with Vers").
+			Print()
+
 		return nil
 	},
 }

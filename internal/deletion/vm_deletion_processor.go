@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -34,14 +35,14 @@ func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
 		if !utils.ConfirmDeletion("VM", displayName, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil
 		}
 
 		// Check HEAD impact (we know it affects HEAD since this IS the HEAD VM)
 		fmt.Println(p.styles.Warning.Render("Warning: This will clear the current HEAD"))
 		if !utils.AskConfirmation() {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil
 		}
 	}
@@ -131,13 +132,13 @@ func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex,
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
 		if !utils.ConfirmDeletion("VM", vmInfo.DisplayName, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
 
 		// Check HEAD impact for this specific VM
 		if !utils.ConfirmVMHeadImpact(vmInfo.ID, p.styles) {
-			utils.OperationCancelled(p.styles)
+			output.OperationCancelled(p.styles.NoData)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
 	}

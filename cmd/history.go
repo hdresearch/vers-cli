@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/hdresearch/vers-cli/internal/output"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
@@ -80,6 +81,9 @@ var logCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
+		// Setup output
+		setup := output.New()
+
 		// Determine VM ID to use
 		if len(args) == 0 {
 			// Use HEAD VM
@@ -88,7 +92,7 @@ var logCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("no VM ID provided and %w", err)
 			}
-			fmt.Printf("Showing commit history for current HEAD VM: %s\n", vmID)
+			setup.WriteLinef("Showing commit history for current HEAD VM: %s", vmID)
 		} else {
 			// Use provided identifier
 			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
@@ -98,8 +102,9 @@ var logCmd = &cobra.Command{
 			vmID = vmInfo.ID
 		}
 
-		// Get VM details if we don't have them
-		fmt.Println(s.NoData.Render("Fetching VM information..."))
+		setup.WriteStyledLine(s.NoData, "Fetching VM information...").
+			Print()
+
 		if vmInfo == nil {
 			response, err := client.API.Vm.Get(apiCtx, vmID)
 			if err != nil {
@@ -108,16 +113,20 @@ var logCmd = &cobra.Command{
 			vmInfo = utils.CreateVMInfoFromGetResponse(response.Data)
 		}
 
-		// Fetch commit history from the API
-		fmt.Println(s.NoData.Render("Fetching commit history from server..."))
+		// Fetch status
+		fetch := output.New()
+		fetch.WriteStyledLine(s.NoData, "Fetching commit history from server...").
+			Print()
 
 		// Make API call to get commits for this VM
 		var commitResp commitResponse
 		err := client.Get(apiCtx, fmt.Sprintf("/api/vm/%s/commits", vmID), nil, &commitResp)
 		if err != nil {
 			// If API call fails, show a helpful message
-			fmt.Println(s.NoData.Render("No commit history found for this VM."))
-			fmt.Println(s.NoData.Render("Commits will appear here after you run 'vers commit'."))
+			noHistory := output.New()
+			noHistory.WriteStyledLine(s.NoData, "No commit history found for this VM.").
+				WriteStyledLine(s.NoData, "Commits will appear here after you run 'vers commit'.").
+				Print()
 			return nil
 		}
 
@@ -125,22 +134,25 @@ var logCmd = &cobra.Command{
 
 		// If no commits found, show helpful message
 		if len(commits) == 0 {
-			fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
-			fmt.Println(s.NoData.Render("No commits found for this VM."))
-			fmt.Println(s.NoData.Render("Run 'vers commit' to create your first commit."))
+			noCommits := output.New()
+			noCommits.WriteLinef("\n%s\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName))).
+				WriteStyledLine(s.NoData, "No commits found for this VM.").
+				WriteStyledLine(s.NoData, "Run 'vers commit' to create your first commit.").
+				Print()
 			return nil
 		}
 
-		// Display the VM info header
-		fmt.Printf("\n%s\n\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
+		// Build complete commit history
+		history := output.New()
+		history.WriteLinef("\n%s\n", s.Header.Render(fmt.Sprintf("Commit History for VM: %s", vmInfo.DisplayName)))
 
 		// Display commit history
 		for i, commit := range commits {
-			// Format timestamp
 			timestamp := time.Unix(commit.Timestamp, 0).Format("Mon Jan 2 15:04:05 2006 -0700")
 
-			// Display commit info
-			fmt.Printf("%s %s\n", s.CommitID.Render("Commit:"), commit.ID)
+			// Build commit info block
+			history.WriteStyled(s.CommitID, "Commit: ").
+				WriteStyledLine(s.CommitID, commit.ID)
 
 			// Display tags if they exist
 			if len(commit.Tags) > 0 {
@@ -153,35 +165,45 @@ var logCmd = &cobra.Command{
 				}
 				if len(nonEmptyTags) > 0 {
 					tagsStr := strings.Join(nonEmptyTags, ", ")
-					fmt.Printf("%s\n", s.Tag.Render(tagsStr))
+					history.WriteStyledLine(s.Tag, tagsStr)
 				}
 			}
 
+			// Add other commit details
 			if commit.Alias != "" && commit.Alias != commit.VMID {
-				fmt.Printf("%s %s\n", s.Alias.Render("Alias:"), commit.Alias)
+				history.WriteStyled(s.Alias, "Alias: ").
+					WriteStyledLine(s.Alias, commit.Alias)
 			}
-			fmt.Printf("%s %s\n", s.Author.Render("Author:"), commit.Author)
-			fmt.Printf("%s %s\n", s.Date.Render("Date:"), timestamp)
-			fmt.Printf("%s %s\n", s.VMID.Render("VM:"), commit.VMID)
+
+			history.WriteStyled(s.Author, "Author: ").
+				WriteStyledLine(s.Author, commit.Author).
+				WriteStyled(s.Date, "Date: ").
+				WriteStyledLine(s.Date, timestamp).
+				WriteStyled(s.VMID, "VM: ").
+				WriteStyledLine(s.VMID, commit.VMID)
+
 			if commit.ClusterID != "" {
-				fmt.Printf("%s %s\n", s.Alias.Render("Cluster:"), commit.ClusterID)
+				history.WriteStyled(s.Alias, "Cluster: ").
+					WriteStyledLine(s.Alias, commit.ClusterID)
 			}
 			if commit.HostArchitecture != "" {
-				fmt.Printf("%s %s\n", s.Alias.Render("Architecture:"), commit.HostArchitecture)
+				history.WriteStyled(s.Alias, "Architecture: ").
+					WriteStyledLine(s.Alias, commit.HostArchitecture)
 			}
 
 			message := commit.Message
 			if message == "" {
 				message = "(no commit message)"
 			}
-			fmt.Printf("\n    %s\n", s.CommitMsg.Render(message))
+			history.WriteLinef("\n    %s", s.CommitMsg.Render(message))
 
 			// Add divider between commits
 			if i < len(commits)-1 {
-				fmt.Printf("\n%s\n\n", s.Divider.String())
+				history.WriteLinef("\n%s\n", s.Divider.String())
 			}
 		}
 
+		history.Print()
 		return nil
 	},
 }

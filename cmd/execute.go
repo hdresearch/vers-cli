@@ -50,7 +50,7 @@ var executeCmd = &cobra.Command{
 				if err != nil {
 					return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 				}
-				fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+headVMID) + "\n")
+				fmt.Print(s.HeadStatus.Render("Using current HEAD VM: "+headVMID) + "\n")
 
 				// Get VM and node information for HEAD VM
 				vm, nodeIP, err = utils.GetVmAndNodeIP(apiCtx, client, headVMID)
@@ -66,7 +66,7 @@ var executeCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
 			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+headVMID) + "\n")
+			fmt.Print(s.HeadStatus.Render("Using current HEAD VM: "+headVMID) + "\n")
 
 			// Get VM and node information for HEAD VM
 			vm, nodeIP, err = utils.GetVmAndNodeIP(apiCtx, client, headVMID)
