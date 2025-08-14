@@ -42,14 +42,14 @@ var runCommitCmd = &cobra.Command{
 }
 
 // StartClusterFromCommit starts a development environment from an existing commit
-func StartClusterFromCommit(config *Config, commitKey string) error {
+func StartClusterFromCommit(config *Config, commitId string) error {
 	baseCtx := context.Background()
 	apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 	defer cancel()
 
 	// Create parameters for FromCluster variant
 	params := vers.ClusterCreateRequestClusterFromCommitParamsParamsParam{
-		CommitKey: vers.F(commitKey),
+		CommitID: vers.F(commitId),
 	}
 
 	// Add aliases if provided
@@ -73,7 +73,7 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 		},
 	}
 
-	fmt.Printf("Sending request to start cluster from commit %s...\n", commitKey)
+	fmt.Printf("Sending request to start cluster from commit %s...\n", commitId)
 	response, err := client.API.Cluster.New(apiCtx, clusterParams)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 	// Use information from the response
 	fmt.Printf("Cluster (ID: %s) started successfully from commit %s with root vm '%s'.\n",
 		clusterInfo.ID,
-		commitKey,
+		commitId,
 		clusterInfo.RootVmID,
 	)
 
@@ -101,7 +101,7 @@ func StartClusterFromCommit(config *Config, commitKey string) error {
 		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
 			return fmt.Errorf("failed to update HEAD: %w", err)
 		}
-		fmt.Printf("HEAD now points to: %s (from commit %s)\n", vmTarget, commitKey)
+		fmt.Printf("HEAD now points to: %s (from commit %s)\n", vmTarget, commitId)
 	}
 
 	return nil
