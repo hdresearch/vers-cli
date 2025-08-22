@@ -45,3 +45,6 @@ vers.toml
 .actrc
 # Added by goreleaser init:
 dist/
+
+# Allow for testing
+!test/testdata/vers.toml
