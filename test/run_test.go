@@ -16,13 +16,12 @@ func TestStartCluster(t *testing.T) {
 	config, err := loadTestConfig()
 
 	if err != nil {
-		t.Errorf("failed to load configuration: %q", err)
+		t.Fatalf("failed to load configuration: %q", err)
 	}
 	
 	fmt.Printf("got config: %v", config)
-	
+
 	var  startCluster = func () {
-		
 		err = cmd.StartCluster(config, []string{})
 		if err != nil {
 			t.Errorf("failed to start cluster: %q", err)
