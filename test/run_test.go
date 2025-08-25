@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -91,24 +90,15 @@ func execCommand(t *testing.T, command string, args ...string) string {
 	var cmd = exec.Command(
 		command, args...,
 	);
-	
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		t.Fatalf("Failed to create stderr pipe. Got: %v", err)
-	}
 
-	var output []byte
-
-	output, err = cmd.Output()
+	var output, err = cmd.Output()
 
 	var stdout = string(output)
 
 	t.Logf("Got output: %v\n", stdout)
 
-	slurp, _ := io.ReadAll(stderr)
-
 	if err != nil {
-		t.Fatalf("Failed to execute command. Got error: %v\n", string(slurp))
+		t.Fatalf("Failed to execute command. Got error: %v\n", err)
 	}
 
 	return stdout
