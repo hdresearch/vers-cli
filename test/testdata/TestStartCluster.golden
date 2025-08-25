@@ -1,0 +1,3 @@
+Sending request to start cluster...
+Cluster (ID: cluster-\w+) started successfully with root vm 'vm-\w+'.
+HEAD now points to: vm-\w+

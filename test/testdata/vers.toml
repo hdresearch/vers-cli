@@ -1,0 +1,14 @@
+[machine]
+  mem_size_mib = 512
+  vcpu_count = 1
+  fs_size_cluster_mib = 1024
+  fs_size_vm_mib = 512
+
+[rootfs]
+  name = "default"
+
+[builder]
+  name = "none"
+
+[kernel]
+  name = "default.bin"
