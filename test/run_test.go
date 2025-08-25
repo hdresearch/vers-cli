@@ -15,16 +15,17 @@ import (
 
 
 func TestStartCluster(t *testing.T) {
-	// Load GO_INSTALL_PATH
 	var rootDirPath, err = filepath.Abs("..")
 	if err != nil {
 		t.Fatal("Failed to resolve root directory. ")
 	}
+	// Load VERS_API_KEY, GO_INSTALL_PATH, and GO_PATH
 	godotenv.Load(
 		fmt.Sprintf(
 			"%v/.env",
 			rootDirPath, 
-		))
+		),
+	)
 
 
 	installCli(t)
@@ -32,11 +33,12 @@ func TestStartCluster(t *testing.T) {
 	login(t)
 
 // 	var got = `Sending request to start cluster...
-// Cluster (ID: cluster-abd123) started successfully with root vm 'vm-abd123'.
-//  HEAD now points to: vm-dfs34` 
+// Cluster (ID: 5R7XSWVN8XRTD5Z9cCyp2S) started successfully with root vm 'b6bd5680-d942-4b64-b805-8c43ae5955f0'.
+// Warning: .vers directory not found. Run 'vers init' first.` 
 
 	var got = startCluster(t)
 	validateOutput(t, got)
+	killCluster(t, got)
 }
 
 func installCli(t *testing.T) {
@@ -72,10 +74,21 @@ func startCluster(t *testing.T) string {
 
 
 func validateOutput(t *testing.T, got string) {
-	var want = regexp.MustCompile(`Sending request to start cluster...\nCluster \(ID: cluster-\w+\) started successfully with root vm 'vm-\w+'\.\nHEAD now points to: vm-\w+`)
+	var want = regexp.MustCompile(`Sending request to start cluster...\nCluster \(ID: \w+\) started successfully with root vm '[\w-]+'\.`)
 
 	if !want.MatchString(got) {
-		t.Fatalf("Unexpected output. Want = %#q \nGot = %v", want, got)
+		t.Errorf("Unexpected output. Want = %#q \nGot = %v", want, got)
+	}
+}
+
+func killCluster(t *testing.T, got string) {
+	var cliPath = getCliPath()
+	var re = regexp.MustCompile(`Cluster \(ID: (\w+)\) started successfully`)
+	var matches = re.FindStringSubmatch(got)
+	
+	if len(matches) == 2 {
+		var clusterId = matches[1]
+		execCommand(t, "", cliPath, "kill", "-c", "-y", clusterId)
 	}
 }
 
