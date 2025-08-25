@@ -3,35 +3,43 @@ package test
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
-	"github.com/BurntSushi/toml"
-	cmd "github.com/hdresearch/vers-cli/cmd"
+	"os/exec"
+
+	"github.com/joho/godotenv"
 )
 
 
 func TestStartCluster(t *testing.T) {
-
-	// Load configuration from vers.toml
-	config, err := loadTestConfig()
-
+	// Load GO_INSTALL_PATH
+	var rootDirPath, err = filepath.Abs("..")
 	if err != nil {
-		t.Fatalf("failed to load configuration: %q", err)
+		t.Fatal("Failed to resolve root directory. ")
 	}
-	
-	fmt.Printf("got config: %v", config)
+	godotenv.Load(
+		fmt.Sprintf(
+			"%v/.env",
+			rootDirPath, 
+		))
 
-	var  startCluster = func () {
-		err = cmd.StartCluster(config, []string{})
-		if err != nil {
-			t.Errorf("failed to start cluster: %q", err)
-		
-		}
-	}
 
-	got := GetStdOut(startCluster)
+	installCli(t)
+	startCluster(t)
 
-    fmt.Printf("Got vers run output: %v", got)
+	// ./test/testdata && \
+	// vers run`,
+
+	// var output, err = cmd.Output()
+
+	// if err != nil {
+	// 	t.Fatalf("failed to start cluster. Got: %v", err)
+	// }
+
+	// var got = string(output)
+
+    // fmt.Printf("Got vers run output: %v", got)
 
 	// var want = regexp.MustCompile(string(golden.Read(t)))
 	
@@ -41,19 +49,47 @@ func TestStartCluster(t *testing.T) {
 
 }
 
-// loadConfig loads the configuration from vers.toml or returns defaults
-func loadTestConfig() (*cmd.Config, error) {
-	config := cmd.DefaultConfig()
-
-	// Check if vers.toml exists
-	if _, err := os.Stat("./testdata/vers.toml"); os.IsNotExist(err) {
-		return nil, fmt.Errorf("test vers.toml not found. Exiting.")
+func installCli(t *testing.T) {
+	var goPath string = os.Getenv("GO_PATH")
+	var rootDirPath string
+	var err error
+	rootDirPath, err = filepath.Abs("..")
+	if err != nil {
+		t.Fatal("Failed to resolve root directory. ")
 	}
 
-	// Read and parse the toml file
-	if _, err := toml.DecodeFile("./testdata/vers.toml", config); err != nil {
-		return nil, fmt.Errorf("error parsing vers.toml: %w", err)
-	}
-
-	return config, nil
+	execCommand(
+		t, goPath, "install",  fmt.Sprintf("%v/cmd/vers", rootDirPath),
+	);
 }
+
+func startCluster(t *testing.T) {
+	var goInstallPath = os.Getenv("GO_INSTALL_PATH")
+	var cliPath = fmt.Sprintf("%v/vers", goInstallPath)
+	
+	execCommand(
+		t, cliPath, "run", 
+	)
+}
+
+func execCommand(t *testing.T, command string, args ...string) string {
+
+	t.Logf("Executing command %v with args %v…\n", command, args)
+	var cmd = exec.Command(
+		command, args...,
+	);
+	
+	var output, err = cmd.Output()
+
+	var stdout = string(output)
+
+	t.Logf("Got output: %v\n", stdout)
+
+	if err != nil {
+		t.Fatalf("Failed to execute command. Got error: %v\n", err)
+	}
+
+	return stdout
+
+}
+
