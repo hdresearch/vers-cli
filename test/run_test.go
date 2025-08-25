@@ -14,34 +14,36 @@ import (
 )
 
 
-func TestStartCluster(t *testing.T) {
+func TestVersRun(t *testing.T) {
+	loadEnv(t)
+
+	installVersCli(t)
+
+	login(t)
+
+	var got = execVersRun(t)
+
+	validateOutput(t, got)
+	
+	killNewCluster(t, got)
+}
+
+// Load VERS_API_KEY, GO_INSTALL_PATH, and GO_PATH
+func loadEnv(t *testing.T) {
 	var rootDirPath, err = filepath.Abs("..")
 	if err != nil {
 		t.Fatal("Failed to resolve root directory. ")
 	}
-	// Load VERS_API_KEY, GO_INSTALL_PATH, and GO_PATH
 	godotenv.Load(
 		fmt.Sprintf(
 			"%v/.env",
-			rootDirPath, 
+			rootDirPath,
 		),
 	)
-
-
-	installCli(t)
-
-	login(t)
-
-// 	var got = `Sending request to start cluster...
-// Cluster (ID: 5R7XSWVN8XRTD5Z9cCyp2S) started successfully with root vm 'b6bd5680-d942-4b64-b805-8c43ae5955f0'.
-// Warning: .vers directory not found. Run 'vers init' first.` 
-
-	var got = startCluster(t)
-	validateOutput(t, got)
-	killCluster(t, got)
 }
 
-func installCli(t *testing.T) {
+// Compile and install the local cmd/vers package
+func installVersCli(t *testing.T) {
 	var goPath string = os.Getenv("GO_PATH")
 	var rootDirPath string
 	var err error
@@ -55,8 +57,9 @@ func installCli(t *testing.T) {
 	);
 }
 
+// Login to the locally installed CLI
 func login(t *testing.T) {
-	cliPath := getCliPath()
+	cliPath := getVersCliPath()
 
 	var apiKey string = os.Getenv(("VERS_API_KEY"))
 	execCommand(
@@ -64,15 +67,16 @@ func login(t *testing.T) {
 	)
 }
 
-func startCluster(t *testing.T) string {
-	cliPath := getCliPath()
+// Exec 'vers run'
+func execVersRun(t *testing.T) string {
+	cliPath := getVersCliPath()
 	
 	return execCommand(
 		t, "./testdata", cliPath, "run", 
 	)
 }
 
-
+// Validate the output of 'vers run'
 func validateOutput(t *testing.T, got string) {
 	var want = regexp.MustCompile(`Sending request to start cluster...\nCluster \(ID: \w+\) started successfully with root vm '[\w-]+'\.`)
 
@@ -81,8 +85,9 @@ func validateOutput(t *testing.T, got string) {
 	}
 }
 
-func killCluster(t *testing.T, got string) {
-	var cliPath = getCliPath()
+// Teardown the newly created cluster
+func killNewCluster(t *testing.T, got string) {
+	var cliPath = getVersCliPath()
 	var re = regexp.MustCompile(`Cluster \(ID: (\w+)\) started successfully`)
 	var matches = re.FindStringSubmatch(got)
 	
@@ -92,12 +97,19 @@ func killCluster(t *testing.T, got string) {
 	}
 }
 
-func getCliPath() string {
+// Utility functions 
+
+// Get the newly installed CLI executable path
+// Expected to be installed to GO_INSTALL_PATH/vers
+func getVersCliPath() string {
 	var goInstallPath = strings.TrimRight(os.Getenv("GO_INSTALL_PATH"), "/")
 	var cliPath = fmt.Sprintf("%v/vers", goInstallPath)
 	return cliPath
 }
 
+// Executes commands in the specified directory
+// Logs stdout and errors
+// Command failures are fatal
 func execCommand(t *testing.T, dir string, command string,  args ...string) string {
 
 	t.Logf("Executing command %v with args %v…\n", command, args)
@@ -118,6 +130,5 @@ func execCommand(t *testing.T, dir string, command string,  args ...string) stri
 	}
 
 	return stdout
-
 }
 
