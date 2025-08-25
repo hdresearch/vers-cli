@@ -49,7 +49,7 @@ func installCli(t *testing.T) {
 	}
 
 	execCommand(
-		t, goPath, "install",  fmt.Sprintf("%v/cmd/vers", rootDirPath),
+		t, "", goPath, "install",  fmt.Sprintf("%v/cmd/vers", rootDirPath),
 	);
 }
 
@@ -58,7 +58,7 @@ func login(t *testing.T) {
 
 	var apiKey string = os.Getenv(("VERS_API_KEY"))
 	execCommand(
-		t, cliPath, "login", "--token", apiKey,
+		t, "", cliPath, "login", "--token", apiKey,
 	)
 }
 
@@ -66,15 +66,10 @@ func startCluster(t *testing.T) string {
 	cliPath := getCliPath()
 	
 	return execCommand(
-		t, cliPath, "run", 
+		t, "./testdata", cliPath, "run", 
 	)
 }
 
-func getCliPath() string {
-	var goInstallPath = strings.TrimRight(os.Getenv("GO_INSTALL_PATH"), "/")
-	var cliPath = fmt.Sprintf("%v/vers", goInstallPath)
-	return cliPath
-}
 
 func validateOutput(t *testing.T, got string) {
 	var want = regexp.MustCompile(`Sending request to start cluster...\nCluster \(ID: cluster-\w+\) started successfully with root vm 'vm-\w+'\.\nHEAD now points to: vm-\w+`)
@@ -84,12 +79,20 @@ func validateOutput(t *testing.T, got string) {
 	}
 }
 
-func execCommand(t *testing.T, command string, args ...string) string {
+func getCliPath() string {
+	var goInstallPath = strings.TrimRight(os.Getenv("GO_INSTALL_PATH"), "/")
+	var cliPath = fmt.Sprintf("%v/vers", goInstallPath)
+	return cliPath
+}
+
+func execCommand(t *testing.T, dir string, command string,  args ...string) string {
 
 	t.Logf("Executing command %v with args %v…\n", command, args)
 	var cmd = exec.Command(
 		command, args...,
 	);
+
+	cmd.Dir = dir
 
 	var output, err = cmd.Output()
 
