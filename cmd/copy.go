@@ -133,21 +133,21 @@ Examples:
 			}
 		}
 
-        vmName := fmt.Sprintf("%s.vm.vers.sh", vm.ID)
-        proxyCommand := fmt.Sprintf(
-          "ProxyCommand='openssl s_client -quiet -connect %s:%s -servername %s'",
-          sshHost, sshPort, vmName)
+		vmName := fmt.Sprintf("%s.vm.vers.sh", vm.ID)
+		proxyCommand := fmt.Sprintf(
+			"ProxyCommand='openssl s_client -quiet -connect %s:%s -servername %s'",
+			sshHost, sshPort, vmName)
 
 		// Create the SCP command
 		scpArgs := []string{
-            "-o", proxyCommand,
+			"-o", proxyCommand,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null",
 			"-o", "IdentitiesOnly=yes",
 			"-o", "PreferredAuthentications=publickey",
 			"-o", "LogLevel=ERROR",
 			"-i", keyPath,
-            "api.vers.sh",
+			"api.vers.sh",
 		}
 
 		// Add recursive flag if enabled
