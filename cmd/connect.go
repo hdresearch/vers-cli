@@ -86,15 +86,19 @@ var connectCmd = &cobra.Command{
 
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %s\n"), sshHost, sshPort)
-
+        vmName := fmt.Sprintf("%s.vm.vers.sh", vm.ID)
+        proxyCommand := fmt.Sprintf(
+          "ProxyCommand='openssl s_client -quiet -connect %s:%s -servername %s'",
+          sshHost, sshPort, vmName)
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", sshHost),
-			"-p", sshPort,
+            "-o", proxyCommand,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
 			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
 			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
-			"-i", keyPath) // Use the persistent key file
+			"-i", keyPath, // Use the persistent key file
+            "api.vers.sh") 
 
 		sshCmd.Stdout = os.Stdout
 		sshCmd.Stderr = os.Stderr

@@ -112,17 +112,21 @@ var executeCmd = &cobra.Command{
 			sshPort = "22"
 		}
 
-		// Create the SSH command with the provided command string
+        vmName := fmt.Sprintf("%s.vm.vers.sh", vm.ID)
+        proxyCommand := fmt.Sprintf(
+          "ProxyCommand='openssl s_client -quiet -connect %s:%s -servername %s'",
+          sshHost, sshPort, vmName)
 		sshCmd := exec.Command("ssh",
 			fmt.Sprintf("root@%s", sshHost),
-			"-p", sshPort,
+            "-o", proxyCommand,
 			"-o", "StrictHostKeyChecking=no",
 			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
 			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
 			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
 			"-o", "LogLevel=ERROR", // Add this line to suppress warnings
 			"-i", keyPath, // Use the persistent key file
-			commandStr) // Add the command to execute
+			"api.vers.sh",
+            commandStr) // Add the command to execute
 
 		// Connect command output to current terminal
 		sshCmd.Stdout = os.Stdout
