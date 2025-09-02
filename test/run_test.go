@@ -13,7 +13,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
 func TestVersRun(t *testing.T) {
 	loadEnv(t)
 
@@ -24,7 +23,7 @@ func TestVersRun(t *testing.T) {
 	var got = execVersRun(t)
 
 	validateOutput(t, got)
-	
+
 	killNewCluster(t, got)
 }
 
@@ -53,8 +52,8 @@ func installVersCli(t *testing.T) {
 	}
 
 	execCommand(
-		t, "", goPath, "install",  fmt.Sprintf("%v/cmd/vers", rootDirPath),
-	);
+		t, "", goPath, "install", fmt.Sprintf("%v/cmd/vers", rootDirPath),
+	)
 }
 
 // Login to the locally installed CLI
@@ -70,9 +69,9 @@ func login(t *testing.T) {
 // Exec 'vers run'
 func execVersRun(t *testing.T) string {
 	cliPath := getVersCliPath()
-	
+
 	return execCommand(
-		t, "./testdata", cliPath, "run", 
+		t, "./testdata", cliPath, "run",
 	)
 }
 
@@ -90,14 +89,14 @@ func killNewCluster(t *testing.T, got string) {
 	var cliPath = getVersCliPath()
 	var re = regexp.MustCompile(`Cluster \(ID: (\w+)\) started successfully`)
 	var matches = re.FindStringSubmatch(got)
-	
+
 	if len(matches) == 2 {
 		var clusterId = matches[1]
 		execCommand(t, "", cliPath, "kill", "-c", "-y", clusterId)
 	}
 }
 
-// Utility functions 
+// Utility functions
 
 // Get the newly installed CLI executable path
 // Expected to be installed to GO_INSTALL_PATH/vers
@@ -110,12 +109,12 @@ func getVersCliPath() string {
 // Executes commands in the specified directory
 // Logs stdout and errors
 // Command failures are fatal
-func execCommand(t *testing.T, dir string, command string,  args ...string) string {
+func execCommand(t *testing.T, dir string, command string, args ...string) string {
 
 	t.Logf("Executing command %v with args %v…\n", command, args)
 	var cmd = exec.Command(
 		command, args...,
-	);
+	)
 
 	cmd.Dir = dir
 
@@ -131,4 +130,3 @@ func execCommand(t *testing.T, dir string, command string,  args ...string) stri
 
 	return stdout
 }
-
