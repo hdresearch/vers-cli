@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 
 	"os/exec"
@@ -15,6 +14,8 @@ import (
 
 func TestVersRun(t *testing.T) {
 	loadEnv(t)
+
+	checkEnv(t)
 
 	installVersCli(t)
 
@@ -34,16 +35,33 @@ func loadEnv(t *testing.T) {
 		t.Fatal("Failed to resolve root directory. ")
 	}
 	godotenv.Load(
-		fmt.Sprintf(
-			"%v/.env",
+		filepath.Join(
 			rootDirPath,
+			".env",
 		),
 	)
 }
 
+func checkEnv(t *testing.T) {
+	var goInstallPath, goPath, versApiKey string = os.Getenv("GO_INSTALL_PATH"), os.Getenv("GO_PATH"), os.Getenv("VERS_API_KEY")
+	var missing []string = []string{}
+	if goInstallPath == "" {
+		missing = append(missing, "GO_INSTALL_PATH")
+	}
+	if goPath == "" {
+		missing = append(missing, "GO_PATH")
+	}
+	if versApiKey == "" {
+		missing = append(missing, "VERS_API_KEY")
+	}
+	if len(missing) > 0 {
+		t.Skipf("Skipping test because environment variables are not set. Missing: %v", missing)
+	}
+}
+
 // Compile and install the local cmd/vers package
 func installVersCli(t *testing.T) {
-	var goPath string = os.Getenv("GO_PATH")
+	var goPath string = filepath.Clean(os.Getenv("GO_PATH"))
 	var rootDirPath string
 	var err error
 	rootDirPath, err = filepath.Abs("..")
@@ -101,8 +119,8 @@ func killNewCluster(t *testing.T, got string) {
 // Get the newly installed CLI executable path
 // Expected to be installed to GO_INSTALL_PATH/vers
 func getVersCliPath() string {
-	var goInstallPath = strings.TrimRight(os.Getenv("GO_INSTALL_PATH"), "/")
-	var cliPath = fmt.Sprintf("%v/vers", goInstallPath)
+	var goInstallPath = os.Getenv("GO_INSTALL_PATH")
+	var cliPath = filepath.Join(goInstallPath, "vers")
 	return cliPath
 }
 
