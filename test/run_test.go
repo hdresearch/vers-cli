@@ -42,11 +42,9 @@ func TestVersRun(t *testing.T) {
 }
 
 // Load VERS_API_KEY and GO_PATH
+// The .env file should be located in the root directory of the project.
 func loadEnv(t *testing.T) {
-	var rootDirPath, err = filepath.Abs("..")
-	if err != nil {
-		t.Fatal("Failed to resolve root directory. ")
-	}
+	var rootDirPath string = getRootDirPath(t)
 	godotenv.Load(
 		filepath.Join(
 			rootDirPath,
@@ -95,7 +93,7 @@ func installVersCli(t *testing.T, installPath string) string {
 	execCommand(
 		t, "", map[string]string{
 			"GOBIN": installPath,
-		}, goPath, "install", filepath.Join(rootDirPath, "cmd/vers"),
+		}, goPath, "install", filepath.Join(rootDirPath, "cmd", "vers"),
 	)
 	return filepath.Join(installPath, "vers")
 }
@@ -177,11 +175,15 @@ func execCommand(t *testing.T, dir string, env map[string]string, command string
 		command, args...,
 	)
 
+	// Set the command's directory
 	cmd.Dir = dir
+
+	// Update the command's environment variables
 	for k, v := range env {
 		cmd.Env = append(cmd.Environ(), fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// Execute the command and capture the output
 	var output, err = cmd.Output()
 
 	var stdout string = ""
