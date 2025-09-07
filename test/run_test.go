@@ -19,9 +19,11 @@ func TestVersRun(t *testing.T) {
 
 	checkEnv(t)
 
-	var versCliPath string = installVersCli(t)
+	var versCliPath, installPath string = installVersCli(t)
 
 	login(t, versCliPath)
+
+	copyVersToml(t, installPath)
 
 	var got = execVersRun(t, versCliPath)
 
@@ -30,7 +32,7 @@ func TestVersRun(t *testing.T) {
 	killNewCluster(t, got, versCliPath)
 }
 
-// Load VERS_API_KEY, GO_INSTALL_PATH, and GO_PATH
+// Load VERS_API_KEY and GO_PATH
 func loadEnv(t *testing.T) {
 	var rootDirPath, err = filepath.Abs("..")
 	if err != nil {
@@ -44,6 +46,7 @@ func loadEnv(t *testing.T) {
 	)
 }
 
+// Validate that the necessary environment variables are set.
 func checkEnv(t *testing.T) {
 	var goPath, versApiKey string = os.Getenv("GO_PATH"), os.Getenv("VERS_API_KEY")
 	var missing []string = []string{}
@@ -60,14 +63,9 @@ func checkEnv(t *testing.T) {
 }
 
 // Compile and install the local cmd/vers package
-func installVersCli(t *testing.T) string {
+func installVersCli(t *testing.T) (string, string) {
 	var goPath string = filepath.Clean(os.Getenv("GO_PATH"))
-	var rootDirPath string
-	var err error
-	rootDirPath, err = filepath.Abs("..")
-	if err != nil {
-		t.Fatal("Failed to resolve root directory. ")
-	}
+	rootDirPath := getRootDirPath(t)
 
 	var currentDate string = time.Now().Format(time.DateTime)
 
@@ -85,7 +83,7 @@ func installVersCli(t *testing.T) string {
 			"GOBIN": installPath,
 		}, goPath, "install", filepath.Join(rootDirPath, "cmd/vers"),
 	)
-	return filepath.Join(installPath, "vers")
+	return filepath.Join(installPath, "vers"), installPath
 }
 
 // Login to the locally installed CLI
@@ -94,6 +92,17 @@ func login(t *testing.T, versCliPath string) {
 	var apiKey string = os.Getenv(("VERS_API_KEY"))
 	execCommand(
 		t, "", make(map[string]string), versCliPath, "login", "--token", apiKey,
+	)
+}
+
+// Copy the test vers.toml to the testing directory
+func copyVersToml(t *testing.T, installPath string) {
+	rootDirPath := getRootDirPath(t)
+	var versTomlPath string = filepath.Join(rootDirPath, "test", "testdata", "vers.toml")
+	var destPath string = filepath.Join(installPath, "vers.toml")
+
+	execCommand(
+		t, "", make(map[string]string), "cp", versTomlPath, destPath,
 	)
 }
 
@@ -126,12 +135,15 @@ func killNewCluster(t *testing.T, got string, versCliPath string) {
 
 // Utility functions
 
-// Get the newly installed CLI executable path
-// Expected to be installed to GO_INSTALL_PATH/vers
-func getVersCliPath() string {
-	var goInstallPath = os.Getenv("GO_INSTALL_PATH")
-	var cliPath = filepath.Join(goInstallPath, "vers")
-	return cliPath
+// Get the root directory path
+func getRootDirPath(t *testing.T) string {
+	var rootDirPath string
+	var err error
+	rootDirPath, err = filepath.Abs("..")
+	if err != nil {
+		t.Fatal("Failed to resolve root directory. ")
+	}
+	return rootDirPath
 }
 
 // Executes commands in the specified directory
