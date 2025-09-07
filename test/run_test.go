@@ -184,9 +184,11 @@ func execCommand(t *testing.T, dir string, env map[string]string, command string
 
 	var output, err = cmd.Output()
 
-	var stdout = string(output)
-
-	t.Logf("Got output: %v\n", stdout)
+	var stdout string = ""
+	if output != nil {
+		stdout = string(output)
+		t.Logf("Got output: %v\n", stdout)
+	}
 
 	if err != nil {
 		t.Fatalf("Failed to execute command. Got error: %v\n", err)
