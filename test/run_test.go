@@ -1,6 +1,7 @@
 package test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,7 +32,13 @@ func TestVersRun(t *testing.T) {
 
 	validateOutput(t, got)
 
-	killNewCluster(t, got, versCliPath)
+	clusterId, err := extractClusterId(got)
+
+	if err != nil {
+		t.Fatalf("Failed to extract cluster ID. Cannot kill cluster. Got error: %v", err)
+	}
+
+	killNewCluster(t, clusterId, versCliPath)
 }
 
 // Load VERS_API_KEY and GO_PATH
@@ -129,17 +136,22 @@ func validateOutput(t *testing.T, got string) {
 	}
 }
 
-// Teardown the newly created cluster
-func killNewCluster(t *testing.T, got string, versCliPath string) {
+// Extract the cluster ID
+func extractClusterId(got string) (string, error) {
 	var re = regexp.MustCompile(`Cluster \(ID: (\w+)\) started successfully`)
 	var matches = re.FindStringSubmatch(got)
 
 	if len(matches) == 2 {
 		var clusterId = matches[1]
-		execCommand(t, "", make(map[string]string), versCliPath, "kill", "-c", "-y", clusterId)
-	} else {
-		t.Errorf("Warning: Failed to extract cluster ID from output: %v. Could not kill cluster", got)
+		return clusterId, nil
 	}
+
+	return "", errors.New("Failed to extract cluster ID. No match found in output.")
+}
+
+// Teardown the newly created cluster
+func killNewCluster(t *testing.T, clusterId string, versCliPath string) {
+	execCommand(t, "", make(map[string]string), versCliPath, "kill", "-c", "-y", clusterId)
 }
 
 // Utility functions
