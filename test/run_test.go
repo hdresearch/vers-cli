@@ -19,7 +19,9 @@ func TestVersRun(t *testing.T) {
 
 	checkEnv(t)
 
-	var versCliPath, installPath string = installVersCli(t)
+	var installPath string = createTempInstallDir(t)
+
+	var versCliPath string = installVersCli(t, installPath)
 
 	login(t, versCliPath)
 
@@ -62,11 +64,9 @@ func checkEnv(t *testing.T) {
 	}
 }
 
-// Compile and install the local cmd/vers package
-func installVersCli(t *testing.T) (string, string) {
-	var goPath string = filepath.Clean(os.Getenv("GO_PATH"))
-	rootDirPath := getRootDirPath(t)
-
+// Create a temporary directory for installing the CLI.
+// We also use this directory for the vers.toml
+func createTempInstallDir(t *testing.T) string {
 	var currentDate string = time.Now().Format(time.DateTime)
 
 	tmpDir, err := filepath.Abs("/tmp")
@@ -77,13 +77,20 @@ func installVersCli(t *testing.T) (string, string) {
 	installPath := filepath.Join(tmpDir, "vers-cli-run-test-"+currentDate)
 
 	execCommand(t, "", make(map[string]string), "mkdir", "-p", installPath)
+	return installPath
+}
+
+// Compile and install the local cmd/vers package
+func installVersCli(t *testing.T, installPath string) string {
+	var goPath string = filepath.Clean(os.Getenv("GO_PATH"))
+	rootDirPath := getRootDirPath(t)
 
 	execCommand(
 		t, "", map[string]string{
 			"GOBIN": installPath,
 		}, goPath, "install", filepath.Join(rootDirPath, "cmd/vers"),
 	)
-	return filepath.Join(installPath, "vers"), installPath
+	return filepath.Join(installPath, "vers")
 }
 
 // Login to the locally installed CLI
