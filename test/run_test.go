@@ -103,7 +103,7 @@ func installVersCli(t *testing.T, installPath string) string {
 // Login to the locally installed CLI
 func login(t *testing.T, versCliPath string) {
 
-	var apiKey string = os.Getenv(("VERS_API_KEY"))
+	var apiKey string = os.Getenv("VERS_API_KEY")
 	execCommand(
 		t, "", make(map[string]string), versCliPath, "login", "--token", apiKey,
 	)
