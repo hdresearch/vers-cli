@@ -137,6 +137,8 @@ func killNewCluster(t *testing.T, got string, versCliPath string) {
 	if len(matches) == 2 {
 		var clusterId = matches[1]
 		execCommand(t, "", make(map[string]string), versCliPath, "kill", "-c", "-y", clusterId)
+	} else {
+		t.Errorf("Warning: Failed to extract cluster ID from output: %v. Could not kill cluster", got)
 	}
 }
 
