@@ -100,7 +100,6 @@ Add environment the following environment variables to a .env file at the root o
 ```bash
 VERS_URL="https://api.vers.sh"
 VERS_API_KEY="sk-vers-api…"
-GO_INSTALL_PATH=… # Where go installs your modules. Likely "$HOME/go/bin/"
 GO_PATH=…  # Path to your go executable. E.g. "/usr/local/go/bin/go"
 ```
 
