@@ -125,7 +125,6 @@ var executeCmd = &cobra.Command{
 			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
 			"-o", "LogLevel=ERROR", // Add this line to suppress warnings
 			"-i", keyPath, // Use the persistent key file
-			"api.vers.sh",
 			commandStr) // Add the command to execute
 
 		// Connect command output to current terminal

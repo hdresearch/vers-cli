@@ -147,7 +147,6 @@ Examples:
 			"-o", "PreferredAuthentications=publickey",
 			"-o", "LogLevel=ERROR",
 			"-i", keyPath,
-			"api.vers.sh",
 		}
 
 		// Add recursive flag if enabled

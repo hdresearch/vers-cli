@@ -98,7 +98,7 @@ var connectCmd = &cobra.Command{
 			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
 			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
 			"-i", keyPath, // Use the persistent key file
-			"api.vers.sh")
+		)
 
 		sshCmd.Stdout = os.Stdout
 		sshCmd.Stderr = os.Stderr
