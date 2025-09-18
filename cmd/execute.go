@@ -113,16 +113,17 @@ var executeCmd = &cobra.Command{
 		}
 
 		// Create the SSH command with the provided command string
-		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", sshHost),
-			"-p", sshPort,
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
-			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
-			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
-			"-o", "LogLevel=ERROR", // Add this line to suppress warnings
-			"-i", keyPath, // Use the persistent key file
-			commandStr) // Add the command to execute
+    sshCmd := exec.Command("ssh",
+        fmt.Sprintf("root@%s", sshHost),
+        "-p", sshPort,
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
+        "-o", "IdentitiesOnly=yes", // Only use the specified identity file
+        "-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
+        "-o", "LogLevel=ERROR", // Add this line to suppress warnings
+        "-o", "ConnectTimeout=5", // Fail fast if SSH port is not reachable
+        "-i", keyPath, // Use the persistent key file
+        commandStr) // Add the command to execute
 
 		// Connect command output to current terminal
 		sshCmd.Stdout = os.Stdout

@@ -134,15 +134,16 @@ Examples:
 		}
 
 		// Create the SCP command
-		scpArgs := []string{
-			"-P", sshPort,
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", "IdentitiesOnly=yes",
-			"-o", "PreferredAuthentications=publickey",
-			"-o", "LogLevel=ERROR",
-			"-i", keyPath,
-		}
+    scpArgs := []string{
+        "-P", sshPort,
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-o", "IdentitiesOnly=yes",
+        "-o", "PreferredAuthentications=publickey",
+        "-o", "LogLevel=ERROR",
+        "-o", "ConnectTimeout=5",
+        "-i", keyPath,
+    }
 
 		// Add recursive flag if enabled
 		if recursive {

@@ -22,90 +22,52 @@ var treeCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
 		defer cancel()
 
-		// Resolve cluster identifier
-		if len(args) == 0 {
-			// Get current VM ID from HEAD
-			headVMID, err := utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf("no cluster ID provided and %w", err)
-			}
+    // Resolve cluster identifier
+    if len(args) == 0 {
+        // Get current VM ID from HEAD
+        headVMID, err := utils.GetCurrentHeadVM()
+        if err != nil {
+            return fmt.Errorf("no cluster ID provided and %w", err)
+        }
 
-			fmt.Printf("Finding cluster for current HEAD VM: %s\n", headVMID)
+        fmt.Printf("Finding cluster for current HEAD VM: %s\n", headVMID)
 
-			response, err := client.API.Cluster.List(apiCtx)
-			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
-			}
-			clusters := response.Data
+        // Get the VM to discover its cluster ID
+        vmResp, err := client.API.Vm.Get(apiCtx, headVMID)
+        if err != nil {
+            return fmt.Errorf("failed to get HEAD VM info: %w", err)
+        }
 
-			// Find the cluster containing our HEAD VM
-			var foundCluster *vers.APIClusterListResponseData
-			for i := range clusters {
-				cluster := &clusters[i]
+        // Fetch that cluster directly
+        clResp, err := client.API.Cluster.Get(apiCtx, vmResp.Data.ClusterID)
+        if err != nil {
+            return fmt.Errorf("failed to get cluster '%s': %w", vmResp.Data.ClusterID, err)
+        }
 
-				// Check if it's the root VM
-				if cluster.RootVmID == headVMID {
-					foundCluster = cluster
-					break
-				}
+        return buildAndDisplayTree(clResp.Data, headVMID)
 
-				// Check all children in the cluster
-				for _, vm := range cluster.Vms {
-					if vm.ID == headVMID {
-						foundCluster = cluster
-						break
-					}
-				}
+    } else {
+        clusterIdentifier := args[0]
 
-				if foundCluster != nil {
-					break
-				}
-			}
+        // Fetch the cluster directly by ID or alias
+        clResp, err := client.API.Cluster.Get(apiCtx, clusterIdentifier)
+        if err != nil {
+            return fmt.Errorf("failed to get cluster '%s': %w", clusterIdentifier, err)
+        }
 
-			if foundCluster == nil {
-				return fmt.Errorf("couldn't find a cluster containing VM '%s'", headVMID)
-			}
+        // Get HEAD VM for highlighting
+        headVMID, err := utils.GetCurrentHeadVM()
+        if err != nil {
+            headVMID = ""
+        }
 
-			return buildAndDisplayTree(*foundCluster, headVMID)
-
-		} else {
-			response, err := client.API.Cluster.List(apiCtx)
-			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
-			}
-			clusters := response.Data
-
-			// Find the cluster by ID or alias
-			var foundCluster *vers.APIClusterListResponseData
-			clusterIdentifier := args[0]
-
-			for i := range clusters {
-				cluster := &clusters[i]
-
-				// Check if it matches by ID or alias
-				if cluster.ID == clusterIdentifier || cluster.Alias == clusterIdentifier {
-					foundCluster = cluster
-					break
-				}
-			}
-
-			if foundCluster == nil {
-				return fmt.Errorf("cluster '%s' not found", clusterIdentifier)
-			}
-
-			// Get HEAD VM for highlighting
-			headVMID, err := utils.GetCurrentHeadVM()
-			if err != nil {
-				headVMID = ""
-			}
-
-			return buildAndDisplayTree(*foundCluster, headVMID)
-		}
+        return buildAndDisplayTree(clResp.Data, headVMID)
+    }
 	},
 }
 
-// buildAndDisplayTree builds and displays the tree using only List API response data
-func buildAndDisplayTree(cluster vers.APIClusterListResponseData, headVMID string) error {
+// buildAndDisplayTree builds and displays the tree using a single cluster payload
+func buildAndDisplayTree(cluster vers.APIClusterGetResponseData, headVMID string) error {
 	// Create display name for cluster
 	clusterDisplayName := cluster.Alias
 	if clusterDisplayName == "" {
@@ -123,8 +85,8 @@ func buildAndDisplayTree(cluster vers.APIClusterListResponseData, headVMID strin
 		return fmt.Errorf("cluster '%s' has no root VM", clusterDisplayName)
 	}
 
-	// Print the tree starting from the root VM
-	printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID)
+    // Print the tree starting from the root VM
+    printVMTreeFromListData(cluster.Vms, cluster.RootVmID, "", true, headVMID)
 
 	// Print legend
 	fmt.Println("\nLegend:")
