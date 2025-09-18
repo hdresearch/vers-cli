@@ -1,17 +1,15 @@
 package cmd
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
+    "fmt"
+    "io/ioutil"
+    "os"
+    "path/filepath"
+    "strings"
+    "testing"
 
-	"github.com/hdresearch/vers-cli/internal/auth"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/spf13/cobra"
+    "github.com/hdresearch/vers-cli/internal/utils"
+    "github.com/spf13/cobra"
 )
 
 // TestCopyCommandArgumentParsing tests the argument parsing logic
@@ -238,18 +236,19 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			destination: "/remote/path/file.txt",
 			isUpload:    true,
 			recursive:   false,
-			expectedArgs: []string{
-				"scp",
-				"-P", "2222",
-				"-o", "StrictHostKeyChecking=no",
-				"-o", "UserKnownHostsFile=/dev/null",
-				"-o", "IdentitiesOnly=yes",
-				"-o", "PreferredAuthentications=publickey",
-				"-o", "LogLevel=ERROR",
-				"-i", "/path/to/key",
-				"./local-file.txt",
-				"root@192.168.1.100:/remote/path/file.txt",
-			},
+		expectedArgs: []string{
+			"scp",
+			"-P", "2222",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "IdentitiesOnly=yes",
+			"-o", "PreferredAuthentications=publickey",
+			"-o", "LogLevel=ERROR",
+			"-o", "ConnectTimeout=5",
+			"-i", "/path/to/key",
+			"./local-file.txt",
+			"root@192.168.1.100:/remote/path/file.txt",
+		},
 			expectedSource: "./local-file.txt",
 			expectedDest:   "root@192.168.1.100:/remote/path/file.txt",
 		},
@@ -262,18 +261,19 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			destination: "./local-file.txt",
 			isUpload:    false,
 			recursive:   false,
-			expectedArgs: []string{
-				"scp",
-				"-P", "2222",
-				"-o", "StrictHostKeyChecking=no",
-				"-o", "UserKnownHostsFile=/dev/null",
-				"-o", "IdentitiesOnly=yes",
-				"-o", "PreferredAuthentications=publickey",
-				"-o", "LogLevel=ERROR",
-				"-i", "/path/to/key",
-				"root@192.168.1.100:/remote/path/file.txt",
-				"./local-file.txt",
-			},
+		expectedArgs: []string{
+			"scp",
+			"-P", "2222",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "IdentitiesOnly=yes",
+			"-o", "PreferredAuthentications=publickey",
+			"-o", "LogLevel=ERROR",
+			"-o", "ConnectTimeout=5",
+			"-i", "/path/to/key",
+			"root@192.168.1.100:/remote/path/file.txt",
+			"./local-file.txt",
+		},
 			expectedSource: "root@192.168.1.100:/remote/path/file.txt",
 			expectedDest:   "./local-file.txt",
 		},
@@ -286,19 +286,20 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			destination: "/remote/path/",
 			isUpload:    true,
 			recursive:   true,
-			expectedArgs: []string{
-				"scp",
-				"-P", "2222",
-				"-o", "StrictHostKeyChecking=no",
-				"-o", "UserKnownHostsFile=/dev/null",
-				"-o", "IdentitiesOnly=yes",
-				"-o", "PreferredAuthentications=publickey",
-				"-o", "LogLevel=ERROR",
-				"-i", "/path/to/key",
-				"-r",
-				"./local-dir/",
-				"root@192.168.1.100:/remote/path/",
-			},
+		expectedArgs: []string{
+			"scp",
+			"-P", "2222",
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "IdentitiesOnly=yes",
+			"-o", "PreferredAuthentications=publickey",
+			"-o", "LogLevel=ERROR",
+			"-o", "ConnectTimeout=5",
+			"-i", "/path/to/key",
+			"-r",
+			"./local-dir/",
+			"root@192.168.1.100:/remote/path/",
+		},
 			expectedSource: "./local-dir/",
 			expectedDest:   "root@192.168.1.100:/remote/path/",
 		},
@@ -319,16 +320,17 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			}
 
 			// Construct the expected command arguments
-			expectedArgs := []string{
-				"scp",
-				"-P", tt.sshPort,
-				"-o", "StrictHostKeyChecking=no",
-				"-o", "UserKnownHostsFile=/dev/null",
-				"-o", "IdentitiesOnly=yes",
-				"-o", "PreferredAuthentications=publickey",
-				"-o", "LogLevel=ERROR",
-				"-i", tt.keyPath,
-			}
+		expectedArgs := []string{
+			"scp",
+			"-P", tt.sshPort,
+			"-o", "StrictHostKeyChecking=no",
+			"-o", "UserKnownHostsFile=/dev/null",
+			"-o", "IdentitiesOnly=yes",
+			"-o", "PreferredAuthentications=publickey",
+			"-o", "LogLevel=ERROR",
+			"-o", "ConnectTimeout=5",
+			"-i", tt.keyPath,
+		}
 
 			// Add recursive flag if enabled
 			if tt.recursive {
@@ -360,120 +362,6 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 	}
 }
 
-// TestCopyCommandIntegration tests the copy command end-to-end with the actual service
-func TestCopyCommandIntegration(t *testing.T) {
-	// Skip if we're in a unit test environment (no API key available)
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	// Check if we have authentication available
-	hasAPIKey, err := auth.HasAPIKey()
-	if err != nil || !hasAPIKey {
-		t.Skip("Skipping integration test: No API key available. Run 'vers login' first.")
-	}
-
-	// Create temporary directory for test files
-	tempDir, err := ioutil.TempDir("", "vers-copy-integration-")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Change to temp directory to ensure proper working directory
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	defer os.Chdir(originalDir)
-
-	err = os.Chdir(tempDir)
-	if err != nil {
-		t.Fatalf("Failed to change to temp directory: %v", err)
-	}
-
-	// Create a test file to upload
-	testFile := filepath.Join(tempDir, "test-upload.txt")
-	testContent := fmt.Sprintf("Test content created at %s", time.Now().Format(time.RFC3339))
-	err = os.WriteFile(testFile, []byte(testContent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	// Initialize client for integration test
-	setupIntegrationClient(t)
-
-	tests := []struct {
-		name         string
-		args         []string
-		expectError  bool
-		errorMessage string
-		validateFile bool
-		vmSpecific   bool // whether this test requires a specific VM ID
-	}{
-		{
-			name:         "copy with non-existent VM",
-			args:         []string{"non-existent-vm", testFile, "/tmp/test.txt"},
-			expectError:  true,
-			errorMessage: "failed to get VM information",
-			vmSpecific:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a new copy command for each test
-			cmd := &cobra.Command{
-				Use:  "copy [vm-id|alias] <source> <destination>",
-				Args: cobra.RangeArgs(2, 3),
-				RunE: copyCmd.RunE,
-			}
-
-			// Add recursive flag for consistency with real command
-			cmd.Flags().BoolP("recursive", "r", false, "Recursively copy directories")
-
-			// Set the arguments
-			cmd.SetArgs(tt.args)
-
-			// Execute the command
-			err := cmd.Execute()
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				} else if tt.errorMessage != "" && !strings.Contains(err.Error(), tt.errorMessage) {
-					t.Errorf("Expected error containing '%s', got: %v", tt.errorMessage, err)
-				}
-			} else {
-				if err != nil {
-					// Check if it's a service error vs a client error
-					if strings.Contains(err.Error(), "500 Internal Server Error") ||
-						strings.Contains(err.Error(), "no VM ID provided") ||
-						strings.Contains(err.Error(), "HEAD not found") {
-						t.Skipf("Skipping test due to service/environment error: %v", err)
-						return
-					}
-					t.Errorf("Unexpected error: %v", err)
-				}
-
-				// Validate downloaded file if specified
-				if tt.validateFile {
-					downloadedFile := filepath.Join(tempDir, "downloaded-file.txt")
-					if _, err := os.Stat(downloadedFile); err != nil {
-						t.Errorf("Downloaded file not found: %v", err)
-					} else {
-						content, err := os.ReadFile(downloadedFile)
-						if err != nil {
-							t.Errorf("Failed to read downloaded file: %v", err)
-						} else if string(content) != testContent {
-							t.Errorf("Downloaded content doesn't match. Expected: %s, Got: %s", testContent, string(content))
-						}
-					}
-				}
-			}
-		})
-	}
-}
 
 // TestCopyCommandWithRealHEAD tests copy command with actual HEAD setup
 func TestCopyCommandWithRealHEAD(t *testing.T) {

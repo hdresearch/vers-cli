@@ -1,60 +1,60 @@
 package test
 
 import (
-    "context"
-    "fmt"
-    "math/rand"
-    "os"
-    "os/exec"
-    "path/filepath"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"math/rand"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 const (
-    binPath        = "../bin/vers"
-    envFileRoot    = "../.env"
-    defaultTimeout = 60 * time.Second
+	binPath        = "../bin/vers"
+	envFileRoot    = "../.env"
+	defaultTimeout = 60 * time.Second
 )
 
 // testEnv ensures required env vars are present; loads root .env if found.
 func testEnv(t TLike) {
-    // Load root .env and local .env for convenience if present
-    _ = godotenv.Load(envFileRoot)
-    _ = godotenv.Load(".env")
+	// Load root .env and local .env for convenience if present
+	_ = godotenv.Load(envFileRoot)
+	_ = godotenv.Load(".env")
 
-    missing := []string{}
-    for _, k := range []string{"VERS_URL", "VERS_API_KEY"} {
-        if strings.TrimSpace(os.Getenv(k)) == "" {
-            missing = append(missing, k)
-        }
-    }
-    if len(missing) > 0 {
-        t.Skipf("missing required env vars for integration tests: %s", strings.Join(missing, ", "))
-    }
+	missing := []string{}
+	for _, k := range []string{"VERS_URL", "VERS_API_KEY"} {
+		if strings.TrimSpace(os.Getenv(k)) == "" {
+			missing = append(missing, k)
+		}
+	}
+	if len(missing) > 0 {
+		t.Skipf("missing required env vars for integration tests: %s", strings.Join(missing, ", "))
+	}
 
-    // Normalize VERS_URL to include a scheme if missing (CLI requires it)
-    if url := strings.TrimSpace(os.Getenv("VERS_URL")); url != "" {
-        if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-            os.Setenv("VERS_URL", "http://"+url)
-        }
-    }
+	// Normalize VERS_URL to include a scheme if missing (CLI requires it)
+	if url := strings.TrimSpace(os.Getenv("VERS_URL")); url != "" {
+		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+			os.Setenv("VERS_URL", "http://"+url)
+		}
+	}
 }
 
 // ensureBuilt builds the CLI binary if it doesn't exist.
 func ensureBuilt(t TLike) {
-    // Always rebuild to pick up latest changes during dev/test
-    if err := os.MkdirAll(filepath.Dir(binPath), 0o755); err != nil {
-        t.Fatalf("failed to create bin dir: %v", err)
-    }
-    cmd := exec.Command("go", "build", "-o", binPath, "../cmd/vers")
-    cmd.Env = append(os.Environ())
-    out, err := cmd.CombinedOutput()
-    if err != nil {
-        t.Fatalf("failed to build CLI: %v\n%s", err, string(out))
-    }
+	// Always rebuild to pick up latest changes during dev/test
+	if err := os.MkdirAll(filepath.Dir(binPath), 0o755); err != nil {
+		t.Fatalf("failed to create bin dir: %v", err)
+	}
+	cmd := exec.Command("go", "build", "-o", binPath, "../cmd/vers")
+	cmd.Env = append(os.Environ())
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("failed to build CLI: %v\n%s", err, string(out))
+	}
 }
 
 // runVers executes the CLI with a timeout and returns combined stdout/stderr and error.
