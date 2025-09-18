@@ -5,7 +5,7 @@ A command-line interface for managing virtual machine/container-based developmen
 
 ## Development
 
-The scripts you should use as models are `status.go`, `execute.go`, `up.go`, `branch.go`. 
+The scripts you should use as models are `status.go`, `execute.go`, `run.go`, `branch.go`. 
 
 You can largely have AI generate new command scripts with those previous scripts as a model. You'll have to manually adjust the SDK calls, though, since the AI won't have access to the details of the SDK. 
 
@@ -18,7 +18,7 @@ Make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See t
 
 ## Features
 
-- **Environment Management**: Start environments with `up` command
+- **Environment Management**: Start environments with `run` command
 - **State Inspection**: Check environment status
 - **Command Execution**: Run commands within environments
 - **Branching**: Create branches from existing environments
@@ -42,7 +42,7 @@ vers status
 vers status -c <cluster-id>
 
 # Start a development environment (creates a new cluster)
-vers up [cluster-name]
+vers run [cluster-name]
 
 # Execute a command on a VM
 vers execute <vm-id> <command> [args...]
