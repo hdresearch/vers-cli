@@ -38,19 +38,24 @@ var runCmd = &cobra.Command{
 
 // StartCluster starts a development environment according to the provided configuration
 func StartCluster(config *Config, args []string) error {
-	baseCtx := context.Background()
-	apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-	defer cancel()
+    baseCtx := context.Background()
+    apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+    defer cancel()
 
-	// Create base parameters
-	params := vers.ClusterCreateRequestNewClusterParamsParamsParam{
-		MemSizeMib:       vers.F(config.Machine.MemSizeMib),
-		VcpuCount:        vers.F(config.Machine.VcpuCount),
-		RootfsName:       vers.F(config.Rootfs.Name),
-		KernelName:       vers.F(config.Kernel.Name),
-		FsSizeClusterMib: vers.F(config.Machine.FsSizeClusterMib),
-		FsSizeVmMib:      vers.F(config.Machine.FsSizeVmMib),
-	}
+    // Preflight: validate and normalize filesystem sizes to avoid backend 500s
+    if err := validateAndNormalizeConfig(config); err != nil {
+        return err
+    }
+
+    // Create base parameters
+    params := vers.ClusterCreateRequestNewClusterParamsParamsParam{
+        MemSizeMib:       vers.F(config.Machine.MemSizeMib),
+        VcpuCount:        vers.F(config.Machine.VcpuCount),
+        RootfsName:       vers.F(config.Rootfs.Name),
+        KernelName:       vers.F(config.Kernel.Name),
+        FsSizeClusterMib: vers.F(config.Machine.FsSizeClusterMib),
+        FsSizeVmMib:      vers.F(config.Machine.FsSizeVmMib),
+    }
 
 	// Add aliases if provided
 	if clusterAlias != "" {
@@ -99,6 +104,34 @@ func StartCluster(config *Config, args []string) error {
 	}
 
 	return nil
+}
+
+// validateAndNormalizeConfig ensures filesystem sizes are present and consistent.
+func validateAndNormalizeConfig(cfg *Config) error {
+    // Provide sane defaults if missing
+    if cfg.Machine.FsSizeClusterMib == 0 && cfg.Machine.FsSizeVmMib == 0 {
+        cfg.Machine.FsSizeClusterMib = 1024
+        cfg.Machine.FsSizeVmMib = 512
+    } else if cfg.Machine.FsSizeClusterMib == 0 && cfg.Machine.FsSizeVmMib > 0 {
+        // Make cluster at least 2x VM or 1024, whichever is larger
+        vm := cfg.Machine.FsSizeVmMib
+        cluster := vm * 2
+        if cluster < 1024 {
+            cluster = 1024
+        }
+        cfg.Machine.FsSizeClusterMib = cluster
+    } else if cfg.Machine.FsSizeVmMib == 0 && cfg.Machine.FsSizeClusterMib > 0 {
+        // Default VM to half of cluster (rounded down)
+        cfg.Machine.FsSizeVmMib = cfg.Machine.FsSizeClusterMib / 2
+    }
+
+    // Validate relation: VM must not exceed cluster
+    if cfg.Machine.FsSizeVmMib > cfg.Machine.FsSizeClusterMib {
+        return fmt.Errorf("invalid configuration: VM filesystem size (%d MiB) must not exceed cluster filesystem size (%d MiB). Use --fs-size-cluster and --fs-size-vm or update vers.toml",
+            cfg.Machine.FsSizeVmMib, cfg.Machine.FsSizeClusterMib)
+    }
+
+    return nil
 }
 
 func init() {

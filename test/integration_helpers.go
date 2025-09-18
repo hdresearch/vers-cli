@@ -1,0 +1,109 @@
+package test
+
+import (
+    "context"
+    "fmt"
+    "math/rand"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "strings"
+    "time"
+
+	"github.com/joho/godotenv"
+)
+
+const (
+    binPath        = "../bin/vers"
+    envFileRoot    = "../.env"
+    defaultTimeout = 60 * time.Second
+)
+
+// testEnv ensures required env vars are present; loads root .env if found.
+func testEnv(t TLike) {
+    // Load root .env and local .env for convenience if present
+    _ = godotenv.Load(envFileRoot)
+    _ = godotenv.Load(".env")
+
+    missing := []string{}
+    for _, k := range []string{"VERS_URL", "VERS_API_KEY"} {
+        if strings.TrimSpace(os.Getenv(k)) == "" {
+            missing = append(missing, k)
+        }
+    }
+    if len(missing) > 0 {
+        t.Skipf("missing required env vars for integration tests: %s", strings.Join(missing, ", "))
+    }
+
+    // Normalize VERS_URL to include a scheme if missing (CLI requires it)
+    if url := strings.TrimSpace(os.Getenv("VERS_URL")); url != "" {
+        if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+            os.Setenv("VERS_URL", "http://"+url)
+        }
+    }
+}
+
+// ensureBuilt builds the CLI binary if it doesn't exist.
+func ensureBuilt(t TLike) {
+    // Always rebuild to pick up latest changes during dev/test
+    if err := os.MkdirAll(filepath.Dir(binPath), 0o755); err != nil {
+        t.Fatalf("failed to create bin dir: %v", err)
+    }
+    cmd := exec.Command("go", "build", "-o", binPath, "../cmd/vers")
+    cmd.Env = append(os.Environ())
+    out, err := cmd.CombinedOutput()
+    if err != nil {
+        t.Fatalf("failed to build CLI: %v\n%s", err, string(out))
+    }
+}
+
+// runVers executes the CLI with a timeout and returns combined stdout/stderr and error.
+func runVers(t TLike, timeout time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, binPath, args...)
+	// Inherit env so VERS_URL and VERS_API_KEY are visible
+	cmd.Env = append(os.Environ())
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("command timed out: vers %s", strings.Join(args, " "))
+	}
+	return string(out), err
+}
+
+// registerClusterCleanup ensures a cluster is deleted at test end, regardless of outcome.
+func registerClusterCleanup(t TLike, identifier string) {
+	t.Cleanup(func() {
+		// Best-effort cleanup: skip confirmation, target cluster by ID or alias
+		_, _ = runVers(t, defaultTimeout, "kill", "-c", "-y", identifier)
+	})
+}
+
+// registerVMCleanup ensures a VM is deleted at test end.
+func registerVMCleanup(t TLike, identifier string, recursive bool) {
+	t.Cleanup(func() {
+		args := []string{"kill", "-y"}
+		if recursive {
+			args = append(args, "-r")
+		}
+		args = append(args, identifier)
+		_, _ = runVers(t, defaultTimeout, args...)
+	})
+}
+
+// uniqueAliases returns unique alias strings scoped to a test run.
+func uniqueAliases(prefix string) (clusterAlias, vmAlias string) {
+	// Keep it readable and collision-resistant without external deps.
+	ts := time.Now().UTC().Format("20060102-150405")
+	randPart := rand.Intn(1_000_000)
+	base := fmt.Sprintf("%s-it-%s-%06d", prefix, ts, randPart)
+	return base + "-cluster", base + "-vm"
+}
+
+// TLike is the subset of *testing.T methods we use; helps reuse in helpers.
+type TLike interface {
+	Cleanup(func())
+	Fatalf(string, ...any)
+	Skipf(string, ...any)
+}
