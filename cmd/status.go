@@ -1,15 +1,17 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "strings"
+    "time"
 
-	"github.com/charmbracelet/lipgloss/list"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
-	"github.com/spf13/cobra"
+    "github.com/charmbracelet/lipgloss/list"
+    "github.com/hdresearch/vers-cli/internal/presenters"
+    svc "github.com/hdresearch/vers-cli/internal/services/status"
+    "github.com/hdresearch/vers-cli/internal/utils"
+    "github.com/hdresearch/vers-cli/styles"
+    "github.com/spf13/cobra"
 )
 
 // statusCmd represents the status command
@@ -49,165 +51,45 @@ var statusCmd = &cobra.Command{
 
 // Handle cluster status with single API call
 func handleClusterStatus(ctx context.Context, clusterID string, s *styles.StatusStyles) error {
-	// Single API call - Cluster.Get() can resolve by ID or alias directly
-	response, err := client.API.Cluster.Get(ctx, clusterID)
-	if err != nil {
-		return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find cluster '%s': %w"), clusterID, err)
-	}
-
-	cluster := response.Data
-
-	// Find the root VM in the VMs list to get its alias
-	var rootVMAlias string
-	for _, vm := range cluster.Vms {
-		if vm.ID == cluster.RootVmID {
-			rootVMAlias = vm.Alias
-			break
-		}
-	}
-
-	// Create display name (prefer alias over ID)
-	clusterDisplayName := cluster.Alias
-	if clusterDisplayName == "" {
-		clusterDisplayName = cluster.ID
-	}
-
-	// Create root VM display name (prefer alias over ID)
-	rootVMDisplayName := rootVMAlias
-	if rootVMDisplayName == "" {
-		rootVMDisplayName = cluster.RootVmID
-	}
-
-	fmt.Printf(s.HeadStatus.Render("Getting status for cluster: "+clusterDisplayName) + "\n")
-
-	fmt.Println(s.VMListHeader.Render("Cluster details:"))
-	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-
-	// Format cluster info
-	clusterInfo_display := fmt.Sprintf(
-		"%s\n%s\n%s",
-		s.ClusterName.Render("Cluster: "+clusterDisplayName),
-		s.ClusterData.Render("Root VM: "+s.VMID.Render(rootVMDisplayName)),
-		s.ClusterData.Render("# VMs: "+fmt.Sprintf("%d", len(cluster.Vms))),
-	)
-	clusterList.Items(clusterInfo_display)
-	fmt.Println(clusterList)
-
-	fmt.Println(s.VMListHeader.Render("VMs in this cluster:"))
-
-	if len(cluster.Vms) == 0 {
-		fmt.Println(s.NoData.Render("No VMs found in this cluster."))
-	} else {
-		vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-		for _, vm := range cluster.Vms {
-			// Show alias if available, otherwise show ID
-			displayName := vm.Alias
-			if displayName == "" {
-				displayName = vm.ID
-			}
-
-			vmInfo := fmt.Sprintf(
-				"%s\n%s\n",
-				s.ClusterData.Render("VM: "+s.VMID.Render(displayName)),
-				s.ClusterData.Render("State: "+string(vm.State)),
-			)
-			vmList.Items(vmInfo)
-		}
-		fmt.Println(vmList)
-	}
-
-	tip := "\nTip: To view all clusters, run: vers status"
-	fmt.Println(s.Tip.Render(tip))
-
-	return nil
+    cluster, err := svc.GetCluster(ctx, client, clusterID)
+    if err != nil {
+        return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find cluster '%s': %w"), clusterID, err)
+    }
+    presenters.RenderClusterStatus(s, cluster)
+    return nil
 }
 
 // Handle VM status with single API call
 func handleVMStatus(ctx context.Context, vmIdentifier string, s *styles.StatusStyles) error {
-	// Single API call - Vm.Get() can resolve by ID or alias directly
-	response, err := client.API.Vm.Get(ctx, vmIdentifier)
-	if err != nil {
-		return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find VM '%s': %w"), vmIdentifier, err)
-	}
-
-	vm := response.Data
-
-	// Create VMInfo from response
-	vmInfo := utils.CreateVMInfoFromGetResponse(vm)
-
-	fmt.Printf(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName) + "\n")
-
-	fmt.Println(s.VMListHeader.Render("VM details:"))
-	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
-
-	// Use data from single API call - no second Vm.Get() needed
-	vmInfo_display := fmt.Sprintf(
-		"%s\n%s\n%s",
-		s.ClusterName.Render("VM: "+s.VMID.Render(vmInfo.DisplayName)),
-		s.ClusterData.Render("State: "+vmInfo.State),
-		s.ClusterData.Render("Cluster: "+vm.ClusterID),
-	)
-
-	vmList.Items(vmInfo_display)
-	fmt.Println(vmList)
-
-	tip := "\nTip: To view the cluster containing this VM, run: vers status -c " + vm.ClusterID
-	fmt.Println(s.Tip.Render(tip))
-
-	return nil
+    vm, err := svc.GetVM(ctx, client, vmIdentifier)
+    if err != nil {
+        return fmt.Errorf(styles.ErrorTextStyle.Render("failed to find VM '%s': %w"), vmIdentifier, err)
+    }
+    presenters.RenderVMStatus(s, vm)
+    return nil
 }
 
 // Handle default status (list all clusters)
 func handleDefaultStatus(ctx context.Context, s *styles.StatusStyles) error {
-	// List all clusters
-	fmt.Println(s.NoData.Render("Fetching list of clusters..."))
-	response, err := client.API.Cluster.List(ctx)
-	if err != nil {
-		return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %w"), err)
-	}
+    // List all clusters
+    fmt.Println(s.NoData.Render("Fetching list of clusters..."))
+    clusters, err := svc.ListClusters(ctx, client)
+    if err != nil {
+        return fmt.Errorf(styles.ErrorTextStyle.Render("failed to list clusters: %w"), err)
+    }
 
-	clusters := response.Data
+    if len(clusters) == 0 {
+        fmt.Println(s.NoData.Render("No clusters found."))
+        return nil
+    }
 
-	if len(clusters) == 0 {
-		fmt.Println(s.NoData.Render("No clusters found."))
-		return nil
-	}
+    presenters.RenderClusterList(s, clusters)
 
-	fmt.Println(s.VMListHeader.Render("Available clusters:"))
-	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
+    tip := "\nTip: To view VMs in a specific cluster, use: vers status -c <cluster-id>\n" +
+        "To view a specific VM, use: vers status <vm-id>"
+    fmt.Println(s.Tip.Render(tip))
 
-	for _, cluster := range clusters {
-		// Show alias if available, otherwise show ID
-		displayName := cluster.Alias
-		if displayName == "" {
-			displayName = cluster.ID
-		}
-
-		// Try to find root VM alias in the Vms array (if populated)
-		rootVMDisplayName := cluster.RootVmID // Default to ID
-		for _, vm := range cluster.Vms {
-			if vm.ID == cluster.RootVmID && vm.Alias != "" {
-				rootVMDisplayName = vm.Alias
-				break
-			}
-		}
-
-		// Combine the cluster name and its data into a single string
-		clusterInfo := fmt.Sprintf(
-			"%s\n%s\n%s",
-			s.ClusterName.Render("Cluster: "+displayName),
-			s.ClusterData.Render("Root VM: "+s.VMID.Render(rootVMDisplayName)),
-			s.ClusterData.Render("# children: "+fmt.Sprintf("%d", cluster.VmCount)),
-		)
-		clusterList.Items(clusterInfo)
-	}
-	fmt.Println(clusterList)
-
-	tip := "\nTip: To view VMs in a specific cluster, use: vers status -c <cluster-id>\n" +
-		"To view a specific VM, use: vers status <vm-id>"
-	fmt.Println(s.Tip.Render(tip))
-
-	return nil
+    return nil
 }
 
 // Only show HEAD status when relevant (default case only)

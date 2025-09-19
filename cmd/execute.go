@@ -1,18 +1,19 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "os"
+    "os/exec"
+    "strings"
+    "time"
 
-	"github.com/hdresearch/vers-cli/internal/auth"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
-	"github.com/hdresearch/vers-sdk-go"
-	"github.com/spf13/cobra"
+    "github.com/hdresearch/vers-cli/internal/auth"
+    sshutil "github.com/hdresearch/vers-cli/internal/ssh"
+    "github.com/hdresearch/vers-cli/internal/utils"
+    "github.com/hdresearch/vers-cli/styles"
+    "github.com/hdresearch/vers-sdk-go"
+    "github.com/spf13/cobra"
 )
 
 // executeCmd represents the execute command
@@ -113,17 +114,7 @@ var executeCmd = &cobra.Command{
 		}
 
 		// Create the SSH command with the provided command string
-    sshCmd := exec.Command("ssh",
-        fmt.Sprintf("root@%s", sshHost),
-        "-p", sshPort,
-        "-o", "StrictHostKeyChecking=no",
-        "-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
-        "-o", "IdentitiesOnly=yes", // Only use the specified identity file
-        "-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
-        "-o", "LogLevel=ERROR", // Add this line to suppress warnings
-        "-o", "ConnectTimeout=5", // Fail fast if SSH port is not reachable
-        "-i", keyPath, // Use the persistent key file
-        commandStr) // Add the command to execute
+        sshCmd := sshutil.SSHCommand(sshHost, sshPort, keyPath, commandStr)
 
 		// Connect command output to current terminal
 		sshCmd.Stdout = os.Stdout
