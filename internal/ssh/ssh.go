@@ -28,6 +28,24 @@ func SSHCommand(host, port, keyPath string, extraArgs ...string) *exec.Cmd {
 	return exec.Command("ssh", args...)
 }
 
+// SSHArgs builds argument list for ssh with consistent options.
+// extraArgs may include a remote command string.
+func SSHArgs(host, port, keyPath string, extraArgs ...string) []string {
+	args := []string{
+		fmt.Sprintf("root@%s", host),
+		"-p", port,
+		"-o", "StrictHostKeyChecking=no",
+		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "IdentitiesOnly=yes",
+		"-o", "PreferredAuthentications=publickey",
+		"-o", "LogLevel=ERROR",
+		"-o", "ConnectTimeout=" + getTimeout(),
+		"-i", keyPath,
+	}
+	args = append(args, extraArgs...)
+	return args
+}
+
 // SCPArgs builds argument list for scp with consistent options.
 // Set recursive to add -r. The source and dest are appended by caller.
 func SCPArgs(port, keyPath string, recursive bool) []string {
