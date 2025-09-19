@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hdresearch/vers-cli/internal/errorsx"
+	"github.com/hdresearch/vers-cli/internal/presenters"
+	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -163,33 +166,24 @@ func (p *VMDeletionProcessor) getDeletionAction() string {
 }
 
 func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
-	deleteParams := vers.APIVmDeleteParams{
-		Recursive: vers.F(p.recursive), // Use the recursive flag specifically
+	deleted, err := delsvc.DeleteVM(p.ctx, p.client, vmID, p.recursive)
+	if err != nil {
+		switch e := err.(type) {
+		case *errorsx.HasChildrenError:
+			return nil, errors.New(presenters.HasChildrenGuidance(e.VMID, p.styles))
+		case *errorsx.IsRootError:
+			return nil, errors.New(presenters.RootDeleteGuidance(e.VMID, p.styles))
+		default:
+			return nil, err
+		}
 	}
-
-    result, err := p.client.API.Vm.Delete(p.ctx, vmID, deleteParams)
-    if err != nil {
-        // Provide friendly error messages for common server-side constraints
-        if p.isHasChildrenError(err) {
-            return nil, p.createHasChildrenError(vmID)
-        }
-        if p.isRootError(err) {
-            return nil, p.createRootError(vmID)
-        }
-        return nil, err
-    }
-
-	if utils.HandleVmDeleteErrors(result, p.styles) {
-		return nil, fmt.Errorf("deletion had errors")
-	}
-
-	return result.Data.DeletedIDs, nil
+	return deleted, nil
 }
 
 // isHasChildrenError checks if the error is a 409 Conflict with "HasChildren"
 func (p *VMDeletionProcessor) isHasChildrenError(err error) bool {
-    errStr := err.Error()
-    return strings.Contains(errStr, "409 Conflict") && strings.Contains(errStr, "HasChildren")
+	errStr := err.Error()
+	return strings.Contains(errStr, "409 Conflict") && strings.Contains(errStr, "HasChildren")
 }
 
 // createHasChildrenError creates a user-friendly error message for the HasChildren scenario
@@ -210,14 +204,14 @@ To see the VM tree structure, run:
 
 // isRootError checks if the error indicates the VM is a cluster root VM.
 func (p *VMDeletionProcessor) isRootError(err error) bool {
-    errStr := err.Error()
-    // Observed as 400 Bad Request with "IsRoot" token
-    return strings.Contains(errStr, "IsRoot")
+	errStr := err.Error()
+	// Observed as 400 Bad Request with "IsRoot" token
+	return strings.Contains(errStr, "IsRoot")
 }
 
 // createRootError returns a helpful message for attempts to delete the cluster root VM directly.
 func (p *VMDeletionProcessor) createRootError(vmID string) error {
-    message := fmt.Sprintf(`Cannot delete VM because it is the cluster's root VM.
+	message := fmt.Sprintf(`Cannot delete VM because it is the cluster's root VM.
 
 Deleting the root VM would orphan the entire cluster topology.
 
@@ -228,5 +222,5 @@ To inspect the structure and identify the cluster, run:
   vers tree
 
 Target VM: %s`, vmID)
-    return errors.New(message)
+	return errors.New(message)
 }

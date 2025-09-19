@@ -1,18 +1,18 @@
 package cmd
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
-    "github.com/hdresearch/vers-cli/internal/auth"
-    sshutil "github.com/hdresearch/vers-cli/internal/ssh"
-    "github.com/hdresearch/vers-cli/internal/utils"
-    "github.com/hdresearch/vers-cli/styles"
-    "github.com/spf13/cobra"
+	"github.com/hdresearch/vers-cli/internal/auth"
+	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
+	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-cli/styles"
+	"github.com/spf13/cobra"
 )
 
 // connectCmd represents the connect command
@@ -88,7 +88,7 @@ var connectCmd = &cobra.Command{
 		// Debug info about connection
 		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %s\n"), sshHost, sshPort)
 
-        sshCmd := sshutil.SSHCommand(sshHost, sshPort, keyPath)
+		sshCmd := sshutil.SSHCommand(sshHost, sshPort, keyPath)
 
 		sshCmd.Stdout = os.Stdout
 		sshCmd.Stderr = os.Stderr

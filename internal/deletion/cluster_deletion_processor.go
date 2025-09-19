@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -212,14 +213,5 @@ func (p *ClusterDeletionProcessor) getDeletionAction() string {
 }
 
 func (p *ClusterDeletionProcessor) deleteCluster(clusterID string) ([]string, error) {
-	result, err := p.client.API.Cluster.Delete(p.ctx, clusterID)
-	if err != nil {
-		return nil, err
-	}
-
-	if errorSummary := utils.GetClusterDeleteErrorSummary(result); errorSummary != "" {
-		return nil, fmt.Errorf("partially failed: %s", errorSummary)
-	}
-
-	return result.Data.Vms.DeletedIDs, nil
+	return delsvc.DeleteCluster(p.ctx, p.client, clusterID)
 }

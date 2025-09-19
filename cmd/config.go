@@ -38,25 +38,25 @@ type KernelConfig struct {
 
 // DefaultConfig returns a config with default values
 func DefaultConfig() *Config {
-    return &Config{
-        Machine: MachineConfig{
-            MemSizeMib: 512,
-            VcpuCount:  1,
-            // Provide safe filesystem defaults to avoid backend errors when vers.toml is missing
-            FsSizeClusterMib: 1024,
-            FsSizeVmMib:      512,
-        },
-        Rootfs: RootfsConfig{
-            Name: "default",
-        },
-        Builder: BuilderConfig{
-            Name:       "docker",
-            Dockerfile: "Dockerfile",
-        },
-        Kernel: KernelConfig{
-            Name: "default.bin",
-        },
-    }
+	return &Config{
+		Machine: MachineConfig{
+			MemSizeMib: 512,
+			VcpuCount:  1,
+			// Provide safe filesystem defaults to avoid backend errors when vers.toml is missing
+			FsSizeClusterMib: 1024,
+			FsSizeVmMib:      512,
+		},
+		Rootfs: RootfsConfig{
+			Name: "default",
+		},
+		Builder: BuilderConfig{
+			Name:       "docker",
+			Dockerfile: "Dockerfile",
+		},
+		Kernel: KernelConfig{
+			Name: "default.bin",
+		},
+	}
 }
 
 // loadConfig loads the configuration from vers.toml or returns defaults
@@ -95,19 +95,19 @@ func applyFlagOverrides(cmd *cobra.Command, config *Config) {
 	}
 
 	// Override kernel name if flag is set
-    if kernel, _ := cmd.Flags().GetString("kernel"); kernel != "" {
-        config.Kernel.Name = kernel
-    }
+	if kernel, _ := cmd.Flags().GetString("kernel"); kernel != "" {
+		config.Kernel.Name = kernel
+	}
 
-    if dockerfile, _ := cmd.Flags().GetString("dockerfile"); dockerfile != "" {
-        config.Builder.Dockerfile = dockerfile
-    }
+	if dockerfile, _ := cmd.Flags().GetString("dockerfile"); dockerfile != "" {
+		config.Builder.Dockerfile = dockerfile
+	}
 
-    // Override filesystem sizes if flags are set
-    if fsCluster, _ := cmd.Flags().GetInt64("fs-size-cluster"); fsCluster > 0 {
-        config.Machine.FsSizeClusterMib = fsCluster
-    }
-    if fsVm, _ := cmd.Flags().GetInt64("fs-size-vm"); fsVm > 0 {
-        config.Machine.FsSizeVmMib = fsVm
-    }
+	// Override filesystem sizes if flags are set
+	if fsCluster, _ := cmd.Flags().GetInt64("fs-size-cluster"); fsCluster > 0 {
+		config.Machine.FsSizeClusterMib = fsCluster
+	}
+	if fsVm, _ := cmd.Flags().GetInt64("fs-size-vm"); fsVm > 0 {
+		config.Machine.FsSizeVmMib = fsVm
+	}
 }

@@ -1,18 +1,18 @@
 package cmd
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
-    "github.com/hdresearch/vers-cli/internal/auth"
-    sshutil "github.com/hdresearch/vers-cli/internal/ssh"
-    "github.com/hdresearch/vers-cli/internal/utils"
-    "github.com/hdresearch/vers-cli/styles"
-    "github.com/spf13/cobra"
+	"github.com/hdresearch/vers-cli/internal/auth"
+	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
+	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-cli/styles"
+	"github.com/spf13/cobra"
 )
 
 // copyCmd represents the copy command
@@ -135,12 +135,12 @@ Examples:
 		}
 
 		// Create the SCP command
-    scpArgs := sshutil.SCPArgs(sshPort, keyPath, recursive)
+		scpArgs := sshutil.SCPArgs(sshPort, keyPath, recursive)
 
 		// Add source and destination
 		scpArgs = append(scpArgs, scpSource, scpDest)
 
-    scpCmd := exec.Command("scp", scpArgs...)
+		scpCmd := exec.Command("scp", scpArgs...)
 
 		// Connect command output to current terminal
 		scpCmd.Stdout = os.Stdout

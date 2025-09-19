@@ -1,19 +1,19 @@
 package cmd
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "os/exec"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
-    "github.com/hdresearch/vers-cli/internal/auth"
-    sshutil "github.com/hdresearch/vers-cli/internal/ssh"
-    "github.com/hdresearch/vers-cli/internal/utils"
-    "github.com/hdresearch/vers-cli/styles"
-    "github.com/hdresearch/vers-sdk-go"
-    "github.com/spf13/cobra"
+	"github.com/hdresearch/vers-cli/internal/auth"
+	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
+	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-sdk-go"
+	"github.com/spf13/cobra"
 )
 
 // executeCmd represents the execute command
@@ -114,7 +114,7 @@ var executeCmd = &cobra.Command{
 		}
 
 		// Create the SSH command with the provided command string
-        sshCmd := sshutil.SSHCommand(sshHost, sshPort, keyPath, commandStr)
+		sshCmd := sshutil.SSHCommand(sshHost, sshPort, keyPath, commandStr)
 
 		// Connect command output to current terminal
 		sshCmd.Stdout = os.Stdout
