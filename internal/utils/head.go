@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -112,24 +111,7 @@ func CheckClusterImpactsHead(ctx context.Context, client *vers.Client, clusterID
 }
 
 // ConfirmVMHeadImpact checks and confirms HEAD impact for a single VM deletion
-func ConfirmVMHeadImpact(vmID string, s *styles.KillStyles) bool {
-	if !CheckVMImpactsHead(vmID) {
-		return true // No impact, proceed
-	}
-
-	fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
-	return AskConfirmation()
-}
-
-// ConfirmClusterHeadImpact checks and confirms HEAD impact for a single cluster deletion
-func ConfirmClusterHeadImpact(ctx context.Context, client *vers.Client, clusterID string, s *styles.KillStyles) bool {
-	if !CheckClusterImpactsHead(ctx, client, clusterID) {
-		return true // No impact, proceed
-	}
-
-	fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
-	return AskConfirmation()
-}
+// Confirmation prompts were moved to handlers using the shared Prompter.
 
 // CleanupAfterDeletion clears HEAD if any of the deleted VM IDs match current HEAD
 func CleanupAfterDeletion(deletedVMIDs []string) bool {

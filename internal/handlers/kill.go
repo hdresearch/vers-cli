@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/internal/deletion"
 	"github.com/hdresearch/vers-cli/internal/errorsx"
+	deletion "github.com/hdresearch/vers-cli/internal/handlers/deletion"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -27,7 +27,7 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 	s := styles.NewKillStyles()
 
 	if r.KillAll {
-		processor := deletion.NewClusterDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive)
+		processor := deletion.NewClusterDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
 		return processor.DeleteAllClusters()
 	}
 
@@ -39,13 +39,19 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 		fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
 
 		if !r.SkipConfirmation {
-			if !utils.ConfirmDeletion("VM", headVMID, &s) {
-				utils.OperationCancelled(&s)
+			fmt.Println(s.Warning.Render("Warning: You are about to delete VM '" + headVMID + "'"))
+			ok, _ := a.Prompter.YesNo("Proceed")
+			if !ok {
+				presenters.OperationCancelled(&s)
 				return fmt.Errorf("operation cancelled by user")
 			}
-			if !utils.ConfirmVMHeadImpact(headVMID, &s) {
-				utils.OperationCancelled(&s)
-				return fmt.Errorf("operation cancelled by user")
+			if utils.CheckVMImpactsHead(headVMID) {
+				fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
+				ok, _ = a.Prompter.YesNo("Proceed")
+				if !ok {
+					presenters.OperationCancelled(&s)
+					return fmt.Errorf("operation cancelled by user")
+				}
 			}
 		}
 
@@ -64,7 +70,7 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 	}
 
 	if r.IsCluster {
-		processor := deletion.NewClusterDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive)
+		processor := deletion.NewClusterDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
 		return processor.DeleteMultipleClusters(r.Targets)
 	}
 
@@ -74,13 +80,19 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 			return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
 		}
 		if !r.SkipConfirmation {
-			if !utils.ConfirmDeletion("VM", vmInfo.DisplayName, &s) {
-				utils.OperationCancelled(&s)
+			fmt.Println(s.Warning.Render("Warning: You are about to delete VM '" + vmInfo.DisplayName + "'"))
+			ok, _ := a.Prompter.YesNo("Proceed")
+			if !ok {
+				presenters.OperationCancelled(&s)
 				return fmt.Errorf("operation cancelled by user")
 			}
-			if !utils.ConfirmVMHeadImpact(vmInfo.ID, &s) {
-				utils.OperationCancelled(&s)
-				return fmt.Errorf("operation cancelled by user")
+			if utils.CheckVMImpactsHead(vmInfo.ID) {
+				fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
+				ok, _ = a.Prompter.YesNo("Proceed")
+				if !ok {
+					presenters.OperationCancelled(&s)
+					return fmt.Errorf("operation cancelled by user")
+				}
 			}
 		}
 		if _, err := delsvc.DeleteVM(ctx, a.Client, vmInfo.ID, r.Recursive); err != nil {
@@ -97,6 +109,6 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 		return nil
 	}
 
-	processor := deletion.NewVMDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive)
+	processor := deletion.NewVMDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
 	return processor.DeleteMultipleVMs(r.Targets)
 }
