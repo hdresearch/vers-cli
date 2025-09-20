@@ -5,6 +5,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,7 @@ var runCommitCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		commitKey := args[0]
-		cfg, err := loadConfig()
+		cfg, err := runconfig.Load()
 		if err != nil {
 			return err
 		}

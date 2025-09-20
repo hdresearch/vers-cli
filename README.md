@@ -5,15 +5,18 @@ A command-line interface for managing virtual machine/container-based developmen
 
 ## Development
 
-The scripts you should use as models are `status.go`, `execute.go`, `run.go`, `branch.go`. 
+### Thin Command Architecture
 
-You can largely have AI generate new command scripts with those previous scripts as a model. You'll have to manually adjust the SDK calls, though, since the AI won't have access to the details of the SDK. 
+Commands under `cmd/` are intentionally thin: they parse flags/args and delegate to handlers in `internal/handlers/`, which coordinate services in `internal/services/` and render results via `internal/presenters/`. A shared `App` container (in `internal/app/`) wires common deps (SDK client, IO, prompter, exec runner, timeouts) in `cmd/root.go`.
 
-If a request specifies a parameter you'll see this type 
-```
-Command param.Field[string] `json:"command,required"`
-```
-Make sure that you prepare the parameter as follows: `vers.F(commandStr)`. See the "Request Fields" section of the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) for more details. You can also look at the example of `execute.go`. 
+When adding a new command:
+- Add a handler `internal/handlers/<command>.go` with `Handle(ctx, app, Req) (View, error)`.
+- Add a presenter `internal/presenters/<command>_presenter.go` to render `View`.
+- Keep the Cobra file minimal: parse → build `Req` → call handler → render.
+
+### SDK Requests
+
+If a request field needs a `param.Field[T]`, wrap with `vers.F(value)`. See the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) and existing handlers (e.g., run/run-commit/rename) for examples.
 
 
 ## Features

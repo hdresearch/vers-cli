@@ -9,6 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/hdresearch/vers-cli/internal/assets"
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -97,21 +98,21 @@ var initCmd = &cobra.Command{
 			}
 
 			// Create the vers.toml content
-			config := &Config{
-				Machine: MachineConfig{
+			config := &runconfig.Config{
+				Machine: runconfig.MachineConfig{
 					MemSizeMib:       memSize,
 					VcpuCount:        vcpuCount,
 					FsSizeClusterMib: fsSizeClusterMib,
 					FsSizeVmMib:      fsSizeVmMib,
 				},
-				Rootfs: RootfsConfig{
+				Rootfs: runconfig.RootfsConfig{
 					Name: rootfsName,
 				},
-				Builder: BuilderConfig{
+				Builder: runconfig.BuilderConfig{
 					Name:       "none",
 					Dockerfile: "Dockerfile",
 				},
-				Kernel: KernelConfig{
+				Kernel: runconfig.KernelConfig{
 					Name: kernelName,
 				},
 			}

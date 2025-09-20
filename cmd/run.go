@@ -5,6 +5,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,7 @@ var runCmd = &cobra.Command{
 	Long:  `Start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := loadConfig()
+		cfg, err := runconfig.Load()
 		if err != nil {
 			return err
 		}
