@@ -1,15 +1,15 @@
 package utils
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+    "context"
+    "errors"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
+    "time"
 
-	"github.com/hdresearch/vers-cli/styles"
-	vers "github.com/hdresearch/vers-sdk-go"
+    vers "github.com/hdresearch/vers-sdk-go"
 )
 
 const (
@@ -17,14 +17,19 @@ const (
 	HeadFile = "HEAD"
 )
 
+var (
+    ErrHeadNotFound = errors.New("head not found")
+    ErrHeadEmpty    = errors.New("head empty")
+)
+
 // GetCurrentHeadVM returns the VM ID from the current HEAD
 func GetCurrentHeadVM() (string, error) {
-	headFile := filepath.Join(VersDir, HeadFile)
+    headFile := filepath.Join(VersDir, HeadFile)
 
-	// Check if .vers directory and HEAD file exist
-	if _, err := os.Stat(headFile); os.IsNotExist(err) {
-		return "", fmt.Errorf("HEAD not found. Run 'vers init' first")
-	}
+    // Check if .vers directory and HEAD file exist
+    if _, err := os.Stat(headFile); os.IsNotExist(err) {
+        return "", ErrHeadNotFound
+    }
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
@@ -35,9 +40,9 @@ func GetCurrentHeadVM() (string, error) {
 	// HEAD directly contains a VM ID or alias
 	vmID := strings.TrimSpace(string(headData))
 
-	if vmID == "" {
-		return "", fmt.Errorf("HEAD is empty. Create a VM first with 'vers run'")
-	}
+    if vmID == "" {
+        return "", ErrHeadEmpty
+    }
 
 	return vmID, nil
 }
@@ -112,24 +117,7 @@ func CheckClusterImpactsHead(ctx context.Context, client *vers.Client, clusterID
 }
 
 // ConfirmVMHeadImpact checks and confirms HEAD impact for a single VM deletion
-func ConfirmVMHeadImpact(vmID string, s *styles.KillStyles) bool {
-	if !CheckVMImpactsHead(vmID) {
-		return true // No impact, proceed
-	}
-
-	fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
-	return AskConfirmation()
-}
-
-// ConfirmClusterHeadImpact checks and confirms HEAD impact for a single cluster deletion
-func ConfirmClusterHeadImpact(ctx context.Context, client *vers.Client, clusterID string, s *styles.KillStyles) bool {
-	if !CheckClusterImpactsHead(ctx, client, clusterID) {
-		return true // No impact, proceed
-	}
-
-	fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
-	return AskConfirmation()
-}
+// Confirmation prompts were moved to handlers using the shared Prompter.
 
 // CleanupAfterDeletion clears HEAD if any of the deleted VM IDs match current HEAD
 func CleanupAfterDeletion(deletedVMIDs []string) bool {

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	pres "github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/prompts"
+	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -15,15 +18,17 @@ type ClusterDeletionProcessor struct {
 	ctx              context.Context
 	skipConfirmation bool
 	recursive        bool
+	prompter         prompts.Prompter
 }
 
-func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool) *ClusterDeletionProcessor {
+func NewClusterDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool, prompter prompts.Prompter) *ClusterDeletionProcessor {
 	return &ClusterDeletionProcessor{
 		client:           client,
 		styles:           s,
 		ctx:              ctx,
 		skipConfirmation: skipConfirmation,
 		recursive:        recursive,
+		prompter:         prompter,
 	}
 }
 
@@ -62,13 +67,7 @@ func (p *ClusterDeletionProcessor) DeleteMultipleClusters(identifiers []string) 
 
 	// Print summary for multiple targets
 	if len(identifiers) > 1 {
-		summaryResults := utils.SummaryResults{
-			SuccessCount: successCount,
-			FailCount:    failCount,
-			Errors:       errors,
-			ItemType:     "clusters",
-		}
-		utils.PrintDeletionSummary(summaryResults, p.styles)
+		pres.PrintDeletionSummary(pres.SummaryResults{SuccessCount: successCount, FailCount: failCount, Errors: errors, ItemType: "clusters"}, p.styles)
 	}
 
 	// Cleanup HEAD
@@ -90,23 +89,27 @@ func (p *ClusterDeletionProcessor) DeleteMultipleClusters(identifiers []string) 
 func (p *ClusterDeletionProcessor) DeleteSingleCluster(clusterInfo *utils.ClusterInfo, currentIndex, totalCount int) ([]string, error) {
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
-		if !utils.ConfirmClusterDeletion(clusterInfo.DisplayName, clusterInfo.VmCount, p.styles) {
-			utils.OperationCancelled(p.styles)
+		// deletion warning
+		fmt.Println(p.styles.Warning.Render(fmt.Sprintf("Warning: You are about to delete cluster '%s' containing %d VMs", clusterInfo.DisplayName, clusterInfo.VmCount)))
+		ok, _ := p.prompter.YesNo("Proceed")
+		if !ok {
+			pres.OperationCancelled(p.styles)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
-
-		// Check HEAD impact for this specific cluster
-		if !utils.ConfirmClusterHeadImpact(p.ctx, p.client, clusterInfo.ID, p.styles) {
-			utils.OperationCancelled(p.styles)
-			return nil, fmt.Errorf("operation cancelled by user")
+		// HEAD impact
+		if utils.CheckClusterImpactsHead(p.ctx, p.client, clusterInfo.ID) {
+			fmt.Println(p.styles.Warning.Render("Warning: This will affect the current HEAD"))
+			ok, _ = p.prompter.YesNo("Proceed")
+			if !ok {
+				pres.OperationCancelled(p.styles)
+				return nil, fmt.Errorf("operation cancelled by user")
+			}
 		}
 	}
 
 	// Show progress and perform deletion
 	action := p.getDeletionAction()
-	return utils.HandleDeletionResult(currentIndex, totalCount, action, clusterInfo.DisplayName, func() ([]string, error) {
-		return p.deleteCluster(clusterInfo.ID)
-	}, p.styles)
+	return handleDeletionResultCluster(currentIndex, totalCount, action, clusterInfo.DisplayName, func() ([]string, error) { return p.deleteCluster(clusterInfo.ID) }, p.styles)
 }
 
 func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
@@ -118,7 +121,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	if len(response.Data) == 0 {
-		utils.NoDataFound("No clusters found to delete.", p.styles)
+		pres.NoDataFound("No clusters found to delete.", p.styles)
 		return nil
 	}
 
@@ -130,7 +133,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	if !p.skipConfirmation && !p.confirmDeleteAllWithInfo(clusterInfos) {
-		utils.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
+		pres.NoDataFound("Operation cancelled - input did not match 'DELETE ALL'", p.styles)
 		return nil
 	}
 
@@ -154,13 +157,7 @@ func (p *ClusterDeletionProcessor) DeleteAllClusters() error {
 	}
 
 	// Print summary
-	summaryResults := utils.SummaryResults{
-		SuccessCount: successCount,
-		FailCount:    failCount,
-		Errors:       errors,
-		ItemType:     "clusters",
-	}
-	utils.PrintDeletionSummary(summaryResults, p.styles)
+	pres.PrintDeletionSummary(pres.SummaryResults{SuccessCount: successCount, FailCount: failCount, Errors: errors, ItemType: "clusters"}, p.styles)
 
 	// Cleanup HEAD
 	if len(allDeletedVMIDs) > 0 {
@@ -196,7 +193,8 @@ func (p *ClusterDeletionProcessor) confirmDeleteAllWithInfo(clusterInfos []*util
 	fmt.Println(p.styles.Warning.Render("This action is IRREVERSIBLE and will delete ALL your data!"))
 	fmt.Println()
 
-	return utils.AskSpecialConfirmation("DELETE ALL", p.styles)
+	ok, _ := p.prompter.ConfirmExact("Type 'DELETE ALL' to confirm", "DELETE ALL")
+	return ok
 }
 
 // getDeletionAction returns the appropriate action description based on flags
@@ -212,14 +210,18 @@ func (p *ClusterDeletionProcessor) getDeletionAction() string {
 }
 
 func (p *ClusterDeletionProcessor) deleteCluster(clusterID string) ([]string, error) {
-	result, err := p.client.API.Cluster.Delete(p.ctx, clusterID)
+	return delsvc.DeleteCluster(p.ctx, p.client, clusterID)
+}
+
+// local helper mirrors utils.HandleDeletionResult without utils dependency
+func handleDeletionResultCluster(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
+	pres.ProgressCounter(currentIndex, totalCount, action, displayName, s)
+	deletedIDs, err := deletionFunc()
 	if err != nil {
+		failMsg := fmt.Sprintf("FAILED: %s", err.Error())
+		fmt.Println(s.Error.Render(failMsg))
 		return nil, err
 	}
-
-	if errorSummary := utils.GetClusterDeleteErrorSummary(result); errorSummary != "" {
-		return nil, fmt.Errorf("partially failed: %s", errorSummary)
-	}
-
-	return result.Data.Vms.DeletedIDs, nil
+	pres.SuccessMessage("Deleted successfully", s)
+	return deletedIDs, nil
 }

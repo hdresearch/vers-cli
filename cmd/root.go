@@ -8,7 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/prompts"
+	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	"github.com/hdresearch/vers-cli/internal/update"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/joho/godotenv"
@@ -34,6 +37,8 @@ var (
 var (
 	client  *vers.Client
 	verbose bool
+	// application is the dependency container, initialized in PersistentPreRunE
+	application *app.App
 )
 
 // MetadataInfo represents the complete version information
@@ -164,7 +169,22 @@ interaction capabilities, and more.`,
 		}
 
 		// Initialize the client *only* if we have an API key
+
 		client = vers.NewClient(clientOptions...)
+
+		// Build the App container (Phase 0 scaffolding)
+		versURL, _ := auth.GetVersUrl() // ignore error here; client already validated base url
+		application = app.New(
+			client,
+			os.Stdin, os.Stdout, os.Stderr,
+			prompts.NewTermPrompter(os.Stdin, os.Stdout),
+			runrt.NewExecRunner(),
+			versURL,
+			verbose,
+			app.DefaultTimeouts(),
+			app.OSEnv{},
+			app.RealClock{},
+		)
 
 		return nil
 	},

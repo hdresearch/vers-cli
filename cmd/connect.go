@@ -2,15 +2,9 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
 
-	"github.com/hdresearch/vers-cli/internal/auth"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-cli/internal/handlers"
+	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
 
@@ -21,93 +15,17 @@ var connectCmd = &cobra.Command{
 	Long:  `Connect to a running Vers VM via SSH. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		s := styles.NewStatusStyles()
-
-		// Initialize context
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
-
-		// Determine VM identifier to use
-		var identifier string
-		if len(args) == 0 {
-			var err error
-			identifier, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no VM ID provided and %w"), err)
-			}
-			fmt.Printf(s.HeadStatus.Render("Using current HEAD VM: "+identifier) + "\n")
-		} else {
-			identifier = args[0]
+		target := ""
+		if len(args) > 0 {
+			target = args[0]
 		}
-
-		fmt.Println(s.NoData.Render("Fetching VM information..."))
-
-		vm, nodeIP, err := utils.GetVmAndNodeIP(apiCtx, client, identifier)
+		view, err := handlers.HandleConnect(apiCtx, application, handlers.ConnectReq{Target: target})
 		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to get VM information: %w"), err)
+			return err
 		}
-
-		// If no node IP in headers, use default vers URL
-		versHost := nodeIP
-		if strings.TrimSpace(versHost) == "" {
-			versUrl, err := auth.GetVersUrl()
-			if err != nil {
-				return err
-			}
-			versHost = versUrl.Hostname()
-		}
-
-		// Create VMInfo from the response
-		vmInfo := utils.CreateVMInfoFromGetResponse(vm)
-
-		if vm.State != "Running" {
-			return fmt.Errorf(s.NoData.Render("VM is not running (current state: %s)"), vm.State)
-		}
-
-		if vm.NetworkInfo.SSHPort == 0 {
-			return fmt.Errorf("%s", s.NoData.Render("VM does not have SSH port information available"))
-		}
-
-		fmt.Printf(s.HeadStatus.Render("Connecting to VM %s..."), vmInfo.DisplayName)
-
-		keyPath, err := auth.GetOrCreateSSHKey(vmInfo.ID, client, apiCtx)
-		if err != nil {
-			return fmt.Errorf("failed to get or create SSH key: %w", err)
-		}
-
-		// If we're connecting to a local machine, then use a connection string with local VM IPs. Else, use the public (DNAT'd) connection string
-		sshHost := versHost
-		sshPort := fmt.Sprintf("%d", vm.NetworkInfo.SSHPort)
-		if utils.IsHostLocal(versHost) {
-			sshHost = vm.IPAddress
-			sshPort = "22"
-		}
-
-		// Debug info about connection
-		fmt.Printf(s.HeadStatus.Render("Connecting to %s on port %s\n"), sshHost, sshPort)
-
-		sshCmd := exec.Command("ssh",
-			fmt.Sprintf("root@%s", sshHost),
-			"-p", sshPort,
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null", // Avoid host key prompts
-			"-o", "IdentitiesOnly=yes", // Only use the specified identity file
-			"-o", "PreferredAuthentications=publickey", // Only attempt public key authentication
-			"-i", keyPath) // Use the persistent key file
-
-		sshCmd.Stdout = os.Stdout
-		sshCmd.Stderr = os.Stderr
-		sshCmd.Stdin = os.Stdin // Connect terminal stdin for interactive session
-
-		err = sshCmd.Run()
-
-		if err != nil {
-			if _, ok := err.(*exec.ExitError); !ok {
-				return fmt.Errorf(s.NoData.Render("failed to run SSH command: %w"), err)
-			}
-		}
-
+		pres.RenderConnect(application, view)
 		return nil
 	},
 }

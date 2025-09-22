@@ -50,7 +50,7 @@ func ensureBuilt(t TLike) {
 		t.Fatalf("failed to create bin dir: %v", err)
 	}
 	cmd := exec.Command("go", "build", "-o", binPath, "../cmd/vers")
-	cmd.Env = append(os.Environ())
+	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("failed to build CLI: %v\n%s", err, string(out))
@@ -64,7 +64,7 @@ func runVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 
 	cmd := exec.CommandContext(ctx, binPath, args...)
 	// Inherit env so VERS_URL and VERS_API_KEY are visible
-	cmd.Env = append(os.Environ())
+	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(out), fmt.Errorf("command timed out: vers %s", strings.Join(args, " "))

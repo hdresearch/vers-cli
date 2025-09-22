@@ -1,15 +1,10 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
-	"strings"
-	"time"
 
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-cli/internal/handlers"
 	"github.com/spf13/cobra"
 )
 
@@ -26,27 +21,14 @@ var rootfsListCmd = &cobra.Command{
 	Short: "List available rootfs images",
 	Long:  `List all available rootfs images on the Vers platform.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
-
 		fmt.Println("Fetching available rootfs images...")
-		response, err := client.API.Rootfs.List(apiCtx)
+		view, err := handlers.HandleRootfsList(apiCtx, application, handlers.RootfsListReq{})
 		if err != nil {
 			return fmt.Errorf("failed to list rootfs images: %w", err)
 		}
-		data := response.Data
-
-		if len(data.RootfsNames) == 0 {
-			fmt.Println("No rootfs images found.")
-			return nil
-		}
-
-		fmt.Println("Available rootfs images:")
-		for _, name := range data.RootfsNames {
-			fmt.Printf("- %s\n", name)
-		}
-
+		handlers.RenderRootfsList(application, view)
 		return nil
 	},
 }
@@ -59,32 +41,14 @@ var rootfsDeleteCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rootfsName := args[0]
-		s := styles.NewKillStyles() // Reuse kill styles for consistency
-
-		// Confirm deletion if not forced
 		force, _ := cmd.Flags().GetBool("force")
-		if !force {
-			fmt.Print(s.Warning.Render(fmt.Sprintf("Are you sure you want to delete rootfs '%s'? This action cannot be undone.", rootfsName) + " [y/N]: "))
-			reader := bufio.NewReader(os.Stdin)
-			input, err := reader.ReadString('\n')
-			if err != nil || (!strings.EqualFold(strings.TrimSpace(input), "y") && !strings.EqualFold(strings.TrimSpace(input), "yes")) {
-				utils.OperationCancelled(&s)
-				return nil
-			}
-		}
-
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
-
-		utils.ProgressCounter(1, 1, "Deleting rootfs", rootfsName, &s)
-		response, err := client.API.Rootfs.Delete(apiCtx, rootfsName)
+		view, err := handlers.HandleRootfsDelete(apiCtx, application, handlers.RootfsDeleteReq{Name: rootfsName, Force: force})
 		if err != nil {
-			return fmt.Errorf("failed to delete rootfs '%s': %w", rootfsName, err)
+			return err
 		}
-		data := response.Data
-
-		utils.SuccessMessage(fmt.Sprintf("Successfully deleted rootfs '%s'", data.RootfsName), &s)
+		handlers.RenderRootfsDelete(application, view)
 		return nil
 	},
 }

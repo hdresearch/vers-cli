@@ -1,15 +1,15 @@
 package cmd
 
 import (
-    "fmt"
-    "io/ioutil"
-    "os"
-    "path/filepath"
-    "strings"
-    "testing"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
 
-    "github.com/hdresearch/vers-cli/internal/utils"
-    "github.com/spf13/cobra"
+	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/spf13/cobra"
 )
 
 // TestCopyCommandArgumentParsing tests the argument parsing logic
@@ -236,19 +236,19 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			destination: "/remote/path/file.txt",
 			isUpload:    true,
 			recursive:   false,
-		expectedArgs: []string{
-			"scp",
-			"-P", "2222",
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", "IdentitiesOnly=yes",
-			"-o", "PreferredAuthentications=publickey",
-			"-o", "LogLevel=ERROR",
-			"-o", "ConnectTimeout=5",
-			"-i", "/path/to/key",
-			"./local-file.txt",
-			"root@192.168.1.100:/remote/path/file.txt",
-		},
+			expectedArgs: []string{
+				"scp",
+				"-P", "2222",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "IdentitiesOnly=yes",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", "LogLevel=ERROR",
+				"-o", "ConnectTimeout=5",
+				"-i", "/path/to/key",
+				"./local-file.txt",
+				"root@192.168.1.100:/remote/path/file.txt",
+			},
 			expectedSource: "./local-file.txt",
 			expectedDest:   "root@192.168.1.100:/remote/path/file.txt",
 		},
@@ -261,19 +261,19 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			destination: "./local-file.txt",
 			isUpload:    false,
 			recursive:   false,
-		expectedArgs: []string{
-			"scp",
-			"-P", "2222",
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", "IdentitiesOnly=yes",
-			"-o", "PreferredAuthentications=publickey",
-			"-o", "LogLevel=ERROR",
-			"-o", "ConnectTimeout=5",
-			"-i", "/path/to/key",
-			"root@192.168.1.100:/remote/path/file.txt",
-			"./local-file.txt",
-		},
+			expectedArgs: []string{
+				"scp",
+				"-P", "2222",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "IdentitiesOnly=yes",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", "LogLevel=ERROR",
+				"-o", "ConnectTimeout=5",
+				"-i", "/path/to/key",
+				"root@192.168.1.100:/remote/path/file.txt",
+				"./local-file.txt",
+			},
 			expectedSource: "root@192.168.1.100:/remote/path/file.txt",
 			expectedDest:   "./local-file.txt",
 		},
@@ -286,20 +286,20 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			destination: "/remote/path/",
 			isUpload:    true,
 			recursive:   true,
-		expectedArgs: []string{
-			"scp",
-			"-P", "2222",
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", "IdentitiesOnly=yes",
-			"-o", "PreferredAuthentications=publickey",
-			"-o", "LogLevel=ERROR",
-			"-o", "ConnectTimeout=5",
-			"-i", "/path/to/key",
-			"-r",
-			"./local-dir/",
-			"root@192.168.1.100:/remote/path/",
-		},
+			expectedArgs: []string{
+				"scp",
+				"-P", "2222",
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "IdentitiesOnly=yes",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", "LogLevel=ERROR",
+				"-o", "ConnectTimeout=5",
+				"-i", "/path/to/key",
+				"-r",
+				"./local-dir/",
+				"root@192.168.1.100:/remote/path/",
+			},
 			expectedSource: "./local-dir/",
 			expectedDest:   "root@192.168.1.100:/remote/path/",
 		},
@@ -320,17 +320,17 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 			}
 
 			// Construct the expected command arguments
-		expectedArgs := []string{
-			"scp",
-			"-P", tt.sshPort,
-			"-o", "StrictHostKeyChecking=no",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", "IdentitiesOnly=yes",
-			"-o", "PreferredAuthentications=publickey",
-			"-o", "LogLevel=ERROR",
-			"-o", "ConnectTimeout=5",
-			"-i", tt.keyPath,
-		}
+			expectedArgs := []string{
+				"scp",
+				"-P", tt.sshPort,
+				"-o", "StrictHostKeyChecking=no",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "IdentitiesOnly=yes",
+				"-o", "PreferredAuthentications=publickey",
+				"-o", "LogLevel=ERROR",
+				"-o", "ConnectTimeout=5",
+				"-i", tt.keyPath,
+			}
 
 			// Add recursive flag if enabled
 			if tt.recursive {
@@ -361,7 +361,6 @@ func TestCopyCommandSCPConstruction(t *testing.T) {
 		})
 	}
 }
-
 
 // TestCopyCommandWithRealHEAD tests copy command with actual HEAD setup
 func TestCopyCommandWithRealHEAD(t *testing.T) {
