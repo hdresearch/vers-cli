@@ -77,6 +77,10 @@ command = "python main.py"
 DATABASE_URL = "postgres://localhost:5432/mydb"
 ```
 
+### UI (experimental)
+
+The `vers ui` command launches an interactive TUI that is currently EXPERIMENTAL. It may change or break; not recommended for production use. Expect rough edges and please report issues.
+
 
 ## Development
 
@@ -94,3 +98,34 @@ which will take the place of running the binary. So to develop on e.g. `vers sta
 ```
 air status
 ```
+### MCP Server (built-in, experimental)
+
+This repo includes an MCP server to expose Vers operations as tools and resources for agent clients (Claude Desktop/Code, etc.).
+
+- Build:
+  - `make build` (MCP server is included in the binary)
+- Run (stdio transport for local agents):
+  - `VERS_URL=https://<vers-url> VERS_API_KEY=<token> ./bin/vers mcp serve --transport stdio`
+- Run over HTTP/SSE (for MCP connector):
+  - `export VERS_MCP_HTTP_TOKEN=<secret>` (optional but recommended)
+  - `VERS_URL=... VERS_API_KEY=... ./bin/vers mcp serve --transport http --addr :3920`
+  - `curl http://localhost:3920/healthz` → `ok`
+
+Tools exposed
+- `vers.status` — snapshot of clusters/VMs (inputs: cluster?, target?)
+- `vers.run` — start a cluster (inputs: memSizeMib?, vcpuCount?, rootfsName?, kernelName?, fsSizeClusterMib?, fsSizeVmMib?, clusterAlias?, vmAlias?)
+- `vers.execute` — run a command in a VM (inputs: target?, command [required], timeoutSeconds?)
+- `vers.branch` — create a VM from existing/HEAD (inputs: target?, alias?, checkout?)
+- `vers.kill` — delete VMs/clusters (inputs: targets?, skipConfirmation [required], recursive?, isCluster?, killAll?)
+- `vers.version` — server info (no backend calls)
+- `vers.capabilities` — server settings/tool list
+
+Resources
+- `vers://status` — global status as JSON
+- `vers://status/{cluster}` — cluster-specific status
+- `vers://cluster/{id}/tree` — VM tree and HEAD for a cluster
+
+Notes
+- Execute streams stdout/stderr via MCP logging messages; final summary + structured output returned.
+- Destructive tools require `skipConfirmation=true` in MCP mode.
+- Basic rate limits per minute are enforced per tool; hitting limits returns a coded MCP error.

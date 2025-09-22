@@ -41,3 +41,6 @@ install:
 
 # Build and install binary
 build-and-install: build install
+
+# Build MCP-enabled binary (requires SDK dependency).
+# (MCP is now built-in; no tags required.)
