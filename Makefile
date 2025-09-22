@@ -42,5 +42,20 @@ install:
 # Build and install binary
 build-and-install: build install
 
+.PHONY: test test-unit test-integration
+# Run all unit tests (excludes ./test integration package). Includes MCP-tagged tests.
+test test-unit:
+	go test -tags mcp $$(go list ./... | grep -v '/test$$') -v
+
+# Run integration tests under ./test (requires VERS_URL, VERS_API_KEY, etc.)
+test-integration:
+	@if [ -z "$$VERS_URL" ] || [ -z "$$VERS_API_KEY" ]; then \
+		echo "[!] Missing VERS_URL or VERS_API_KEY env for integration tests"; \
+		echo "    export VERS_URL=https://..."; \
+		echo "    export VERS_API_KEY=..."; \
+		exit 1; \
+	fi
+	cd test && go test -v $(ARGS)
+
 # Build MCP-enabled binary (requires SDK dependency).
 # (MCP is now built-in; no tags required.)
