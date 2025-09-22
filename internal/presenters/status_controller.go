@@ -21,13 +21,13 @@ func RenderStatus(a *app.App, res StatusView) {
 				fmt.Println(s.HeadStatus.Render("HEAD status: Not a vers repository (run 'vers init' first)"))
 			}
 			fmt.Println()
-		case res.Head.DisplayName != "":
-			fmt.Printf(s.HeadStatus.Render("HEAD status: %s (State: %s)\n"), res.Head.DisplayName, res.Head.State)
-			fmt.Println()
-		default:
-			fmt.Printf(s.HeadStatus.Render("HEAD status: %s (unable to verify)\n"), res.Head.ID)
-			fmt.Println()
-		}
+        case res.Head.DisplayName != "":
+            fmt.Printf("%s", s.HeadStatus.Render(fmt.Sprintf("HEAD status: %s (State: %s)\n", res.Head.DisplayName, res.Head.State)))
+            fmt.Println()
+        default:
+            fmt.Printf("%s", s.HeadStatus.Render(fmt.Sprintf("HEAD status: %s (unable to verify)\n", res.Head.ID)))
+            fmt.Println()
+        }
 	}
 
 	switch res.Mode {

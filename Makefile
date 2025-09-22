@@ -42,6 +42,11 @@ install:
 # Build and install binary
 build-and-install: build install
 
+.PHONY: vet
+# Run go vet on all packages
+vet:
+	go vet ./...
+
 .PHONY: test test-unit test-integration
 # Run all unit tests (excludes ./test integration package). Includes MCP-tagged tests.
 test test-unit:

@@ -98,6 +98,19 @@ which will take the place of running the binary. So to develop on e.g. `vers sta
 ```
 air status
 ```
+
+### Testing
+
+- Unit tests (includes MCP tests):
+  ```bash
+  make test        # or: make test-unit
+  ```
+- Integration tests (require env: VERS_URL, VERS_API_KEY):
+  ```bash
+  VERS_URL=https://... VERS_API_KEY=... make test-integration
+  # Optional args passthrough
+  VERS_URL=... VERS_API_KEY=... make test-integration ARGS='-run Copy -v'
+  ```
 ### MCP Server (built-in, experimental)
 
 This repo includes an MCP server to expose Vers operations as tools and resources for agent clients (Claude Desktop/Code, etc.).
