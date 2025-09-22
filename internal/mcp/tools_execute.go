@@ -44,7 +44,7 @@ func registerExecuteTool(server *mcp.Server, application *app.App, opts Options)
 		if err != nil {
 			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get VM information: %w", err))
 		}
-		if string(info.VM.State) != "Running" && info.VM.State != "Running" { // handle string or typed
+		if info.VM.State != "Running" {
 			return nil, presenters.ExecuteView{}, Err(E_CONFLICT, fmt.Sprintf("VM is not running (current state: %s)", info.VM.State), nil)
 		}
 		if info.VM.NetworkInfo.SSHPort == 0 {
