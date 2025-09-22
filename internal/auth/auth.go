@@ -12,9 +12,6 @@ import (
 	"github.com/hdresearch/vers-sdk-go/option"
 )
 
-// TODO: Remove backward compatibility after migration period (target: later this week will probably be fine tbh)
-// During migration: support both old IP and new domain
-const LEGACY_VERS_HOST = "13.219.19.157" // Keep for reference during migration
 const DEFAULT_VERS_URL_STR = "https://api.vers.sh"
 
 // Config represents the structure of the .versrc file
@@ -147,7 +144,6 @@ func GetVersUrl() (*url.URL, error) {
 }
 
 // GetClientOptions returns the options for the SDK client
-// TODO: Simplify after migration period - remove protocol detection logic
 func GetClientOptions() ([]option.RequestOption, error) {
 	clientOptions := []option.RequestOption{}
 
@@ -155,14 +151,6 @@ func GetClientOptions() ([]option.RequestOption, error) {
 	versUrl, err := GetVersUrl()
 	if err != nil {
 		return nil, err
-	}
-
-	// BACKWARD COMPATIBILITY: Show deprecation notice for legacy endpoint
-	// TODO: Remove this logic after migration period
-	if versUrl.Hostname() == LEGACY_VERS_HOST {
-		if os.Getenv("VERS_VERBOSE") == "true" {
-			fmt.Printf("[DEPRECATED] Using legacy endpoint: %s. Please update to use new API keys from https://vers.sh\n", versUrl)
-		}
 	}
 
 	// Set the base URL with protocol
@@ -175,22 +163,4 @@ func GetClientOptions() ([]option.RequestOption, error) {
 	return clientOptions, nil
 }
 
-// CheckForLegacyKey shows a deprecation notice for legacy keys
-// TODO: Remove after migration period
-func CheckForLegacyKey() {
-	config, err := LoadConfig()
-	if err != nil {
-		return
-	}
-
-	// Show deprecation notice if using legacy endpoint
-	versUrl, err := GetVersUrl()
-	if err != nil {
-		return
-	}
-	if config.APIKey != "" {
-		if versUrl.Hostname() == LEGACY_VERS_HOST {
-			fmt.Println("Notice: You're using a legacy API endpoint. Consider generating a new key at https://vers.sh for improved security and features.")
-		}
-	}
-}
+// Backward-compatibility checks removed; the CLI only targets DEFAULT_VERS_URL (or VERS_URL override).

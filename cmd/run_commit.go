@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/internal/handlers"
+	pres "github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -24,88 +22,25 @@ var runCommitCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		commitKey := args[0]
-		if commitKey == "" {
-			return fmt.Errorf("commit key is required")
-		}
-
-		// Load configuration from vers.toml for any overrides
-		config, err := loadConfig()
+		cfg, err := runconfig.Load()
 		if err != nil {
-			return fmt.Errorf("failed to load configuration: %w", err)
+			return err
 		}
-
-		// Override with flags if provided
-		applyFlagOverrides(cmd, config)
-
-		return StartClusterFromCommit(config, commitKey)
+		applyFlagOverrides(cmd, cfg)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
+		defer cancel()
+		req := handlers.RunCommitReq{CommitKey: commitKey, FsSizeClusterMiB: cfg.Machine.FsSizeClusterMib, ClusterAlias: commitClusterAlias, VMAlias: commitVmAlias}
+		view, err := handlers.HandleRunCommit(apiCtx, application, req)
+		if err != nil {
+			return err
+		}
+		pres.RenderRunCommit(application, view)
+		return nil
 	},
 }
 
 // StartClusterFromCommit starts a development environment from an existing commit
-func StartClusterFromCommit(config *Config, commitId string) error {
-	baseCtx := context.Background()
-	apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-	defer cancel()
-
-	// Create parameters for FromCluster variant
-	params := vers.ClusterCreateRequestClusterFromCommitParamsParamsParam{
-		CommitID: vers.F(commitId),
-	}
-
-	// Add aliases if provided
-	if commitClusterAlias != "" {
-		params.ClusterAlias = vers.F(commitClusterAlias)
-	}
-	if commitVmAlias != "" {
-		params.VmAlias = vers.F(commitVmAlias)
-	}
-
-	// Apply any configuration overrides
-	if config.Machine.FsSizeClusterMib > 0 {
-		params.FsSizeClusterMib = vers.F(config.Machine.FsSizeClusterMib)
-	}
-
-	// Create cluster parameters
-	clusterParams := vers.APIClusterNewParams{
-		ClusterCreateRequest: vers.ClusterCreateRequestClusterFromCommitParamsParam{
-			ClusterType: vers.F(vers.ClusterCreateRequestClusterFromCommitParamsClusterTypeFromCommit),
-			Params:      vers.F(params),
-		},
-	}
-
-	fmt.Printf("Sending request to start cluster from commit %s...\n", commitId)
-	response, err := client.API.Cluster.New(apiCtx, clusterParams)
-	if err != nil {
-		return err
-	}
-	clusterInfo := response.Data
-
-	// Use information from the response
-	fmt.Printf("Cluster (ID: %s) started successfully from commit %s with root vm '%s'.\n",
-		clusterInfo.ID,
-		commitId,
-		clusterInfo.RootVmID,
-	)
-
-	// Update HEAD to point to the new VM (simplified architecture)
-	vmTarget := clusterInfo.RootVmID
-	if commitVmAlias != "" {
-		vmTarget = commitVmAlias // Use alias if provided
-	}
-
-	versDir := ".vers"
-	if _, err := os.Stat(versDir); os.IsNotExist(err) {
-		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
-	} else {
-		headFile := filepath.Join(versDir, "HEAD")
-		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
-			return fmt.Errorf("failed to update HEAD: %w", err)
-		}
-		fmt.Printf("HEAD now points to: %s (from commit %s)\n", vmTarget, commitId)
-	}
-
-	return nil
-}
+// start-from-commit logic moved to internal/handlers/run_commit.go
 
 func init() {
 	rootCmd.AddCommand(runCommitCmd)

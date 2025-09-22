@@ -6,6 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hdresearch/vers-cli/internal/errorsx"
+	"github.com/hdresearch/vers-cli/internal/presenters"
+	presdel "github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/prompts"
+	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
@@ -17,15 +22,17 @@ type VMDeletionProcessor struct {
 	ctx              context.Context
 	skipConfirmation bool
 	recursive        bool
+	prompter         prompts.Prompter
 }
 
-func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool) *VMDeletionProcessor {
+func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx context.Context, skipConfirmation, recursive bool, prompter prompts.Prompter) *VMDeletionProcessor {
 	return &VMDeletionProcessor{
 		client:           client,
 		styles:           s,
 		ctx:              ctx,
 		skipConfirmation: skipConfirmation,
 		recursive:        recursive,
+		prompter:         prompter,
 	}
 }
 
@@ -33,15 +40,16 @@ func NewVMDeletionProcessor(client *vers.Client, s *styles.KillStyles, ctx conte
 func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
-		if !utils.ConfirmDeletion("VM", displayName, p.styles) {
-			utils.OperationCancelled(p.styles)
+		fmt.Println(p.styles.Warning.Render("Warning: You are about to delete VM '" + displayName + "'"))
+		ok, _ := p.prompter.YesNo("Proceed")
+		if !ok {
+			presdel.OperationCancelled(p.styles)
 			return nil
 		}
-
-		// Check HEAD impact (we know it affects HEAD since this IS the HEAD VM)
 		fmt.Println(p.styles.Warning.Render("Warning: This will clear the current HEAD"))
-		if !utils.AskConfirmation() {
-			utils.OperationCancelled(p.styles)
+		ok, _ = p.prompter.YesNo("Proceed")
+		if !ok {
+			presdel.OperationCancelled(p.styles)
 			return nil
 		}
 	}
@@ -49,7 +57,7 @@ func (p *VMDeletionProcessor) DeleteHeadVM(vmID, displayName string) error {
 	// Show progress and perform deletion
 	action := p.getDeletionAction()
 
-	deletedVMIDs, err := utils.HandleDeletionResult(1, 1, action, displayName, func() ([]string, error) {
+	deletedVMIDs, err := handleDeletionResultVM(1, 1, action, displayName, func() ([]string, error) {
 		return p.deleteVM(vmID)
 	}, p.styles)
 
@@ -102,13 +110,7 @@ func (p *VMDeletionProcessor) DeleteMultipleVMs(identifiers []string) error {
 
 	// Print summary for multiple targets
 	if len(identifiers) > 1 {
-		summaryResults := utils.SummaryResults{
-			SuccessCount: successCount,
-			FailCount:    failCount,
-			Errors:       errors,
-			ItemType:     "VMs",
-		}
-		utils.PrintDeletionSummary(summaryResults, p.styles)
+		presdel.PrintDeletionSummary(presdel.SummaryResults{SuccessCount: successCount, FailCount: failCount, Errors: errors, ItemType: "VMs"}, p.styles)
 	}
 
 	// Cleanup HEAD
@@ -130,24 +132,25 @@ func (p *VMDeletionProcessor) DeleteMultipleVMs(identifiers []string) error {
 func (p *VMDeletionProcessor) DeleteSingleVM(vmInfo *utils.VMInfo, currentIndex, totalCount int) ([]string, error) {
 	// Get confirmation if not skipping confirmations
 	if !p.skipConfirmation {
-		if !utils.ConfirmDeletion("VM", vmInfo.DisplayName, p.styles) {
-			utils.OperationCancelled(p.styles)
+		fmt.Println(p.styles.Warning.Render("Warning: You are about to delete VM '" + vmInfo.DisplayName + "'"))
+		ok, _ := p.prompter.YesNo("Proceed")
+		if !ok {
+			presdel.OperationCancelled(p.styles)
 			return nil, fmt.Errorf("operation cancelled by user")
 		}
-
-		// Check HEAD impact for this specific VM
-		if !utils.ConfirmVMHeadImpact(vmInfo.ID, p.styles) {
-			utils.OperationCancelled(p.styles)
-			return nil, fmt.Errorf("operation cancelled by user")
+		if utils.CheckVMImpactsHead(vmInfo.ID) {
+			fmt.Println(p.styles.Warning.Render("Warning: This will affect the current HEAD"))
+			ok, _ = p.prompter.YesNo("Proceed")
+			if !ok {
+				presdel.OperationCancelled(p.styles)
+				return nil, fmt.Errorf("operation cancelled by user")
+			}
 		}
 	}
 
 	// Show progress and perform deletion
 	action := p.getDeletionAction()
-
-	return utils.HandleDeletionResult(currentIndex, totalCount, action, vmInfo.DisplayName, func() ([]string, error) {
-		return p.deleteVM(vmInfo.ID)
-	}, p.styles)
+	return handleDeletionResultVM(currentIndex, totalCount, action, vmInfo.DisplayName, func() ([]string, error) { return p.deleteVM(vmInfo.ID) }, p.styles)
 }
 
 // getDeletionAction returns the appropriate action description based on flags
@@ -163,24 +166,18 @@ func (p *VMDeletionProcessor) getDeletionAction() string {
 }
 
 func (p *VMDeletionProcessor) deleteVM(vmID string) ([]string, error) {
-	deleteParams := vers.APIVmDeleteParams{
-		Recursive: vers.F(p.recursive), // Use the recursive flag specifically
-	}
-
-	result, err := p.client.API.Vm.Delete(p.ctx, vmID, deleteParams)
+	deleted, err := delsvc.DeleteVM(p.ctx, p.client, vmID, p.recursive)
 	if err != nil {
-		// Check for the common "HasChildren" error and provide a helpful message
-		if p.isHasChildrenError(err) {
-			return nil, p.createHasChildrenError(vmID)
+		switch e := err.(type) {
+		case *errorsx.HasChildrenError:
+			return nil, errors.New(presenters.HasChildrenGuidance(e.VMID, p.styles))
+		case *errorsx.IsRootError:
+			return nil, errors.New(presenters.RootDeleteGuidance(e.VMID, p.styles))
+		default:
+			return nil, err
 		}
-		return nil, err
 	}
-
-	if utils.HandleVmDeleteErrors(result, p.styles) {
-		return nil, fmt.Errorf("deletion had errors")
-	}
-
-	return result.Data.DeletedIDs, nil
+	return deleted, nil
 }
 
 // isHasChildrenError checks if the error is a 409 Conflict with "HasChildren"
@@ -203,4 +200,42 @@ To see the VM tree structure, run:
   vers tree`, vmID)
 
 	return errors.New(message)
+}
+
+// isRootError checks if the error indicates the VM is a cluster root VM.
+func (p *VMDeletionProcessor) isRootError(err error) bool {
+	errStr := err.Error()
+	// Observed as 400 Bad Request with "IsRoot" token
+	return strings.Contains(errStr, "IsRoot")
+}
+
+// createRootError returns a helpful message for attempts to delete the cluster root VM directly.
+func (p *VMDeletionProcessor) createRootError(vmID string) error {
+	message := fmt.Sprintf(`Cannot delete VM because it is the cluster's root VM.
+
+Deleting the root VM would orphan the entire cluster topology.
+
+To remove this environment, delete the whole cluster instead:
+  vers kill -c <cluster-id-or-alias>
+
+To inspect the structure and identify the cluster, run:
+  vers tree
+
+Target VM: %s`, vmID)
+	return errors.New(message)
+}
+
+// Progress/result handling is now shared via utils.HandleDeletionResult.
+
+// local helper mirrors utils.HandleDeletionResult without utils dependency
+func handleDeletionResultVM(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
+    presdel.ProgressCounter(currentIndex, totalCount, action, displayName, s)
+    deletedIDs, err := deletionFunc()
+    if err != nil {
+        failMsg := fmt.Sprintf("FAILED: %s", err.Error())
+        fmt.Println(s.Error.Render(failMsg))
+        return nil, err
+    }
+    presdel.SuccessMessage("Deleted successfully", s)
+    return deletedIDs, nil
 }

@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 
-	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/internal/handlers"
+	pres "github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -23,83 +21,34 @@ var runCmd = &cobra.Command{
 	Long:  `Start a Vers development environment according to the configuration in vers.toml.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Load configuration from vers.toml
-		config, err := loadConfig()
+		cfg, err := runconfig.Load()
 		if err != nil {
-			return fmt.Errorf("failed to load configuration: %w", err)
+			return err
 		}
-
-		// Override with flags if provided
-		applyFlagOverrides(cmd, config)
-
-		return StartCluster(config, args)
+		applyFlagOverrides(cmd, cfg)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
+		defer cancel()
+		req := handlers.RunReq{
+			MemSizeMib:       cfg.Machine.MemSizeMib,
+			VcpuCount:        cfg.Machine.VcpuCount,
+			RootfsName:       cfg.Rootfs.Name,
+			KernelName:       cfg.Kernel.Name,
+			FsSizeClusterMib: cfg.Machine.FsSizeClusterMib,
+			FsSizeVmMib:      cfg.Machine.FsSizeVmMib,
+			ClusterAlias:     clusterAlias,
+			VMAlias:          vmAlias,
+		}
+		view, err := handlers.HandleRun(apiCtx, application, req)
+		if err != nil {
+			return err
+		}
+		pres.RenderRun(application, view)
+		return nil
 	},
 }
 
 // StartCluster starts a development environment according to the provided configuration
-func StartCluster(config *Config, args []string) error {
-	baseCtx := context.Background()
-	apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
-	defer cancel()
-
-	// Create base parameters
-	params := vers.ClusterCreateRequestNewClusterParamsParamsParam{
-		MemSizeMib:       vers.F(config.Machine.MemSizeMib),
-		VcpuCount:        vers.F(config.Machine.VcpuCount),
-		RootfsName:       vers.F(config.Rootfs.Name),
-		KernelName:       vers.F(config.Kernel.Name),
-		FsSizeClusterMib: vers.F(config.Machine.FsSizeClusterMib),
-		FsSizeVmMib:      vers.F(config.Machine.FsSizeVmMib),
-	}
-
-	// Add aliases if provided
-	if clusterAlias != "" {
-		params.ClusterAlias = vers.F(clusterAlias)
-	}
-	if vmAlias != "" {
-		params.VmAlias = vers.F(vmAlias)
-	}
-
-	// Create cluster parameters with modified params
-	clusterParams := vers.APIClusterNewParams{
-		ClusterCreateRequest: vers.ClusterCreateRequestNewClusterParamsParam{
-			ClusterType: vers.F(vers.ClusterCreateRequestNewClusterParamsClusterTypeNew),
-			Params:      vers.F(params),
-		},
-	}
-
-	fmt.Println("Sending request to start cluster...")
-	response, err := client.API.Cluster.New(apiCtx, clusterParams)
-	if err != nil {
-		return err
-	}
-	clusterInfo := response.Data
-
-	// Use information from the response
-	fmt.Printf("Cluster (ID: %s) started successfully with root vm '%s'.\n",
-		clusterInfo.ID,
-		clusterInfo.RootVmID,
-	)
-
-	// Update HEAD to point to the new VM
-	vmTarget := clusterInfo.RootVmID
-	if vmAlias != "" {
-		vmTarget = vmAlias // Use alias if provided
-	}
-
-	versDir := ".vers"
-	if _, err := os.Stat(versDir); os.IsNotExist(err) {
-		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
-	} else {
-		headFile := filepath.Join(versDir, "HEAD")
-		if err := os.WriteFile(headFile, []byte(vmTarget+"\n"), 0644); err != nil {
-			return fmt.Errorf("failed to update HEAD: %w", err)
-		}
-		fmt.Printf("HEAD now points to: %s\n", vmTarget)
-	}
-
-	return nil
-}
+// cluster start moved into internal/handlers/run.go
 
 func init() {
 	rootCmd.AddCommand(runCmd)

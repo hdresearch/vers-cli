@@ -1,0 +1,107 @@
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"strings"
+
+	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/handlers"
+	mcp "github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+func registerResources(server *mcp.Server, application *app.App) error {
+	// Status snapshot resources
+	server.AddResource(&mcp.Resource{
+		Name:        "vers.status",
+		Title:       "Vers Status (All)",
+		Description: "Status snapshot for all clusters and HEAD VM",
+		MIMEType:    "application/json",
+		URI:         "vers://status",
+	}, readVersResource(application))
+
+	server.AddResourceTemplate(&mcp.ResourceTemplate{
+		Name:        "vers.status.cluster",
+		Title:       "Vers Status (Cluster)",
+		Description: "Status snapshot for a specific cluster by ID or alias",
+		MIMEType:    "application/json",
+		URITemplate: "vers://status/{cluster}",
+	}, readVersResource(application))
+
+	// Cluster tree resource
+	server.AddResourceTemplate(&mcp.ResourceTemplate{
+		Name:        "vers.cluster.tree",
+		Title:       "Vers Cluster Tree",
+		Description: "VM tree for a specific cluster",
+		MIMEType:    "application/json",
+		URITemplate: "vers://cluster/{id}/tree",
+	}, readVersResource(application))
+
+	return nil
+}
+
+// readVersResource handles vers:// URIs such as:
+// - vers://status
+// - vers://status/{cluster}
+// - vers://cluster/{id}/tree
+func readVersResource(application *app.App) mcp.ResourceHandler {
+	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+		u, err := url.Parse(req.Params.URI)
+		if err != nil {
+			return nil, fmt.Errorf("bad URI: %w", err)
+		}
+		if u.Scheme != "vers" {
+			return nil, fmt.Errorf("unsupported scheme: %s", u.Scheme)
+		}
+		// u.Opaque may be set (vers://something). Prefer Path if present.
+		p := strings.TrimPrefix(u.Path, "/")
+		if p == "" {
+			p = u.Opaque
+		}
+		parts := strings.Split(p, "/")
+		if len(parts) == 0 || parts[0] == "" {
+			return nil, fmt.Errorf("missing resource path in URI")
+		}
+		var payload any
+		switch parts[0] {
+		case "status":
+			var cluster string
+			if len(parts) > 1 {
+				cluster = parts[1]
+			}
+			apiCtx, cancel := context.WithTimeout(ctx, application.Timeouts.APIMedium)
+			defer cancel()
+			view, err := handlers.HandleStatus(apiCtx, application, handlers.StatusReq{Cluster: cluster})
+			if err != nil {
+				return nil, mapMCPError(err)
+			}
+			payload = view
+		case "cluster":
+			if len(parts) < 3 || parts[2] != "tree" {
+				return nil, Err(E_INVALID, "expected URI of form vers://cluster/{id}/tree", nil)
+			}
+			id := parts[1]
+			apiCtx, cancel := context.WithTimeout(ctx, application.Timeouts.APIMedium)
+			defer cancel()
+			clusterAny, head, err := handlers.HandleTree(apiCtx, application, handlers.TreeReq{ClusterIdentifier: id})
+			if err != nil {
+				return nil, mapMCPError(err)
+			}
+			payload = map[string]any{"cluster": clusterAny, "head": head}
+		default:
+			return nil, Err(E_NOT_FOUND, "unknown vers resource", map[string]any{"path": p})
+		}
+
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("marshal: %w", err)
+		}
+		return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
+			URI:      req.Params.URI,
+			MIMEType: "application/json",
+			Blob:     data,
+		}}}, nil
+	}
+}

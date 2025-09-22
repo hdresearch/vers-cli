@@ -2,12 +2,9 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"time"
 
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
-	"github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/internal/handlers"
+	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
 
@@ -20,89 +17,21 @@ var branchCmd = &cobra.Command{
 	Long:  `Create a new VM (branch) from the state of an existing VM. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
-		var vmInfo *utils.VMInfo
-		s := styles.NewBranchStyles()
+		aliasFlag := alias
+		checkoutFlag, _ := cmd.Flags().GetBool("checkout")
 
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 30*time.Second)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
 
-		// Determine VM ID to use - no extra API calls
-		if len(args) == 0 {
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.Error.Render("no VM ID provided and %s"), err)
-			}
-			fmt.Printf(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(vmID) + "\n")
-		} else {
-			var err error
-			vmInfo, err = utils.ResolveVMIdentifier(apiCtx, client, args[0])
-			if err != nil {
-				return fmt.Errorf(s.Error.Render("failed to find VM: %w"), err)
-			}
-			vmID = vmInfo.ID
+		target := ""
+		if len(args) > 0 {
+			target = args[0]
 		}
-
-		// Show progress with best available name
-		progressName := vmID
-		if vmInfo != nil {
-			progressName = vmInfo.DisplayName
-		}
-		fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
-
-		body := vers.APIVmBranchParams{
-			VmBranchRequest: vers.VmBranchRequestParam{},
-		}
-		if alias != "" {
-			body.VmBranchRequest.Alias = vers.F(alias)
-		}
-
-		response, err := client.API.Vm.Branch(apiCtx, vmID, body)
+		res, err := handlers.HandleBranch(apiCtx, application, handlers.BranchReq{Target: target, Alias: aliasFlag, Checkout: checkoutFlag})
 		if err != nil {
-			return fmt.Errorf(s.Error.Render("failed to create branch from vm '%s': %w"), progressName, err)
+			return err
 		}
-		branchInfo := response.Data
-
-		// Success message
-		fmt.Printf(s.Success.Render("✓ New VM created successfully!") + "\n")
-
-		// VM details
-		fmt.Printf(s.ListHeader.Render("New VM details:") + "\n")
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(branchInfo.ID)) + "\n")
-
-		if branchInfo.Alias != "" {
-			fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(branchInfo.Alias)) + "\n")
-		}
-
-		fmt.Printf(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(string(branchInfo.State))) + "\n\n")
-
-		// Check if user wants to switch to the new VM
-		if checkout, _ := cmd.Flags().GetBool("checkout"); checkout {
-			err := utils.SetHead(branchInfo.ID)
-			if err != nil {
-				warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", err)
-				fmt.Println(s.Warning.Render(warningMsg))
-			} else {
-				// Create display name from branch response
-				displayName := branchInfo.Alias
-				if displayName == "" {
-					displayName = branchInfo.ID
-				}
-				successStyle := s.Success.Padding(0, 0)
-				fmt.Printf(successStyle.Render("✓ HEAD now points to: ") + s.VMID.Render(displayName) + "\n")
-			}
-		} else {
-			// Show tip about switching
-			switchTarget := branchInfo.Alias
-			if switchTarget == "" {
-				switchTarget = branchInfo.ID
-			}
-			fmt.Printf(s.Tip.Render("Use --checkout or -c to switch to the new VM") + "\n")
-			fmt.Printf(s.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM") + "\n")
-		}
-
+		pres.RenderBranch(application, res)
 		return nil
 	},
 }

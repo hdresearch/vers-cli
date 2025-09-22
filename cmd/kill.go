@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hdresearch/vers-cli/internal/deletion"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
+	"github.com/hdresearch/vers-cli/internal/handlers"
 	"github.com/spf13/cobra"
 )
 
@@ -62,37 +60,14 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
-
-		s := styles.NewKillStyles()
-
-		if killAll {
-			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
-			return processor.DeleteAllClusters()
+		req := handlers.KillReq{
+			Targets:          args,
+			SkipConfirmation: skipConfirmation,
+			Recursive:        recursive,
+			IsCluster:        isCluster,
+			KillAll:          killAll,
 		}
-
-		// Handle the case where no arguments are provided
-		if len(args) == 0 {
-			// Use HEAD VM - optimized path since HEAD is always a VM ID
-			headVMID, err := utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
-			}
-
-			fmt.Printf(s.Progress.Render("Using current HEAD VM: %s")+"\n", headVMID)
-
-			// Use optimized deletion path for HEAD
-			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
-			return processor.DeleteHeadVM(headVMID, headVMID)
-		}
-
-		// Delegate to appropriate processor
-		if isCluster {
-			processor := deletion.NewClusterDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
-			return processor.DeleteMultipleClusters(args)
-		} else {
-			processor := deletion.NewVMDeletionProcessor(client, &s, ctx, skipConfirmation, recursive)
-			return processor.DeleteMultipleVMs(args)
-		}
+		return handlers.HandleKill(ctx, application, req)
 	},
 }
 

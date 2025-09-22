@@ -3,6 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    types: [opened, reopened]
   push:
     branches: [main]
 
@@ -21,11 +22,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Run tests
-        run: go test -v ./...
+      - name: Run unit tests
+        run: make test
 
       - name: Run go vet
-        run: go vet ./...
+        run: make vet
 
       - name: Run go fmt check
         run: |
@@ -55,3 +56,19 @@ jobs:
         run: |
           ./bin/vers --version
           ./bin/vers --VVersion
+
+  integration-tests:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      VERS_URL: ${{ secrets.VERS_URL }}
+      VERS_API_KEY: ${{ secrets.VERS_API_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run integration tests
+        run: make test-integration

@@ -9,6 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/hdresearch/vers-cli/internal/assets"
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
@@ -97,21 +98,21 @@ var initCmd = &cobra.Command{
 			}
 
 			// Create the vers.toml content
-			config := &Config{
-				Machine: MachineConfig{
+			config := &runconfig.Config{
+				Machine: runconfig.MachineConfig{
 					MemSizeMib:       memSize,
 					VcpuCount:        vcpuCount,
 					FsSizeClusterMib: fsSizeClusterMib,
 					FsSizeVmMib:      fsSizeVmMib,
 				},
-				Rootfs: RootfsConfig{
+				Rootfs: runconfig.RootfsConfig{
 					Name: rootfsName,
 				},
-				Builder: BuilderConfig{
+				Builder: runconfig.BuilderConfig{
 					Name:       "none",
 					Dockerfile: "Dockerfile",
 				},
-				Kernel: KernelConfig{
+				Kernel: runconfig.KernelConfig{
 					Name: kernelName,
 				},
 			}
@@ -123,13 +124,13 @@ var initCmd = &cobra.Command{
 			}
 			versTomlContent := buf.String()
 
-			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
-				return fmt.Errorf("error creating vers.toml file: %w", err)
-			}
-			fmt.Printf(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
-		} else {
-			fmt.Printf(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
-		}
+            if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
+                return fmt.Errorf("error creating vers.toml file: %w", err)
+            }
+            fmt.Print(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
+        } else {
+            fmt.Print(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
+        }
 
 		logoStyle := styles.AppStyle.Foreground(styles.TerminalMagenta)
 		fmt.Println(logoStyle.Render(`	
@@ -139,7 +140,7 @@ var initCmd = &cobra.Command{
 		 ▝▚▞▘ ▐▙▄▄▖▐▌ ▐▌▗▄▄▞▘						 
    `))
 
-		fmt.Printf(styles.MutedTextStyle.Render("Initialized vers repository in %s directory\n"), versDir)
+        fmt.Printf("%s", styles.MutedTextStyle.Render(fmt.Sprintf("Initialized vers repository in %s directory\n", versDir)))
 
 		return nil
 	},
