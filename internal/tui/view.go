@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/hdresearch/vers-cli/styles"
 	"strings"
 )
 
@@ -11,9 +10,9 @@ func (m Model) View() string {
 	// header
 	b.WriteString("Vers TUI\n\n")
 	// columns with simple lipgloss columns
-	// focused styles
-	focused := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(styles.Primary)
-	blurred := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(styles.BorderColor)
+	// focused styles cached in model
+	focused := m.boxFocused
+	blurred := m.boxBlurred
 	leftBox := blurred
 	rightBox := blurred
 	if m.focus == focusClusters {
