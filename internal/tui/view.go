@@ -57,6 +57,10 @@ func (m Model) View() string {
 	if m.status != "" {
 		b.WriteString(m.status + "\n")
 	}
+	if !m.showClusters {
+		// Small hint to show the sidebar again
+		b.WriteString("s: show sidebar\n")
+	}
 	b.WriteString(m.help.View(m.keys))
 	b.WriteString("\n")
 	return b.String()

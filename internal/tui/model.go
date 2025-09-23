@@ -42,7 +42,10 @@ func (i clusterItem) FilterValue() string {
 	return i.ID
 }
 
-type vmItem struct{ TitleText, DescText, ID, Alias, State string }
+type vmItem struct {
+	TitleText, DescText, ID, Alias, State string
+	Depth                                 int
+}
 
 func (i vmItem) Title() string       { return i.TitleText }
 func (i vmItem) Description() string { return i.DescText }
@@ -119,7 +122,7 @@ type Model struct {
 func New(appc *app.App) Model {
 	lclusters := list.New(nil, list.NewDefaultDelegate(), 40, 12)
 	lclusters.Title = "Clusters"
-	lvms := list.New(nil, list.NewDefaultDelegate(), 60, 12)
+	lvms := list.New(nil, newVMDelegate(), 60, 12)
 	lvms.Title = "VMs"
 	sp := spinner.New()
 	sp.Spinner = spinner.Line
@@ -178,13 +181,42 @@ func loadVMsCmd(m Model, clusterID string) tea.Cmd {
 		if err != nil {
 			return vmsLoadedMsg{clusterID: clusterID, err: err}
 		}
-		items := make([]list.Item, 0, len(cl.Vms))
+		// Build lineage-ordered list similar to the tree view
+		vmMap := map[string]vers.VmDto{}
 		for _, v := range cl.Vms {
-			disp := v.Alias
-			if disp == "" {
-				disp = v.ID
+			vmMap[v.ID] = v
+		}
+		var items []list.Item
+		var walk func(id string, prefix string, isLast bool, depth int)
+		walk = func(id string, prefix string, isLast bool, depth int) {
+			v := vmMap[id]
+			name := v.Alias
+			if name == "" {
+				name = v.ID
 			}
-			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("State: %s", v.State), ID: v.ID, Alias: v.Alias, State: string(v.State)})
+			connector := "├── "
+			if isLast {
+				connector = "└── "
+			}
+			title := name
+			if depth > 0 {
+				title = prefix + connector + name
+			}
+			items = append(items, vmItem{TitleText: title, DescText: fmt.Sprintf("State: %s", v.State), ID: v.ID, Alias: v.Alias, State: string(v.State), Depth: depth})
+			childPrefix := prefix
+			if depth > 0 {
+				if isLast {
+					childPrefix += "    "
+				} else {
+					childPrefix += "│   "
+				}
+			}
+			for i, cid := range v.Children {
+				walk(cid, childPrefix, i == len(v.Children)-1, depth+1)
+			}
+		}
+		if cl.RootVmID != "" {
+			walk(cl.RootVmID, "", true, 0)
 		}
 		return vmsLoadedMsg{clusterID: cl.ID, items: items}
 	}
@@ -224,6 +256,30 @@ func doBranchCmd(m Model, vmID, alias string) tea.Cmd {
 			return actionCompletedMsg{text: "Branch failed", err: err}
 		}
 		return actionCompletedMsg{text: "Branched", err: nil}
+	}
+}
+
+func doRenameVMCmd(m Model, vmID, alias string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
+		defer cancel()
+		_, err := handlers.HandleRename(ctx, m.app, handlers.RenameReq{IsCluster: false, Target: vmID, NewAlias: alias})
+		if err != nil {
+			return actionCompletedMsg{text: "Rename failed", err: err}
+		}
+		return actionCompletedMsg{text: "Renamed", err: nil}
+	}
+}
+
+func doRenameClusterCmd(m Model, clusterID, alias string) tea.Cmd {
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
+		defer cancel()
+		_, err := handlers.HandleRename(ctx, m.app, handlers.RenameReq{IsCluster: true, Target: clusterID, NewAlias: alias})
+		if err != nil {
+			return actionCompletedMsg{text: "Cluster rename failed", err: err}
+		}
+		return actionCompletedMsg{text: "Cluster renamed", err: nil}
 	}
 }
 

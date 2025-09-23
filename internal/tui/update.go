@@ -156,6 +156,51 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// cluster actions
 			switch msg.String() {
+			case "a":
+				// Rename cluster: prompt for new alias, prefill with current alias
+				if idx >= 0 && idx < len(m.clusterBacking) {
+					cur := m.clusterBacking[idx]
+					m.modalActive = true
+					m.modalKind = "input"
+					m.modalPrompt = "New cluster alias:"
+					m.input.Placeholder = "alias"
+					m.input.SetValue(cur.Alias)
+					m.input.CursorEnd()
+					m.input.Focus()
+					id := cur.ID
+					m.onSubmit = func(alias string) tea.Cmd {
+						m.input.Blur()
+						// If alias is unchanged or empty, just close
+						if alias == cur.Alias || alias == "" {
+							m.modalActive = false
+							return nil
+						}
+						// Duplicate check among clusters
+						var conflict string
+						for _, c := range m.clusterBacking {
+							if c.ID != id && c.Alias == alias && alias != "" {
+								conflict = c.ID
+								break
+							}
+						}
+						if conflict != "" {
+							// Ask for confirmation before overwriting
+							m.modalKind = "confirm"
+							m.modalPrompt = "Alias '" + alias + "' is used by cluster '" + conflict + "'. Overwrite?"
+							m.onConfirm = func() tea.Cmd {
+								m.modalActive = false
+								m.status = "Renaming cluster..."
+								return tea.Batch(doRenameClusterCmd(m, id, alias), loadClustersCmd(m))
+							}
+							return nil
+						}
+						// No conflict: proceed
+						m.modalActive = false
+						m.status = "Renaming cluster..."
+						return tea.Batch(doRenameClusterCmd(m, id, alias), loadClustersCmd(m))
+					}
+					return m, nil
+				}
 			case "k":
 				if cid, ok := m.selectedClusterID(); ok {
 					m.modalActive = true
@@ -192,6 +237,57 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if it, ok := m.vms.SelectedItem().(vmItem); ok {
 					m.status = "Connecting..."
 					return m, doConnectCmd(m, it.ID)
+				}
+			case "a":
+				if it, ok := m.vms.SelectedItem().(vmItem); ok {
+					m.modalActive = true
+					m.modalKind = "input"
+					m.modalPrompt = "New VM alias:"
+					m.input.Placeholder = "alias"
+					// Prefill with current alias (if empty, leave blank)
+					m.input.SetValue(it.Alias)
+					m.input.CursorEnd()
+					m.input.Focus()
+					id := it.ID
+					m.onSubmit = func(alias string) tea.Cmd {
+						m.input.Blur()
+						// If alias unchanged or empty, just close
+						if alias == it.Alias || alias == "" {
+							m.modalActive = false
+							return nil
+						}
+						// Duplicate check within visible VM list
+						var conflict string
+						items := m.vms.Items()
+						for i := 0; i < len(items); i++ {
+							if vi, ok := items[i].(vmItem); ok {
+								if vi.ID != id && vi.Alias == alias && alias != "" {
+									if vi.Alias != "" {
+										conflict = vi.Alias
+									} else {
+										conflict = vi.ID
+									}
+									break
+								}
+							}
+						}
+						if conflict != "" {
+							// Confirm overwrite before proceeding
+							m.modalKind = "confirm"
+							m.modalPrompt = "Alias '" + alias + "' is used by VM '" + conflict + "'. Overwrite?"
+							m.onConfirm = func() tea.Cmd {
+								m.modalActive = false
+								m.status = "Renaming..."
+								return doRenameVMCmd(m, id, alias)
+							}
+							return nil
+						}
+						// No conflict
+						m.modalActive = false
+						m.status = "Renaming..."
+						return doRenameVMCmd(m, id, alias)
+					}
+					return m, nil
 				}
 			case "b":
 				if it, ok := m.vms.SelectedItem().(vmItem); ok {
