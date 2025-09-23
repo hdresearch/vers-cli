@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -38,8 +37,9 @@ func (d vmDelegate) Render(w io.Writer, m list.Model, index int, listItem list.I
 		titleStyled = lipgloss.NewStyle().Foreground(styles.Muted).Render(title)
 	}
 
-	line := fmt.Sprintf("%s%s%s", titleStyled, sep, stateStyled)
-	_, _ = io.WriteString(w, line)
+	_, _ = io.WriteString(w, titleStyled)
+	_, _ = io.WriteString(w, sep)
+	_, _ = io.WriteString(w, stateStyled)
 }
 
 func styleState(state string) lipgloss.Style {

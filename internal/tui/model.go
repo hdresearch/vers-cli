@@ -2,14 +2,16 @@ package tui
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
@@ -19,6 +21,7 @@ import (
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -68,6 +71,10 @@ type vmsLoadedMsg struct {
 	items     []list.Item
 	err       error
 }
+type vmReloadDebouncedMsg struct {
+	clusterID string
+	seq       int
+}
 type actionCompletedMsg struct {
 	text string
 	err  error
@@ -80,6 +87,7 @@ type treeLoadedMsg struct {
 	lines []string
 	err   error
 }
+type refreshTickMsg struct{}
 
 // raw backing info we may need
 type svcCluster struct{ ID, Alias string }
@@ -103,6 +111,9 @@ type Model struct {
 
 	width  int
 	height int
+	// cached styles
+	boxFocused lipgloss.Style
+	boxBlurred lipgloss.Style
 
 	// modal state
 	modalActive bool
@@ -117,6 +128,12 @@ type Model struct {
 	modalText []string
 
 	recursiveVMKill bool
+
+	// debounce state for VM loading when cluster selection changes
+	clusterReqSeq int
+
+	// background refresh and diffing
+	lastVmsFingerprint string
 }
 
 func New(appc *app.App) Model {
@@ -130,6 +147,9 @@ func New(appc *app.App) Model {
 	ti.Placeholder = "alias"
 	ti.CharLimit = 64
 	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys(), showClusters: true}
+	// cache box styles to avoid allocating every render
+	m.boxFocused = lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(styles.Primary)
+	m.boxBlurred = lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(styles.BorderColor)
 	m.setFocus(focusClusters)
 	return m
 }
@@ -141,6 +161,11 @@ func (m *Model) setFocus(f focus) {
 }
 
 func (m Model) Init() tea.Cmd { return tea.Batch(func() tea.Msg { return initLoadMsg{} }, m.spin.Tick) }
+
+// scheduleRefreshCmd returns a Tick that fires a refresh message after d.
+func scheduleRefreshCmd(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg { return refreshTickMsg{} })
+}
 
 // commands
 func loadClustersCmd(m Model) tea.Cmd {
@@ -166,7 +191,14 @@ func loadClustersCmd(m Model) tea.Cmd {
 					break
 				}
 			}
-			items = append(items, clusterItem{TitleText: disp, DescText: fmt.Sprintf("Root: %s | VMs: %d", root, c.VmCount), ID: c.ID, Alias: c.Alias})
+			// Build description without fmt.Sprintf
+			var db strings.Builder
+			db.Grow(len(root) + 16)
+			db.WriteString("Root: ")
+			db.WriteString(root)
+			db.WriteString(" | VMs: ")
+			db.WriteString(strconv.FormatInt(c.VmCount, 10))
+			items = append(items, clusterItem{TitleText: disp, DescText: db.String(), ID: c.ID, Alias: c.Alias})
 			backing = append(backing, svcCluster{ID: c.ID, Alias: c.Alias})
 		}
 		return clustersLoadedMsg{items: items, raw: backing}
@@ -202,7 +234,7 @@ func loadVMsCmd(m Model, clusterID string) tea.Cmd {
 			if depth > 0 {
 				title = prefix + connector + name
 			}
-			items = append(items, vmItem{TitleText: title, DescText: fmt.Sprintf("State: %s", v.State), ID: v.ID, Alias: v.Alias, State: string(v.State), Depth: depth})
+			items = append(items, vmItem{TitleText: title, DescText: "", ID: v.ID, Alias: v.Alias, State: string(v.State), Depth: depth})
 			childPrefix := prefix
 			if depth > 0 {
 				if isLast {
@@ -295,7 +327,7 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 
 		// Determine host/port (DNAT vs local route)
 		sshHost := info.Host
-		sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
+		sshPort := strconv.FormatInt(info.VM.NetworkInfo.SSHPort, 10)
 		if utils.IsHostLocal(info.Host) {
 			sshHost = info.VM.IPAddress
 			sshPort = "22"

@@ -5,6 +5,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"strings"
+	"time"
 )
 
 // applyLayout sets list sizes based on current width/height, focus, and sidebar visibility.
@@ -54,6 +55,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m = applyLayout(m)
+		// keep background refresh ticking
 		return m, nil
 
 	case tea.KeyMsg:
@@ -152,7 +154,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.prevClusterIdx = idx
 				m.loading = true
 				cid := m.clusterBacking[idx].ID
-				return m, loadVMsCmd(m, cid)
+				// debounce VM reload to avoid hammering API while scrolling
+				m.clusterReqSeq++
+				seq := m.clusterReqSeq
+				return m, tea.Batch(
+					tea.Tick(120*time.Millisecond, func(time.Time) tea.Msg { return vmReloadDebouncedMsg{clusterID: cid, seq: seq} }),
+					m.spin.Tick,
+				)
 			}
 			// cluster actions
 			switch msg.String() {
@@ -370,12 +378,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.vms, cmd = m.vms.Update(msg)
 			return m, cmd
 		}
-		// nothing handled; continue to spinner update
+		// nothing handled; continue
 		return m, nil
 
 	case initLoadMsg:
 		m.loading = true
-		return m, loadClustersCmd(m)
+		return m, tea.Batch(loadClustersCmd(m), m.spin.Tick, scheduleRefreshCmd(3*time.Second))
 
 	case clustersLoadedMsg:
 		m.loading = false
@@ -394,14 +402,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case vmsLoadedMsg:
+		// diff against fingerprint; only update items if changed
+		// Compute fingerprint
+		fpb := strings.Builder{}
+		for _, it := range msg.items {
+			if v, ok := it.(vmItem); ok {
+				fpb.WriteString(v.ID)
+				fpb.WriteByte('|')
+				fpb.WriteString(v.Alias)
+				fpb.WriteByte('|')
+				fpb.WriteString(v.State)
+				fpb.WriteByte(';')
+			}
+		}
+		fp := fpb.String()
+		if fp != m.lastVmsFingerprint {
+			// preserve selection by ID if possible
+			selID, _ := m.selectedVMID()
+			m.vms.SetItems(msg.items)
+			if selID != "" {
+				for i, it := range m.vms.Items() {
+					if vi, ok := it.(vmItem); ok && vi.ID == selID {
+						m.vms.Select(i)
+						break
+					}
+				}
+			} else if len(msg.items) > 0 {
+				m.vms.Select(0)
+			}
+			m.lastVmsFingerprint = fp
+		}
 		m.loading = false
 		if msg.err != nil {
 			m.status = "Failed to load VMs: " + msg.err.Error()
 			return m, nil
-		}
-		m.vms.SetItems(msg.items)
-		if len(msg.items) > 0 {
-			m.vms.Select(0)
 		}
 		return m, nil
 
@@ -412,7 +446,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = msg.text
 		}
 		m.loading = true
-		return m, refreshCurrentVMsCmd(m)
+		return m, tea.Batch(refreshCurrentVMsCmd(m), m.spin.Tick)
 	case historyLoadedMsg:
 		m.status = ""
 		if msg.err != nil {
@@ -438,12 +472,41 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.modalPrompt = "Tree:"
 		return m, nil
 
+	case vmReloadDebouncedMsg:
+		// Only proceed if the sequence matches the latest request and the
+		// selected cluster hasn't changed since the timer was set.
+		if msg.seq == m.clusterReqSeq {
+			// Verify currently selected cluster still matches
+			idx := m.clusters.Index()
+			if idx >= 0 && idx < len(m.clusterBacking) && m.clusterBacking[idx].ID == msg.clusterID {
+				return m, loadVMsCmd(m, msg.clusterID)
+			}
+		}
+		return m, nil
+
+	case refreshTickMsg:
+		// schedule next tick
+		cmdNext := scheduleRefreshCmd(3 * time.Second)
+		// Quiet refresh (no spinner) if we have a selected cluster and no modal
+		if m.modalActive {
+			return m, cmdNext
+		}
+		idx := m.clusters.Index()
+		if idx >= 0 && idx < len(m.clusterBacking) {
+			cid := m.clusterBacking[idx].ID
+			return m, tea.Batch(loadVMsCmd(m, cid), cmdNext)
+		}
+		return m, cmdNext
+
 		// nothing handled; continue to spinner update
 		return m, nil
 	}
 
-	// spinner tick
-	var cmd tea.Cmd
-	m.spin, cmd = m.spin.Update(msg)
-	return m, cmd
+	// spinner tick only when loading to reduce idle work
+	if m.loading {
+		var cmd tea.Cmd
+		m.spin, cmd = m.spin.Update(msg)
+		return m, cmd
+	}
+	return m, nil
 }
