@@ -15,6 +15,7 @@ type keyMap struct {
 	Commit  key.Binding
 	History key.Binding
 	Tree    key.Binding
+	Sidebar key.Binding
 }
 
 func defaultKeys() keyMap {
@@ -29,19 +30,20 @@ func defaultKeys() keyMap {
 		Commit:  key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "commit VM")),
 		History: key.NewBinding(key.WithKeys("h"), key.WithHelp("h", "history")),
 		Tree:    key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "tree")),
+		Sidebar: key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "toggle sidebar")),
 	}
 }
 
 // Implement help.KeyMap interface for bubbles/help
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Connect, k.Branch, k.Pause, k.Resume, k.History, k.Tree, k.Switch, k.Quit}
+	return []key.Binding{k.Connect, k.Branch, k.Pause, k.Resume, k.History, k.Tree, k.Sidebar, k.Switch, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Connect, k.Branch, k.Commit},
 		{k.Pause, k.Resume, k.Kill},
-		{k.History, k.Tree},
+		{k.History, k.Tree, k.Sidebar},
 		{k.Switch, k.Quit},
 	}
 }

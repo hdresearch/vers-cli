@@ -10,9 +10,9 @@ import (
 func RenderBranch(a *app.App, res BranchView) {
 	s := styles.NewBranchStyles()
 
-    if res.UsedHEAD {
-        fmt.Println(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(res.FromID))
-    }
+	if res.UsedHEAD {
+		fmt.Println(s.Tip.Render("Using current HEAD VM: ") + s.VMID.Render(res.FromID))
+	}
 
 	progressName := res.FromName
 	if progressName == "" {
@@ -20,14 +20,14 @@ func RenderBranch(a *app.App, res BranchView) {
 	}
 	fmt.Println(s.Progress.Render("Creating new VM from: " + progressName))
 
-    fmt.Println(s.Success.Render("✓ New VM created successfully!"))
-    fmt.Println(s.ListHeader.Render("New VM details:"))
-    fmt.Println(s.ListItem.Render(s.InfoLabel.Render("VM ID")+": "+s.VMID.Render(res.NewID)))
+	fmt.Println(s.Success.Render("✓ New VM created successfully!"))
+	fmt.Println(s.ListHeader.Render("New VM details:"))
+	fmt.Println(s.ListItem.Render(s.InfoLabel.Render("VM ID") + ": " + s.VMID.Render(res.NewID)))
 	if res.NewAlias != "" {
-        fmt.Println(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(res.NewAlias)))
-    }
-    fmt.Println(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(res.NewState)))
-    fmt.Println()
+		fmt.Println(s.ListItem.Render(s.InfoLabel.Render("Alias") + ": " + s.BranchName.Render(res.NewAlias)))
+	}
+	fmt.Println(s.ListItem.Render(s.InfoLabel.Render("State") + ": " + s.CurrentState.Render(res.NewState)))
+	fmt.Println()
 
 	if res.CheckoutDone {
 		successStyle := s.Success.Padding(0, 0)
@@ -35,9 +35,9 @@ func RenderBranch(a *app.App, res BranchView) {
 		if display == "" {
 			display = res.NewID
 		}
-        fmt.Println(successStyle.Render("✓ HEAD now points to: ") + s.VMID.Render(display))
-        return
-    }
+		fmt.Println(successStyle.Render("✓ HEAD now points to: ") + s.VMID.Render(display))
+		return
+	}
 
 	if res.CheckoutErr != nil {
 		warningMsg := fmt.Sprintf("WARNING: Failed to update HEAD: %v", res.CheckoutErr)
@@ -50,6 +50,6 @@ func RenderBranch(a *app.App, res BranchView) {
 	if switchTarget == "" {
 		switchTarget = res.NewID
 	}
-    fmt.Println(s.Tip.Render("Use --checkout or -c to switch to the new VM"))
-    fmt.Println(s.Tip.Render("Run 'vers checkout "+switchTarget+"' to switch to this VM"))
+	fmt.Println(s.Tip.Render("Use --checkout or -c to switch to the new VM"))
+	fmt.Println(s.Tip.Render("Run 'vers checkout " + switchTarget + "' to switch to this VM"))
 }

@@ -25,7 +25,7 @@ func RenderClusterStatus(s *styles.StatusStyles, cluster vers.APIClusterGetRespo
 		rootVMDisplayName = cluster.RootVmID
 	}
 
-    fmt.Println(s.HeadStatus.Render("Getting status for cluster: "+clusterDisplayName))
+	fmt.Println(s.HeadStatus.Render("Getting status for cluster: " + clusterDisplayName))
 	fmt.Println(s.VMListHeader.Render("Cluster details:"))
 	clusterList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 	clusterInfo := fmt.Sprintf("%s\n%s\n%s",
@@ -59,7 +59,7 @@ func RenderClusterStatus(s *styles.StatusStyles, cluster vers.APIClusterGetRespo
 
 func RenderVMStatus(s *styles.StatusStyles, vm vers.APIVmGetResponseData) {
 	vmInfo := utils.CreateVMInfoFromGetResponse(vm)
-    fmt.Println(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName))
+	fmt.Println(s.HeadStatus.Render("Getting status for VM: " + vmInfo.DisplayName))
 	fmt.Println(s.VMListHeader.Render("VM details:"))
 	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
 	vmInfoDisplay := fmt.Sprintf("%s\n%s\n%s",

@@ -1,14 +1,14 @@
 package handlers
 
 import (
-    "context"
-    "fmt"
-    "os"
+	"context"
+	"fmt"
+	"os"
 
-    "github.com/hdresearch/vers-cli/internal/app"
-    "github.com/hdresearch/vers-cli/internal/presenters"
-    "github.com/hdresearch/vers-cli/internal/utils"
-    vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/utils"
+	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 type RunReq struct {
@@ -51,21 +51,21 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 	}
 
 	clusterInfo := resp.Data
-    // Persist HEAD via utils to keep format/semantics consistent (store VM ID).
-    // Prefer storing the new root VM ID; if alias was provided, still store ID
-    // but show the alias in the presenter for UX.
-    if _, err := os.Stat(".vers"); os.IsNotExist(err) {
-        // Not a vers repo; skip writing HEAD but don't fail.
-    } else {
-        if err := utils.SetHead(clusterInfo.RootVmID); err != nil {
-            return presenters.RunView{}, fmt.Errorf("failed to update HEAD: %w", err)
-        }
-    }
-    headDisplay := r.VMAlias
-    if headDisplay == "" {
-        headDisplay = clusterInfo.RootVmID
-    }
-    return presenters.RunView{ClusterID: clusterInfo.ID, RootVmID: clusterInfo.RootVmID, VmAlias: r.VMAlias, HeadTarget: headDisplay}, nil
+	// Persist HEAD via utils to keep format/semantics consistent (store VM ID).
+	// Prefer storing the new root VM ID; if alias was provided, still store ID
+	// but show the alias in the presenter for UX.
+	if _, err := os.Stat(".vers"); os.IsNotExist(err) {
+		// Not a vers repo; skip writing HEAD but don't fail.
+	} else {
+		if err := utils.SetHead(clusterInfo.RootVmID); err != nil {
+			return presenters.RunView{}, fmt.Errorf("failed to update HEAD: %w", err)
+		}
+	}
+	headDisplay := r.VMAlias
+	if headDisplay == "" {
+		headDisplay = clusterInfo.RootVmID
+	}
+	return presenters.RunView{ClusterID: clusterInfo.ID, RootVmID: clusterInfo.RootVmID, VmAlias: r.VMAlias, HeadTarget: headDisplay}, nil
 }
 
 func validateAndNormalize(r *RunReq) error {

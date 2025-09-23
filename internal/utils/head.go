@@ -1,15 +1,15 @@
 package utils
 
 import (
-    "context"
-    "errors"
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
-    "time"
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
-    vers "github.com/hdresearch/vers-sdk-go"
+	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 const (
@@ -18,18 +18,18 @@ const (
 )
 
 var (
-    ErrHeadNotFound = errors.New("head not found")
-    ErrHeadEmpty    = errors.New("head empty")
+	ErrHeadNotFound = errors.New("head not found")
+	ErrHeadEmpty    = errors.New("head empty")
 )
 
 // GetCurrentHeadVM returns the VM ID from the current HEAD
 func GetCurrentHeadVM() (string, error) {
-    headFile := filepath.Join(VersDir, HeadFile)
+	headFile := filepath.Join(VersDir, HeadFile)
 
-    // Check if .vers directory and HEAD file exist
-    if _, err := os.Stat(headFile); os.IsNotExist(err) {
-        return "", ErrHeadNotFound
-    }
+	// Check if .vers directory and HEAD file exist
+	if _, err := os.Stat(headFile); os.IsNotExist(err) {
+		return "", ErrHeadNotFound
+	}
 
 	// Read HEAD file
 	headData, err := os.ReadFile(headFile)
@@ -40,9 +40,9 @@ func GetCurrentHeadVM() (string, error) {
 	// HEAD directly contains a VM ID or alias
 	vmID := strings.TrimSpace(string(headData))
 
-    if vmID == "" {
-        return "", ErrHeadEmpty
-    }
+	if vmID == "" {
+		return "", ErrHeadEmpty
+	}
 
 	return vmID, nil
 }

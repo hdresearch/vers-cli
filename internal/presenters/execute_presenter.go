@@ -9,7 +9,7 @@ import (
 
 func RenderExecute(a *app.App, v ExecuteView) {
 	s := styles.NewStatusStyles()
-    if v.UsedHEAD {
-        fmt.Println(s.HeadStatus.Render("Using current HEAD VM: "+v.HeadID))
-    }
+	if v.UsedHEAD {
+		fmt.Println(s.HeadStatus.Render("Using current HEAD VM: " + v.HeadID))
+	}
 }

@@ -88,6 +88,9 @@ type Model struct {
 	clusters list.Model
 	vms      list.Model
 
+	// layout
+	showClusters bool
+
 	clusterBacking []svcCluster
 	prevClusterIdx int
 
@@ -123,7 +126,7 @@ func New(appc *app.App) Model {
 	ti := textinput.New()
 	ti.Placeholder = "alias"
 	ti.CharLimit = 64
-	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys()}
+	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys(), showClusters: true}
 	m.setFocus(focusClusters)
 	return m
 }

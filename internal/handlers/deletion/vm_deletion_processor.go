@@ -229,13 +229,13 @@ Target VM: %s`, vmID)
 
 // local helper mirrors utils.HandleDeletionResult without utils dependency
 func handleDeletionResultVM(currentIndex, totalCount int, action, displayName string, deletionFunc func() ([]string, error), s *styles.KillStyles) ([]string, error) {
-    presdel.ProgressCounter(currentIndex, totalCount, action, displayName, s)
-    deletedIDs, err := deletionFunc()
-    if err != nil {
-        failMsg := fmt.Sprintf("FAILED: %s", err.Error())
-        fmt.Println(s.Error.Render(failMsg))
-        return nil, err
-    }
-    presdel.SuccessMessage("Deleted successfully", s)
-    return deletedIDs, nil
+	presdel.ProgressCounter(currentIndex, totalCount, action, displayName, s)
+	deletedIDs, err := deletionFunc()
+	if err != nil {
+		failMsg := fmt.Sprintf("FAILED: %s", err.Error())
+		fmt.Println(s.Error.Render(failMsg))
+		return nil, err
+	}
+	presdel.SuccessMessage("Deleted successfully", s)
+	return deletedIDs, nil
 }

@@ -22,10 +22,15 @@ func (m Model) View() string {
 		rightBox = focused
 	}
 
-	left := leftBox.Render(m.clusters.View())
-	right := rightBox.Render(m.vms.View())
-	row := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	b.WriteString(row)
+	if m.showClusters {
+		left := leftBox.Render(m.clusters.View())
+		right := rightBox.Render(m.vms.View())
+		row := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+		b.WriteString(row)
+	} else {
+		// Sidebar hidden; always focus VMs visually
+		b.WriteString(focused.Render(m.vms.View()))
+	}
 	b.WriteString("\n")
 	// modal overlay
 	if m.modalActive {

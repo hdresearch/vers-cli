@@ -18,9 +18,9 @@ func HandleVmDeleteErrors(result *vers.APIVmDeleteResponse, s *styles.KillStyles
 	}
 
 	fmt.Println(s.Warning.Render("One or more VMs failed to delete:"))
-    for _, error := range result.Data.Errors {
-        fmt.Printf("%s", s.Warning.Render(fmt.Sprintf("  • %s: %s\n", error.ID, error.Error)))
-    }
+	for _, error := range result.Data.Errors {
+		fmt.Printf("%s", s.Warning.Render(fmt.Sprintf("  • %s: %s\n", error.ID, error.Error)))
+	}
 
 	return true
 }
