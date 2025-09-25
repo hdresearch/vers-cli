@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	list "github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"strings"
@@ -124,6 +125,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.showClusters && m.focus == focusClusters {
 			m.setFocus(focusVMs)
 		}
+		// If the active list is filtering, forward keys directly to it to avoid
+		// conflicting with global hotkeys (e.g., 'h', 'l', 'b', etc.).
+		if m.focus == focusClusters && m.clusters.FilterState() == list.Filtering {
+			var cmd tea.Cmd
+			m.clusters, cmd = m.clusters.Update(msg)
+			return m, cmd
+		}
+		if m.focus == focusVMs && m.vms.FilterState() == list.Filtering {
+			var cmd tea.Cmd
+			m.vms, cmd = m.vms.Update(msg)
+			return m, cmd
+		}
 		// Global keybindings (no modal active)
 		switch msg.String() {
 		case "q", "ctrl+c":
@@ -134,6 +147,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.setFocus(focusClusters)
 			}
+			m = applyLayout(m)
+			return m, nil
+		case "h":
+			// Focus left (clusters). If sidebar hidden, show it.
+			if !m.showClusters {
+				m.showClusters = true
+			}
+			m.setFocus(focusClusters)
+			m = applyLayout(m)
+			return m, nil
+		case "l":
+			// Focus right (VMs)
+			m.setFocus(focusVMs)
 			m = applyLayout(m)
 			return m, nil
 		case "s":
@@ -229,11 +255,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 					return m, nil
-				}
-			case "t":
-				if cid, ok := m.selectedClusterID(); ok {
-					m.status = "Loading tree..."
-					return m, loadTreeCmd(m, cid)
 				}
 			}
 			return m, cmd
@@ -440,6 +461,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case actionCompletedMsg:
+		// Ensure any modal state is cleared after completing an action
+		m.modalActive = false
+		m.modalKind = ""
+		m.onSubmit = nil
+		m.onConfirm = nil
+		m.input.Blur()
 		if msg.err != nil {
 			m.status = msg.text + ": " + msg.err.Error()
 		} else {
