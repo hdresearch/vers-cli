@@ -92,6 +92,13 @@ type refreshTickMsg struct{}
 // raw backing info we may need
 type svcCluster struct{ ID, Alias string }
 
+// branchState holds context for the two-step branch create flow
+type branchState struct {
+	vmID     string
+	alias    string
+	checkout bool
+}
+
 type Model struct {
 	app *app.App
 
@@ -129,6 +136,12 @@ type Model struct {
 
 	recursiveVMKill bool
 
+	// branching
+	branch branchState
+
+	// help visibility
+	showHelp bool
+
 	// debounce state for VM loading when cluster selection changes
 	clusterReqSeq int
 
@@ -146,7 +159,8 @@ func New(appc *app.App) Model {
 	ti := textinput.New()
 	ti.Placeholder = "alias"
 	ti.CharLimit = 64
-	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys(), showClusters: true}
+	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys(), showClusters: true, showHelp: true}
+	m.help.ShowAll = false
 	// cache box styles to avoid allocating every render
 	m.boxFocused = lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(styles.Primary)
 	m.boxBlurred = lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(styles.BorderColor)

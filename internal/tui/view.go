@@ -61,7 +61,9 @@ func (m Model) View() string {
 		// Small hint to show the sidebar again
 		b.WriteString("s: show sidebar\n")
 	}
-	b.WriteString(m.help.View(m.keys))
-	b.WriteString("\n")
+	if m.showHelp {
+		b.WriteString(m.help.View(m.keys))
+		b.WriteString("\n")
+	}
 	return b.String()
 }

@@ -9,6 +9,7 @@ type keyMap struct {
 	Switch  key.Binding
 	Left    key.Binding
 	Right   key.Binding
+	Help    key.Binding
 	Connect key.Binding
 	Branch  key.Binding
 	Rename  key.Binding
@@ -26,6 +27,7 @@ func defaultKeys() keyMap {
 		Switch:  key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel")),
 		Left:    key.NewBinding(key.WithKeys("h"), key.WithHelp("h", "focus left")),
 		Right:   key.NewBinding(key.WithKeys("l"), key.WithHelp("l", "focus right")),
+		Help:    key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "toggle help")),
 		Connect: key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "connect / load")),
 		Branch:  key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "branch VM")),
 		Rename:  key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "rename alias")),
@@ -40,14 +42,14 @@ func defaultKeys() keyMap {
 
 // Implement help.KeyMap interface for bubbles/help
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Connect, k.Branch, k.Commit, k.Rename, k.Pause, k.Resume, k.History, k.Left, k.Right, k.Sidebar, k.Switch, k.Quit}
+	return []key.Binding{k.Connect, k.Branch, k.Commit, k.Rename, k.Pause, k.Resume, k.History, k.Left, k.Right, k.Sidebar, k.Switch, k.Help, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Connect, k.Branch, k.Rename, k.Commit},
 		{k.Pause, k.Resume, k.Kill},
-		{k.History, k.Left, k.Right, k.Sidebar},
+		{k.History, k.Left, k.Right, k.Sidebar, k.Help},
 		{k.Switch, k.Quit},
 	}
 }
