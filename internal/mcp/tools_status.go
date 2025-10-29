@@ -17,7 +17,7 @@ import (
 //
 //	server.AddTool(mcpserver.Tool{
 //	    Name:        "vers.status",
-//	    Description: "Get cluster/VM status",
+//	    Description: "Get VM status",
 //	    InputSchema:  <json-schema>,
 //	}, handler)
 //
@@ -25,7 +25,7 @@ import (
 func registerStatusTool(server *mcp.Server, application *app.App, opts Options) error {
 	tool := &mcp.Tool{
 		Name:        "vers.status",
-		Description: "Get cluster/VM status. Optional: cluster, target",
+		Description: "Get VM status. Optional: target (VM ID or alias)",
 	}
 
 	handler := withMetrics("vers.status", func(ctx context.Context, req *mcp.CallToolRequest, in StatusInput) (*mcp.CallToolResult, presenters.StatusView, error) {
@@ -33,13 +33,13 @@ func registerStatusTool(server *mcp.Server, application *app.App, opts Options) 
 		apiCtx, cancel := context.WithTimeout(ctx, application.Timeouts.APIMedium)
 		defer cancel()
 
-		res, err := handlers.HandleStatus(apiCtx, application, handlers.StatusReq{Cluster: in.Cluster, Target: in.Target})
+		res, err := handlers.HandleStatus(apiCtx, application, handlers.StatusReq{Target: in.Target})
 		if err != nil {
 			return nil, presenters.StatusView{}, mapMCPError(err)
 		}
 
 		// Provide a short, human-friendly text summary alongside structured JSON output.
-		summary := fmt.Sprintf("status: mode=%d clusters=%d", res.Mode, len(res.Clusters))
+		summary := fmt.Sprintf("status: mode=%d vms=%d", res.Mode, len(res.VMs))
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{&mcp.TextContent{Text: summary}},
 		}, res, nil

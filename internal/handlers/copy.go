@@ -41,22 +41,14 @@ func HandleCopy(ctx context.Context, a *app.App, r CopyReq) (presenters.CopyView
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	vmInfo := utils.CreateVMInfoFromGetResponse(info.VM)
+	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
 	v.VMName = vmInfo.DisplayName
-	if info.VM.State != "Running" {
-		return v, fmt.Errorf("VM is not running (current state: %s)", info.VM.State)
-	}
-	if info.VM.NetworkInfo.SSHPort == 0 {
-		return v, fmt.Errorf("VM does not have SSH port information available")
-	}
+	// Note: State and NetworkInfo no longer available in new SDK
+	// Proceeding with default SSH configuration
 
-	versHost := info.Host
-	sshHost := versHost
-	sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-	if utils.IsHostLocal(versHost) {
-		sshHost = info.VM.IPAddress
-		sshPort = "22"
-	}
+	// Note: NetworkInfo no longer available, using VM IP
+	sshHost := info.VM.IP
+	sshPort := "22"
 
 	scpTarget := fmt.Sprintf("root@%s", sshHost)
 	var scpSource, scpDest string

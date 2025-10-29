@@ -39,20 +39,10 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	if info.VM.State != "Running" {
-		return v, fmt.Errorf("VM is not running (current state: %s)", info.VM.State)
-	}
-	if info.VM.NetworkInfo.SSHPort == 0 {
-		return v, fmt.Errorf("VM does not have SSH port information available")
-	}
-
-	versHost := info.Host
-	sshHost := versHost
-	sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-	if utils.IsHostLocal(versHost) {
-		sshHost = info.VM.IPAddress
-		sshPort = "22"
-	}
+	// Note: State and NetworkInfo no longer available in new SDK
+	// Using VM IP and default SSH port
+	sshHost := info.VM.IP
+	sshPort := "22"
 
 	cmdStr := strings.Join(r.Command, " ")
 	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath, cmdStr)

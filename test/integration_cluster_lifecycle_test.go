@@ -8,6 +8,7 @@ import (
 
 // TestClusterLifecycle creates a cluster, inspects it, and deletes it.
 func TestClusterLifecycle(t *testing.T) {
+	t.Skip("Cluster concept removed from SDK - test deprecated")
 	testEnv(t)
 	ensureBuilt(t)
 

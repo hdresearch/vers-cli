@@ -11,7 +11,7 @@ import (
 
 // Info contains details needed to establish an SSH connection to a VM.
 type Info struct {
-	VM      vers.APIVmGetResponseData
+	VM      *vers.Vm
 	Host    string // preferred host (node IP or fallback base hostname)
 	KeyPath string // local path to SSH private key
 	BaseURL *url.URL
@@ -39,7 +39,7 @@ func GetConnectInfo(ctx context.Context, client *vers.Client, identifier string)
 	}
 	out.Host = host
 
-	keyPath, err := auth.GetOrCreateSSHKey(vm.ID, client, ctx)
+	keyPath, err := auth.GetOrCreateSSHKey(vm.VmID, client, ctx)
 	if err != nil {
 		return out, err
 	}

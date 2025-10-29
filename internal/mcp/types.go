@@ -2,8 +2,7 @@ package mcp
 
 // StatusInput is the input schema for vers.status tool.
 type StatusInput struct {
-	Cluster string `json:"cluster,omitempty" jsonschema:"Cluster ID or alias to filter"`
-	Target  string `json:"target,omitempty" jsonschema:"VM ID or alias for VM-specific status"`
+	Target string `json:"target,omitempty" jsonschema:"VM ID or alias for VM-specific status"`
 }
 
 // RunInput defines inputs for vers.run
@@ -34,9 +33,7 @@ type BranchInput struct {
 
 // KillInput defines inputs for vers.kill
 type KillInput struct {
-	Targets          []string `json:"targets,omitempty" jsonschema:"VM or cluster identifiers; empty means HEAD VM for VM mode"`
+	Targets          []string `json:"targets,omitempty" jsonschema:"VM identifiers; empty means HEAD VM"`
 	SkipConfirmation bool     `json:"skipConfirmation,omitempty" jsonschema:"Required for destructive operations in MCP"`
-	Recursive        bool     `json:"recursive,omitempty" jsonschema:"Delete all descendants (VMs only)"`
-	IsCluster        bool     `json:"isCluster,omitempty" jsonschema:"Treat targets as cluster IDs/aliases"`
-	KillAll          bool     `json:"killAll,omitempty" jsonschema:"Delete ALL clusters (dangerous)"`
+	Recursive        bool     `json:"recursive,omitempty" jsonschema:"Delete all descendants"`
 }

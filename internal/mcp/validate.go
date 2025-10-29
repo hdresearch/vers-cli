@@ -31,8 +31,5 @@ func validateKill(in KillInput) error {
 	if !in.SkipConfirmation {
 		return Err(E_CONFIRM_REQUIRED, "skipConfirmation=true required for destructive operations in MCP", map[string]any{"hint": "Set skipConfirmation to true to proceed non-interactively."})
 	}
-	if in.KillAll && in.IsCluster == true {
-		return Err(E_INVALID, "killAll and isCluster are mutually exclusive", nil)
-	}
 	return nil
 }

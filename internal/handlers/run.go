@@ -29,43 +29,42 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 		return presenters.RunView{}, err
 	}
 
-	params := vers.ClusterCreateRequestNewClusterParamsParamsParam{
-		MemSizeMib:       vers.F(r.MemSizeMib),
-		VcpuCount:        vers.F(r.VcpuCount),
-		RootfsName:       vers.F(r.RootfsName),
-		KernelName:       vers.F(r.KernelName),
-		FsSizeClusterMib: vers.F(r.FsSizeClusterMib),
-		FsSizeVmMib:      vers.F(r.FsSizeVmMib),
+	// Note: Cluster concept removed, creating a new root VM instead
+	// Aliases no longer supported in new SDK
+	vmConfig := vers.NewRootRequestVmConfigParam{
+		MemSizeMib: vers.F(r.MemSizeMib),
+		VcpuCount:  vers.F(r.VcpuCount),
+		FsSizeMib:  vers.F(r.FsSizeVmMib),
 	}
-	if r.ClusterAlias != "" {
-		params.ClusterAlias = vers.F(r.ClusterAlias)
+	if r.RootfsName != "" {
+		vmConfig.ImageName = vers.F(r.RootfsName)
 	}
-	if r.VMAlias != "" {
-		params.VmAlias = vers.F(r.VMAlias)
+	if r.KernelName != "" {
+		vmConfig.KernelName = vers.F(r.KernelName)
 	}
 
-	body := vers.APIClusterNewParams{ClusterCreateRequest: vers.ClusterCreateRequestNewClusterParamsParam{ClusterType: vers.F(vers.ClusterCreateRequestNewClusterParamsClusterTypeNew), Params: vers.F(params)}}
-	resp, err := a.Client.API.Cluster.New(ctx, body)
+	body := vers.VmNewRootParams{
+		NewRootRequest: vers.NewRootRequestParam{
+			VmConfig: vers.F(vmConfig),
+		},
+	}
+
+	resp, err := a.Client.Vm.NewRoot(ctx, body)
 	if err != nil {
 		return presenters.RunView{}, err
 	}
 
-	clusterInfo := resp.Data
+	vmID := resp.ID
     // Persist HEAD via utils to keep format/semantics consistent (store VM ID).
-    // Prefer storing the new root VM ID; if alias was provided, still store ID
-    // but show the alias in the presenter for UX.
     if _, err := os.Stat(".vers"); os.IsNotExist(err) {
         // Not a vers repo; skip writing HEAD but don't fail.
     } else {
-        if err := utils.SetHead(clusterInfo.RootVmID); err != nil {
+        if err := utils.SetHead(vmID); err != nil {
             return presenters.RunView{}, fmt.Errorf("failed to update HEAD: %w", err)
         }
     }
-    headDisplay := r.VMAlias
-    if headDisplay == "" {
-        headDisplay = clusterInfo.RootVmID
-    }
-    return presenters.RunView{ClusterID: clusterInfo.ID, RootVmID: clusterInfo.RootVmID, VmAlias: r.VMAlias, HeadTarget: headDisplay}, nil
+
+    return presenters.RunView{ClusterID: "", RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
 }
 
 func validateAndNormalize(r *RunReq) error {

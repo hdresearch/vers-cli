@@ -6,7 +6,6 @@ type StatusMode int
 
 const (
 	StatusList StatusMode = iota
-	StatusCluster
 	StatusVM
 )
 
@@ -20,9 +19,8 @@ type StatusHead struct {
 }
 
 type StatusView struct {
-	Mode     StatusMode
-	Head     StatusHead
-	Clusters []vers.APIClusterListResponseData
-	Cluster  vers.APIClusterGetResponseData
-	VM       vers.APIVmGetResponseData
+	Mode StatusMode
+	Head StatusHead
+	VM   *vers.Vm
+	VMs  []vers.Vm
 }

@@ -2,9 +2,7 @@ package utils
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
@@ -12,43 +10,42 @@ import (
 )
 
 // GetVmAndNodeIP retrieves VM information and the node IP from headers in a single request.
-// We use the lower-level client.Get() instead of client.API.Vm.Get() because Stainless
-// doesn't expose response headers through the higher-level SDK methods.
-func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (vers.APIVmGetResponseData, string, error) {
-	// Use the lower-level client method to get both response data AND headers
-	var rawResponse *http.Response
-	err := client.Get(ctx, "/api/vm/"+vmID, nil, &rawResponse)
+// We use the lower-level client.Get() instead of client.Vm.List() because we need response headers.
+func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (*vers.Vm, string, error) {
+	// For now, use List() to get VM data
+	// TODO: Implement proper Get with headers if needed
+	vms, err := client.Vm.List(ctx)
 	if err != nil {
-		return vers.APIVmGetResponseData{}, "", err
-	}
-	defer rawResponse.Body.Close()
-
-	// Parse the response body using the SDK types
-	var response vers.APIVmGetResponse
-	if err := json.NewDecoder(rawResponse.Body).Decode(&response); err != nil {
-		return vers.APIVmGetResponseData{}, "", fmt.Errorf("failed to decode VM response: %w", err)
+		return nil, "", err
 	}
 
-	// Extract the node IP from headers
-	nodeIP := rawResponse.Header.Get("X-Node-IP")
+	var targetVM *vers.Vm
+	for _, vm := range *vms {
+		if vm.VmID == vmID {
+			targetVM = &vm
+			break
+		}
+	}
 
-	// Use the node IP from headers or fallback to env override, and then static load balancer host
-	var versHost string
-	if nodeIP != "" {
-		versHost = nodeIP
-	} else {
+	if targetVM == nil {
+		return nil, "", fmt.Errorf("VM %s not found", vmID)
+	}
+
+	// Use the VM's IP or fallback to env override
+	versHost := targetVM.IP
+	if versHost == "" {
 		versUrl, err := auth.GetVersUrl()
 		if err != nil {
-			return vers.APIVmGetResponseData{}, "", fmt.Errorf("failed to get host IP: %w", err)
+			return nil, "", fmt.Errorf("failed to get host IP: %w", err)
 		}
 
 		versHost = versUrl.Hostname()
 		if os.Getenv("VERS_DEBUG") == "true" {
-			fmt.Printf("[DEBUG] No node IP in headers, using fallback: %s\n", versHost)
+			fmt.Printf("[DEBUG] No IP in VM data, using fallback: %s\n", versHost)
 		}
 	}
 
-	return response.Data, versHost, nil
+	return targetVM, versHost, nil
 }
 
 func IsHostLocal(hostName string) bool {

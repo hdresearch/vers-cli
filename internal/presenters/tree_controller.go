@@ -5,10 +5,12 @@ import (
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-// RenderTreeController prints any glue text then delegates to existing RenderTree.
-func RenderTreeController(cluster vers.APIClusterGetResponseData, headVMID string, findingMsg string) error {
+// RenderTreeController is deprecated - tree rendering requires cluster data which no longer exists
+func RenderTreeController(vms []vers.Vm, headVMID string, findingMsg string) error {
 	if findingMsg != "" {
 		fmt.Println(findingMsg)
 	}
-	return RenderTree(cluster, headVMID)
+	fmt.Println("Tree view is not available - cluster concept has been removed")
+	fmt.Println("Use 'vers status' to view all VMs")
+	return nil
 }

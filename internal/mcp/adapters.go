@@ -9,7 +9,7 @@ import (
 
 // StatusAdapter calls the existing status handler and returns the structured result.
 func StatusAdapter(ctx context.Context, a *app.App, in StatusInput) (any, error) {
-	return handlers.HandleStatus(ctx, a, handlers.StatusReq{Cluster: in.Cluster, Target: in.Target})
+	return handlers.HandleStatus(ctx, a, handlers.StatusReq{Target: in.Target})
 }
 
 // RunAdapter starts a cluster per inputs and returns a presenters.RunView.
@@ -39,14 +39,12 @@ func BranchAdapter(ctx context.Context, a *app.App, in BranchInput) (any, error)
 	return handlers.HandleBranch(ctx, a, req)
 }
 
-// KillAdapter deletes VMs or clusters per inputs. Returns nil output on success.
+// KillAdapter deletes VMs per inputs. Returns nil output on success.
 func KillAdapter(ctx context.Context, a *app.App, in KillInput) (any, error) {
 	req := handlers.KillReq{
 		Targets:          in.Targets,
 		SkipConfirmation: in.SkipConfirmation,
 		Recursive:        in.Recursive,
-		IsCluster:        in.IsCluster,
-		KillAll:          in.KillAll,
 	}
 	dto, err := handlers.HandleKillDTO(ctx, a, req)
 	if err != nil {

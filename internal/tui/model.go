@@ -15,11 +15,8 @@ import (
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	histSvc "github.com/hdresearch/vers-cli/internal/services/history"
 	svcstatus "github.com/hdresearch/vers-cli/internal/services/status"
-	treeSvc "github.com/hdresearch/vers-cli/internal/services/tree"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 type focus int
@@ -36,9 +33,6 @@ type clusterItem struct{ TitleText, DescText, ID, Alias string }
 func (i clusterItem) Title() string       { return i.TitleText }
 func (i clusterItem) Description() string { return i.DescText }
 func (i clusterItem) FilterValue() string {
-	if i.Alias != "" {
-		return i.Alias
-	}
 	return i.ID
 }
 
@@ -47,9 +41,6 @@ type vmItem struct{ TitleText, DescText, ID, Alias, State string }
 func (i vmItem) Title() string       { return i.TitleText }
 func (i vmItem) Description() string { return i.DescText }
 func (i vmItem) FilterValue() string {
-	if i.Alias != "" {
-		return i.Alias
-	}
 	return i.ID
 }
 
@@ -141,27 +132,17 @@ func loadClustersCmd(m Model) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
 		defer cancel()
-		rows, err := svcstatus.ListClusters(ctx, m.app.Client)
+		rows, err := svcstatus.ListVMs(ctx, m.app.Client)
 		if err != nil {
 			return clustersLoadedMsg{err: err}
 		}
+		// Note: Cluster concept removed, showing VMs directly now
 		items := make([]list.Item, 0, len(rows))
 		backing := make([]svcCluster, 0, len(rows))
-		for _, c := range rows {
-			disp := c.Alias
-			if disp == "" {
-				disp = c.ID
-			}
-			root := c.RootVmID
-			// best-effort root alias lookup
-			for _, v := range c.Vms {
-				if v.ID == c.RootVmID && v.Alias != "" {
-					root = v.Alias
-					break
-				}
-			}
-			items = append(items, clusterItem{TitleText: disp, DescText: fmt.Sprintf("Root: %s | VMs: %d", root, c.VmCount), ID: c.ID, Alias: c.Alias})
-			backing = append(backing, svcCluster{ID: c.ID, Alias: c.Alias})
+		for _, vm := range rows {
+			disp := vm.VmID
+			items = append(items, clusterItem{TitleText: disp, DescText: fmt.Sprintf("IP: %s | Parent: %s", vm.IP, vm.Parent), ID: vm.VmID, Alias: ""})
+			backing = append(backing, svcCluster{ID: vm.VmID, Alias: ""})
 		}
 		return clustersLoadedMsg{items: items, raw: backing}
 	}
@@ -169,21 +150,10 @@ func loadClustersCmd(m Model) tea.Cmd {
 
 func loadVMsCmd(m Model, clusterID string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-		defer cancel()
-		cl, err := svcstatus.GetCluster(ctx, m.app.Client, clusterID)
-		if err != nil {
-			return vmsLoadedMsg{clusterID: clusterID, err: err}
-		}
-		items := make([]list.Item, 0, len(cl.Vms))
-		for _, v := range cl.Vms {
-			disp := v.Alias
-			if disp == "" {
-				disp = v.ID
-			}
-			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("State: %s", v.State), ID: v.ID, Alias: v.Alias, State: string(v.State)})
-		}
-		return vmsLoadedMsg{clusterID: cl.ID, items: items}
+		// Note: Cluster concept removed, returning empty list
+		// TUI navigation needs redesign without clusters
+		items := make([]list.Item, 0)
+		return vmsLoadedMsg{clusterID: clusterID, items: items}
 	}
 }
 
@@ -234,13 +204,9 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 			return actionCompletedMsg{text: "SSH failed", err: err}
 		}
 
-		// Determine host/port (DNAT vs local route)
-		sshHost := info.Host
-		sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-		if utils.IsHostLocal(info.Host) {
-			sshHost = info.VM.IPAddress
-			sshPort = "22"
-		}
+		// Note: NetworkInfo no longer available, using VM IP
+		sshHost := info.VM.IP
+		sshPort := "22"
 
 		// Use Bubble Tea ExecProcess to release the terminal during SSH
 		cmd := sshutil.SSHCommand(sshHost, sshPort, info.KeyPath)
@@ -301,44 +267,9 @@ func loadHistoryCmd(m Model, vmID string) tea.Cmd {
 
 func loadTreeCmd(m Model, clusterID string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-		defer cancel()
-		cl, err := treeSvc.GetClusterByIdentifier(ctx, m.app.Client, clusterID)
-		if err != nil {
-			return treeLoadedMsg{err: err}
-		}
-		// simple tree render
-		vmMap := map[string]vers.VmDto{}
-		for _, v := range cl.Vms {
-			vmMap[v.ID] = v
-		}
-		var lines []string
-		var walk func(id string, prefix string, isLast bool)
-		walk = func(id string, prefix string, isLast bool) {
-			v := vmMap[id]
-			name := v.Alias
-			if name == "" {
-				name = v.ID
-			}
-			connector := "├── "
-			if isLast {
-				connector = "└── "
-			}
-			lines = append(lines, prefix+connector+name+" ["+string(v.State)+"]")
-			childPrefix := prefix
-			if isLast {
-				childPrefix += "    "
-			} else {
-				childPrefix += "│   "
-			}
-			for i, cid := range v.Children {
-				walk(cid, childPrefix, i == len(v.Children)-1)
-			}
-		}
-		if cl.RootVmID != "" {
-			walk(cl.RootVmID, "", true)
-		}
-		return treeLoadedMsg{lines: lines}
+		// Note: Tree functionality requires cluster concept which has been removed
+		// Return error message
+		return treeLoadedMsg{err: fmt.Errorf("tree view not available - cluster concept removed from API")}
 	}
 }
 
@@ -354,10 +285,8 @@ func doCommitCmd(m Model, vmID string, tagCSV string) tea.Cmd {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APILong)
 		defer cancel()
-		// direct SDK call mirrors cmd/commit.go
-		body := vers.APIVmCommitParams{VmCommitRequest: vers.VmCommitRequestParam{Tags: vers.F(tags)}}
-		// If we cannot resolve alias to id, the API accepts id only; the TUI uses vmID
-		_, err := m.app.Client.API.Vm.Commit(ctx, vmID, body)
+		// direct SDK call - note: tags no longer supported in new SDK
+		_, err := m.app.Client.Vm.Commit(ctx, vmID)
 		if err != nil {
 			return actionCompletedMsg{text: "Commit failed", err: err}
 		}

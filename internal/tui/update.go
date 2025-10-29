@@ -1,10 +1,9 @@
 package tui
 
 import (
-	"context"
-	tea "github.com/charmbracelet/bubbletea"
-	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -97,35 +96,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cid := m.clusterBacking[idx].ID
 				return m, loadVMsCmd(m, cid)
 			}
-			// cluster actions
-			switch msg.String() {
-			case "k":
-				if cid, ok := m.selectedClusterID(); ok {
-					m.modalActive = true
-					m.modalKind = "confirm"
-					m.modalPrompt = "Delete cluster '" + cid + "'?"
-					id := cid
-					m.onConfirm = func() tea.Cmd {
-						m.modalActive = false
-						m.status = "Deleting cluster..."
-						return func() tea.Msg {
-							ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-							defer cancel()
-							_, err := delsvc.DeleteCluster(ctx, m.app.Client, id)
-							if err != nil {
-								return actionCompletedMsg{text: "Cluster delete failed", err: err}
-							}
-							return actionCompletedMsg{text: "Cluster deleted", err: nil}
-						}
-					}
-					return m, nil
-				}
-			case "t":
-				if cid, ok := m.selectedClusterID(); ok {
-					m.status = "Loading tree..."
-					return m, loadTreeCmd(m, cid)
-				}
-			}
+			// Note: Cluster actions removed - cluster concept has been removed from API
+			// VM list now shows all VMs directly
 			return m, cmd
 		}
 		if m.focus == focusVMs {

@@ -2,30 +2,30 @@ package status
 
 import (
 	"context"
+	"fmt"
 
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-func ListClusters(ctx context.Context, client *vers.Client) ([]vers.APIClusterListResponseData, error) {
-	resp, err := client.API.Cluster.List(ctx)
+// ListVMs returns all VMs for the current user
+func ListVMs(ctx context.Context, client *vers.Client) ([]vers.Vm, error) {
+	resp, err := client.Vm.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return resp.Data, nil
+	return *resp, nil
 }
 
-func GetCluster(ctx context.Context, client *vers.Client, idOrAlias string) (vers.APIClusterGetResponseData, error) {
-	resp, err := client.API.Cluster.Get(ctx, idOrAlias)
+// GetVM retrieves a single VM by ID
+func GetVM(ctx context.Context, client *vers.Client, vmID string) (*vers.Vm, error) {
+	vms, err := ListVMs(ctx, client)
 	if err != nil {
-		return vers.APIClusterGetResponseData{}, err
+		return nil, err
 	}
-	return resp.Data, nil
-}
-
-func GetVM(ctx context.Context, client *vers.Client, idOrAlias string) (vers.APIVmGetResponseData, error) {
-	resp, err := client.API.Vm.Get(ctx, idOrAlias)
-	if err != nil {
-		return vers.APIVmGetResponseData{}, err
+	for _, vm := range vms {
+		if vm.VmID == vmID {
+			return &vm, nil
+		}
 	}
-	return resp.Data, nil
+	return nil, fmt.Errorf("VM with ID %s not found", vmID)
 }

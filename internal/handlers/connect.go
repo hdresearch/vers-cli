@@ -36,22 +36,12 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 		return view, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	vmInfo := utils.CreateVMInfoFromGetResponse(info.VM)
-	if info.VM.State != "Running" {
-		return view, fmt.Errorf("VM is not running (current state: %s)", info.VM.State)
-	}
-	if info.VM.NetworkInfo.SSHPort == 0 {
-		return view, fmt.Errorf("VM does not have SSH port information available")
-	}
-
-	// local vs DNAT
-	sshHost := info.Host
-	sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-	if utils.IsHostLocal(info.Host) {
-		sshHost = info.VM.IPAddress
-		sshPort = "22"
-		view.LocalRoute = true
-	}
+	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
+	// Note: State and NetworkInfo no longer available in new SDK
+	// Using VM IP and assuming default SSH port
+	sshHost := info.VM.IP
+	sshPort := "22"
+	view.LocalRoute = true
 
 	view.VMName = vmInfo.DisplayName
 	view.SSHHost = sshHost

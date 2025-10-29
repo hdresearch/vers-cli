@@ -67,29 +67,17 @@ func readVersResource(application *app.App) mcp.ResourceHandler {
 		var payload any
 		switch parts[0] {
 		case "status":
-			var cluster string
+			var target string
 			if len(parts) > 1 {
-				cluster = parts[1]
+				target = parts[1]
 			}
 			apiCtx, cancel := context.WithTimeout(ctx, application.Timeouts.APIMedium)
 			defer cancel()
-			view, err := handlers.HandleStatus(apiCtx, application, handlers.StatusReq{Cluster: cluster})
+			view, err := handlers.HandleStatus(apiCtx, application, handlers.StatusReq{Target: target})
 			if err != nil {
 				return nil, mapMCPError(err)
 			}
 			payload = view
-		case "cluster":
-			if len(parts) < 3 || parts[2] != "tree" {
-				return nil, Err(E_INVALID, "expected URI of form vers://cluster/{id}/tree", nil)
-			}
-			id := parts[1]
-			apiCtx, cancel := context.WithTimeout(ctx, application.Timeouts.APIMedium)
-			defer cancel()
-			clusterAny, head, err := handlers.HandleTree(apiCtx, application, handlers.TreeReq{ClusterIdentifier: id})
-			if err != nil {
-				return nil, mapMCPError(err)
-			}
-			payload = map[string]any{"cluster": clusterAny, "head": head}
 		default:
 			return nil, Err(E_NOT_FOUND, "unknown vers resource", map[string]any{"path": p})
 		}

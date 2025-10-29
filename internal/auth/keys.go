@@ -31,25 +31,8 @@ func GetOrCreateSSHKey(vmID string, client *vers.Client, apiCtx context.Context)
 		return keyPath, nil
 	}
 
-	keysDir := filepath.Dir(keyPath)
-	if err := os.MkdirAll(keysDir, 0755); err != nil {
-		// Return empty path and the error
-		return "", fmt.Errorf(s.NoData.Render("failed to create keys directory: %w"), err)
-	}
-
-	response, err := client.API.Vm.GetSSHKey(apiCtx, vmID)
-	if err != nil {
-		// Return empty path and the error
-		return "", fmt.Errorf(s.NoData.Render("failed to get SSH key: %w"), err)
-	}
-	sshKeyBytes := response.Data
-
-	if err := os.WriteFile(keyPath, []byte(sshKeyBytes), 0600); err != nil {
-		// Return empty path and the error
-		return "", fmt.Errorf(s.NoData.Render("failed to write key file: %w"), err)
-	}
-
-	fmt.Println(s.HeadStatus.Render(fmt.Sprintf("SSH key saved to %s", keyPath)))
-	// Return the path and nil error on success
-	return keyPath, nil
+	// TODO: SSH key retrieval method needs to be reimplemented with new SDK
+	// The GetSSHKey method has been removed from the SDK
+	// For now, return an error indicating this functionality is not available
+	return "", fmt.Errorf("SSH key retrieval is not yet supported in the new SDK version")
 }

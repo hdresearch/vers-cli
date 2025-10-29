@@ -17,19 +17,12 @@ type KillReq struct {
 	Targets          []string
 	SkipConfirmation bool
 	Recursive        bool
-	IsCluster        bool
-	KillAll          bool
 }
 
 // HandleKill orchestrates deletion flows. It currently prints via existing presenters/styles
 // to minimize changes in Phase 1; a later phase can return DTOs for presenters to render.
 func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 	s := styles.NewKillStyles()
-
-	if r.KillAll {
-		processor := deletion.NewClusterDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
-		return processor.DeleteAllClusters()
-	}
 
 	if len(r.Targets) == 0 {
 		headVMID, err := utils.GetCurrentHeadVM()
@@ -67,11 +60,6 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 			return fmt.Errorf("deletion had errors")
 		}
 		return nil
-	}
-
-	if r.IsCluster {
-		processor := deletion.NewClusterDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
-		return processor.DeleteMultipleClusters(r.Targets)
 	}
 
 	if len(r.Targets) == 1 {

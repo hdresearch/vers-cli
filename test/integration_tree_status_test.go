@@ -7,6 +7,7 @@ import (
 
 // TestTreeDisplaysClusterStructureAndHead builds a small tree and validates output markers.
 func TestTreeDisplaysClusterStructureAndHead(t *testing.T) {
+	t.Skip("Tree view deprecated - cluster concept removed from SDK")
 	testEnv(t)
 	ensureBuilt(t)
 
@@ -79,6 +80,7 @@ func TestStatusForVMByAlias(t *testing.T) {
 
 // TestTreeUsesHeadCluster verifies that `vers tree` with no args uses the cluster containing HEAD.
 func TestTreeUsesHeadCluster(t *testing.T) {
+	t.Skip("Tree view deprecated - cluster concept removed from SDK")
 	testEnv(t)
 	ensureBuilt(t)
 

@@ -27,46 +27,27 @@ func capOut(t *testing.T, fn func()) string {
 }
 
 func TestRenderClusterStatus_PrintsDetails(t *testing.T) {
-	s := styles.NewStatusStyles()
-	cluster := vers.APIClusterGetResponseData{
-		ID:       "cid",
-		Alias:    "c-alias",
-		RootVmID: "root",
-		Vms: []vers.VmDto{
-			{ID: "root", Alias: "root-a", State: "Running"},
-			{ID: "v2", Alias: "v2-a", State: "Stopped"},
-		},
-	}
-
-	out := capOut(t, func() { presenters.RenderClusterStatus(&s, cluster) })
-	if !strings.Contains(out, "Getting status for cluster: c-alias") {
-		t.Fatalf("missing cluster header: %s", out)
-	}
-	if !strings.Contains(out, "VMs in this cluster:") || !strings.Contains(out, "v2-a") {
-		t.Fatalf("missing VM list: %s", out)
-	}
+	t.Skip("Cluster concept removed from SDK - test deprecated")
+	// Note: This test uses vers.APIClusterGetResponseData which no longer exists
 }
 
 func TestRenderVMStatus_PrintsDetails(t *testing.T) {
 	s := styles.NewStatusStyles()
-	vm := vers.APIVmGetResponseData{ID: "vm1", Alias: "vm-a", State: "Running", ClusterID: "cid"}
+	// Use the new vers.Vm type instead of APIVmGetResponseData
+	vm := &vers.Vm{
+		VmID:   "vm1",
+		IP:     "192.168.1.100",
+		Parent: "root",
+	}
 	out := capOut(t, func() { presenters.RenderVMStatus(&s, vm) })
-	if !strings.Contains(out, "Getting status for VM: vm-a") {
+	if !strings.Contains(out, "Getting status for VM: vm1") {
 		t.Fatalf("missing VM header: %s", out)
 	}
-	if !strings.Contains(out, "Cluster: cid") {
-		t.Fatalf("missing cluster id: %s", out)
-	}
+	// Note: ClusterID field no longer exists in new SDK
 }
 
 func TestRenderClusterList_PrintsList(t *testing.T) {
-	s := styles.NewStatusStyles()
-	clusters := []vers.APIClusterListResponseData{
-		{ID: "c1", Alias: "a1", RootVmID: "r1", VmCount: 1, Vms: []vers.VmDto{{ID: "r1", Alias: "ra"}}},
-		{ID: "c2", Alias: "", RootVmID: "r2", VmCount: 2},
-	}
-	out := capOut(t, func() { presenters.RenderClusterList(&s, clusters) })
-	if !strings.Contains(out, "Cluster: a1") || !strings.Contains(out, "Cluster: c2") {
-		t.Fatalf("expected cluster entries, got: %s", out)
-	}
+	t.Skip("Cluster concept removed from SDK - test deprecated")
+	// Note: This test uses vers.APIClusterListResponseData which no longer exists
+	// RenderClusterList function may also be removed
 }

@@ -20,16 +20,13 @@ To see the VM tree structure, run:
 	return msg
 }
 
-// RootDeleteGuidance returns a friendly message for attempts to delete a cluster's root VM.
+// RootDeleteGuidance returns a friendly message for attempts to delete a root VM.
 func RootDeleteGuidance(vmID string, s *styles.KillStyles) string {
-	msg := fmt.Sprintf(`Cannot delete VM because it is the cluster's root VM.
+	msg := fmt.Sprintf(`Cannot delete VM because it is a root VM.
 
-Deleting the root VM would orphan the entire cluster topology.
+Deleting the root VM would orphan the entire VM topology.
 
-To remove this environment, delete the whole cluster instead:
-  vers kill -c <cluster-id-or-alias>
-
-To inspect the structure and identify the cluster, run:
+To inspect the structure, run:
   vers tree
 
 Target VM: %s`, vmID)

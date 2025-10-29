@@ -21,36 +21,28 @@ type RunCommitReq struct {
 type RunCommitView struct{ ClusterID, RootVmID, HeadTarget, CommitKey string }
 
 func HandleRunCommit(ctx context.Context, a *app.App, r RunCommitReq) (presenters.RunCommitView, error) {
-	params := vers.ClusterCreateRequestClusterFromCommitParamsParamsParam{CommitKey: vers.F(r.CommitKey)}
-	if r.ClusterAlias != "" {
-		params.ClusterAlias = vers.F(r.ClusterAlias)
-	}
-	if r.VMAlias != "" {
-		params.VmAlias = vers.F(r.VMAlias)
-	}
-	if r.FsSizeClusterMiB > 0 {
-		params.FsSizeClusterMib = vers.F(r.FsSizeClusterMiB)
+	// Note: Cluster concept removed, creating VM from commit instead
+	// CommitKey is now CommitID (UUID) in new SDK
+	body := vers.VmRestoreFromCommitParams{
+		VmFromCommitRequest: vers.VmFromCommitRequestParam{
+			CommitID: vers.F(r.CommitKey),
+		},
 	}
 
-	body := vers.APIClusterNewParams{ClusterCreateRequest: vers.ClusterCreateRequestClusterFromCommitParamsParam{ClusterType: vers.F(vers.ClusterCreateRequestClusterFromCommitParamsClusterTypeFromCommit), Params: vers.F(params)}}
-	resp, err := a.Client.API.Cluster.New(ctx, body)
+	resp, err := a.Client.Vm.RestoreFromCommit(ctx, body)
 	if err != nil {
 		return presenters.RunCommitView{}, err
 	}
 
-	clusterInfo := resp.Data
-	headTarget := clusterInfo.RootVmID
-	if r.VMAlias != "" {
-		headTarget = r.VMAlias
-	}
+	vmID := resp.ID
 
 	if _, err := os.Stat(".vers"); os.IsNotExist(err) {
 		// warn but continue
 	} else {
 		headFile := filepath.Join(".vers", "HEAD")
-		if err := os.WriteFile(headFile, []byte(headTarget+"\n"), 0644); err != nil {
+		if err := os.WriteFile(headFile, []byte(vmID+"\n"), 0644); err != nil {
 			return presenters.RunCommitView{}, fmt.Errorf("failed to update HEAD: %w", err)
 		}
 	}
-	return presenters.RunCommitView{ClusterID: clusterInfo.ID, RootVmID: clusterInfo.RootVmID, HeadTarget: headTarget, CommitKey: r.CommitKey}, nil
+	return presenters.RunCommitView{ClusterID: "", RootVmID: vmID, HeadTarget: vmID, CommitKey: r.CommitKey}, nil
 }

@@ -27,9 +27,6 @@ func TestValidateKill(t *testing.T) {
 	if err := validateKill(KillInput{}); err == nil {
 		t.Fatalf("expected confirmation-required error for MCP kill without skipConfirmation")
 	}
-	if err := validateKill(KillInput{SkipConfirmation: true, KillAll: true, IsCluster: true}); err == nil {
-		t.Fatalf("expected error for mutually exclusive killAll+isCluster")
-	}
 	if err := validateKill(KillInput{SkipConfirmation: true}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
