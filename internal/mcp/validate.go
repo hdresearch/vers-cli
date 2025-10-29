@@ -3,11 +3,8 @@ package mcp
 import "fmt"
 
 func validateRun(in RunInput) error {
-	if in.MemSizeMib < 0 || in.VcpuCount < 0 || in.FsSizeClusterMib < 0 || in.FsSizeVmMib < 0 {
+	if in.MemSizeMib < 0 || in.VcpuCount < 0 || in.FsSizeVmMib < 0 {
 		return fmt.Errorf("invalid sizes: negative values are not allowed")
-	}
-	if in.FsSizeVmMib > 0 && in.FsSizeClusterMib > 0 && in.FsSizeVmMib > in.FsSizeClusterMib {
-		return fmt.Errorf("vm fs size must not exceed cluster fs size")
 	}
 	return nil
 }

@@ -22,21 +22,12 @@ import (
 type focus int
 
 const (
-	focusClusters focus = iota
-	focusVMs
+	focusVMs focus = iota
 	focusModal
 )
 
-// cluster and vm list items
-type clusterItem struct{ TitleText, DescText, ID, Alias string }
-
-func (i clusterItem) Title() string       { return i.TitleText }
-func (i clusterItem) Description() string { return i.DescText }
-func (i clusterItem) FilterValue() string {
-	return i.ID
-}
-
-type vmItem struct{ TitleText, DescText, ID, Alias, State string }
+// VM list item
+type vmItem struct{ TitleText, DescText, ID, Alias string }
 
 func (i vmItem) Title() string       { return i.TitleText }
 func (i vmItem) Description() string { return i.DescText }
@@ -46,15 +37,9 @@ func (i vmItem) FilterValue() string {
 
 // messages
 type initLoadMsg struct{}
-type clustersLoadedMsg struct {
-	items []list.Item
-	raw   []svcCluster
-	err   error
-}
 type vmsLoadedMsg struct {
-	clusterID string
-	items     []list.Item
-	err       error
+	items []list.Item
+	err   error
 }
 type actionCompletedMsg struct {
 	text string
@@ -64,23 +49,12 @@ type historyLoadedMsg struct {
 	lines []string
 	err   error
 }
-type treeLoadedMsg struct {
-	lines []string
-	err   error
-}
-
-// raw backing info we may need
-type svcCluster struct{ ID, Alias string }
 
 type Model struct {
 	app *app.App
 
-	focus    focus
-	clusters list.Model
-	vms      list.Model
-
-	clusterBacking []svcCluster
-	prevClusterIdx int
+	focus focus
+	vms   list.Model
 
 	loading bool
 	spin    spinner.Model
@@ -105,8 +79,6 @@ type Model struct {
 }
 
 func New(appc *app.App) Model {
-	lclusters := list.New(nil, list.NewDefaultDelegate(), 40, 12)
-	lclusters.Title = "Clusters"
 	lvms := list.New(nil, list.NewDefaultDelegate(), 60, 12)
 	lvms.Title = "VMs"
 	sp := spinner.New()
@@ -114,46 +86,33 @@ func New(appc *app.App) Model {
 	ti := textinput.New()
 	ti.Placeholder = "alias"
 	ti.CharLimit = 64
-	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys()}
-	m.setFocus(focusClusters)
+	m := Model{app: appc, focus: focusVMs, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys()}
+	m.setFocus(focusVMs)
 	return m
 }
 
 func (m *Model) setFocus(f focus) {
 	m.focus = f
-	m.clusters.SetFilteringEnabled(true)
 	m.vms.SetFilteringEnabled(true)
 }
 
 func (m Model) Init() tea.Cmd { return tea.Batch(func() tea.Msg { return initLoadMsg{} }, m.spin.Tick) }
 
 // commands
-func loadClustersCmd(m Model) tea.Cmd {
+func loadVMsCmd(m Model) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
 		defer cancel()
 		rows, err := svcstatus.ListVMs(ctx, m.app.Client)
 		if err != nil {
-			return clustersLoadedMsg{err: err}
+			return vmsLoadedMsg{err: err}
 		}
-		// Note: Cluster concept removed, showing VMs directly now
 		items := make([]list.Item, 0, len(rows))
-		backing := make([]svcCluster, 0, len(rows))
 		for _, vm := range rows {
 			disp := vm.VmID
-			items = append(items, clusterItem{TitleText: disp, DescText: fmt.Sprintf("IP: %s | Parent: %s", vm.IP, vm.Parent), ID: vm.VmID, Alias: ""})
-			backing = append(backing, svcCluster{ID: vm.VmID, Alias: ""})
+			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("IP: %s | Parent: %s", vm.IP, vm.Parent), ID: vm.VmID, Alias: ""})
 		}
-		return clustersLoadedMsg{items: items, raw: backing}
-	}
-}
-
-func loadVMsCmd(m Model, clusterID string) tea.Cmd {
-	return func() tea.Msg {
-		// Note: Cluster concept removed, returning empty list
-		// TUI navigation needs redesign without clusters
-		items := make([]list.Item, 0)
-		return vmsLoadedMsg{clusterID: clusterID, items: items}
+		return vmsLoadedMsg{items: items}
 	}
 }
 
@@ -219,27 +178,14 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 	}
 }
 
-func refreshCurrentVMsCmd(m Model) tea.Cmd {
-	idx := m.clusters.Index()
-	if idx < 0 || idx >= len(m.clusterBacking) {
-		return nil
-	}
-	cid := m.clusterBacking[idx].ID
-	return loadVMsCmd(m, cid)
+func refreshVMsCmd(m Model) tea.Cmd {
+	return loadVMsCmd(m)
 }
 
 // helpers
 func (m Model) selectedVMID() (string, bool) {
 	if it, ok := m.vms.SelectedItem().(vmItem); ok {
 		return it.ID, true
-	}
-	return "", false
-}
-
-func (m Model) selectedClusterID() (string, bool) {
-	idx := m.clusters.Index()
-	if idx >= 0 && idx < len(m.clusterBacking) {
-		return m.clusterBacking[idx].ID, true
 	}
 	return "", false
 }
@@ -262,14 +208,6 @@ func loadHistoryCmd(m Model, vmID string) tea.Cmd {
 			lines = append(lines, line)
 		}
 		return historyLoadedMsg{lines: lines}
-	}
-}
-
-func loadTreeCmd(m Model, clusterID string) tea.Cmd {
-	return func() tea.Msg {
-		// Note: Tree functionality requires cluster concept which has been removed
-		// Return error message
-		return treeLoadedMsg{err: fmt.Errorf("tree view not available - cluster concept removed from API")}
 	}
 }
 

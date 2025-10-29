@@ -26,11 +26,6 @@ func capOut(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func TestRenderClusterStatus_PrintsDetails(t *testing.T) {
-	t.Skip("Cluster concept removed from SDK - test deprecated")
-	// Note: This test uses vers.APIClusterGetResponseData which no longer exists
-}
-
 func TestRenderVMStatus_PrintsDetails(t *testing.T) {
 	s := styles.NewStatusStyles()
 	// Use the new vers.Vm type instead of APIVmGetResponseData
@@ -43,11 +38,4 @@ func TestRenderVMStatus_PrintsDetails(t *testing.T) {
 	if !strings.Contains(out, "Getting status for VM: vm1") {
 		t.Fatalf("missing VM header: %s", out)
 	}
-	// Note: ClusterID field no longer exists in new SDK
-}
-
-func TestRenderClusterList_PrintsList(t *testing.T) {
-	t.Skip("Cluster concept removed from SDK - test deprecated")
-	// Note: This test uses vers.APIClusterListResponseData which no longer exists
-	// RenderClusterList function may also be removed
 }

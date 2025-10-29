@@ -7,14 +7,12 @@ type StatusInput struct {
 
 // RunInput defines inputs for vers.run
 type RunInput struct {
-	MemSizeMib       int64  `json:"memSizeMib,omitempty" jsonschema:"VM memory size in MiB"`
-	VcpuCount        int64  `json:"vcpuCount,omitempty" jsonschema:"Number of vCPUs"`
-	RootfsName       string `json:"rootfsName,omitempty" jsonschema:"Rootfs image name"`
-	KernelName       string `json:"kernelName,omitempty" jsonschema:"Kernel image name"`
-	FsSizeClusterMib int64  `json:"fsSizeClusterMib,omitempty" jsonschema:"Cluster filesystem size in MiB"`
-	FsSizeVmMib      int64  `json:"fsSizeVmMib,omitempty" jsonschema:"VM filesystem size in MiB"`
-	ClusterAlias     string `json:"clusterAlias,omitempty" jsonschema:"Alias for the new cluster"`
-	VMAlias          string `json:"vmAlias,omitempty" jsonschema:"Alias for the root VM"`
+	MemSizeMib  int64  `json:"memSizeMib,omitempty" jsonschema:"VM memory size in MiB"`
+	VcpuCount   int64  `json:"vcpuCount,omitempty" jsonschema:"Number of vCPUs"`
+	RootfsName  string `json:"rootfsName,omitempty" jsonschema:"Rootfs image name"`
+	KernelName  string `json:"kernelName,omitempty" jsonschema:"Kernel image name"`
+	FsSizeVmMib int64  `json:"fsSizeVmMib,omitempty" jsonschema:"VM filesystem size in MiB"`
+	VMAlias     string `json:"vmAlias,omitempty" jsonschema:"Alias for the root VM"`
 }
 
 // ExecuteInput defines inputs for vers.execute

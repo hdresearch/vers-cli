@@ -13,30 +13,13 @@ import (
 )
 
 func registerResources(server *mcp.Server, application *app.App) error {
-	// Status snapshot resources
+	// Status snapshot resource
 	server.AddResource(&mcp.Resource{
 		Name:        "vers.status",
-		Title:       "Vers Status (All)",
-		Description: "Status snapshot for all clusters and HEAD VM",
+		Title:       "Vers Status",
+		Description: "Status snapshot for all VMs and HEAD VM",
 		MIMEType:    "application/json",
 		URI:         "vers://status",
-	}, readVersResource(application))
-
-	server.AddResourceTemplate(&mcp.ResourceTemplate{
-		Name:        "vers.status.cluster",
-		Title:       "Vers Status (Cluster)",
-		Description: "Status snapshot for a specific cluster by ID or alias",
-		MIMEType:    "application/json",
-		URITemplate: "vers://status/{cluster}",
-	}, readVersResource(application))
-
-	// Cluster tree resource
-	server.AddResourceTemplate(&mcp.ResourceTemplate{
-		Name:        "vers.cluster.tree",
-		Title:       "Vers Cluster Tree",
-		Description: "VM tree for a specific cluster",
-		MIMEType:    "application/json",
-		URITemplate: "vers://cluster/{id}/tree",
 	}, readVersResource(application))
 
 	return nil
@@ -44,8 +27,6 @@ func registerResources(server *mcp.Server, application *app.App) error {
 
 // readVersResource handles vers:// URIs such as:
 // - vers://status
-// - vers://status/{cluster}
-// - vers://cluster/{id}/tree
 func readVersResource(application *app.App) mcp.ResourceHandler {
 	return func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 		u, err := url.Parse(req.Params.URI)

@@ -12,17 +12,15 @@ func StatusAdapter(ctx context.Context, a *app.App, in StatusInput) (any, error)
 	return handlers.HandleStatus(ctx, a, handlers.StatusReq{Target: in.Target})
 }
 
-// RunAdapter starts a cluster per inputs and returns a presenters.RunView.
+// RunAdapter starts a VM per inputs and returns a presenters.RunView.
 func RunAdapter(ctx context.Context, a *app.App, in RunInput) (any, error) {
 	req := handlers.RunReq{
-		MemSizeMib:       in.MemSizeMib,
-		VcpuCount:        in.VcpuCount,
-		RootfsName:       in.RootfsName,
-		KernelName:       in.KernelName,
-		FsSizeClusterMib: in.FsSizeClusterMib,
-		FsSizeVmMib:      in.FsSizeVmMib,
-		ClusterAlias:     in.ClusterAlias,
-		VMAlias:          in.VMAlias,
+		MemSizeMib:  in.MemSizeMib,
+		VcpuCount:   in.VcpuCount,
+		RootfsName:  in.RootfsName,
+		KernelName:  in.KernelName,
+		FsSizeVmMib: in.FsSizeVmMib,
+		VMAlias:     in.VMAlias,
 	}
 	return handlers.HandleRun(ctx, a, req)
 }

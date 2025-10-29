@@ -12,13 +12,11 @@ import (
 )
 
 type RunCommitReq struct {
-	CommitKey        string
-	FsSizeClusterMiB int64
-	ClusterAlias     string
-	VMAlias          string
+	CommitKey string
+	VMAlias   string
 }
 
-type RunCommitView struct{ ClusterID, RootVmID, HeadTarget, CommitKey string }
+type RunCommitView struct{ RootVmID, HeadTarget, CommitKey string }
 
 func HandleRunCommit(ctx context.Context, a *app.App, r RunCommitReq) (presenters.RunCommitView, error) {
 	// Note: Cluster concept removed, creating VM from commit instead
@@ -44,5 +42,5 @@ func HandleRunCommit(ctx context.Context, a *app.App, r RunCommitReq) (presenter
 			return presenters.RunCommitView{}, fmt.Errorf("failed to update HEAD: %w", err)
 		}
 	}
-	return presenters.RunCommitView{ClusterID: "", RootVmID: vmID, HeadTarget: vmID, CommitKey: r.CommitKey}, nil
+	return presenters.RunCommitView{RootVmID: vmID, HeadTarget: vmID, CommitKey: r.CommitKey}, nil
 }

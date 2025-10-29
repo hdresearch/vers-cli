@@ -26,18 +26,8 @@ func capStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func TestPresenters_TreeIntegration(t *testing.T) {
-	t.Skip("Tree view deprecated - cluster concept removed from SDK")
-	// Note: RenderTree now returns a deprecation message instead of rendering tree
-}
-
 func TestPresenters_StatusIntegration(t *testing.T) {
 	s := styles.NewStatusStyles()
-
-	// Cluster status rendering - now deprecated
-	t.Run("ClusterStatus", func(t *testing.T) {
-		t.Skip("Cluster concept removed from SDK - test deprecated")
-	})
 
 	// VM status rendering - updated to use new vers.Vm type
 	t.Run("VMStatus", func(t *testing.T) {
@@ -50,6 +40,5 @@ func TestPresenters_StatusIntegration(t *testing.T) {
 		if !strings.Contains(outV, "Getting status for VM: vm1") {
 			t.Fatalf("missing VM status markers.\n%s", outV)
 		}
-		// Note: ClusterID field no longer exists in new SDK
 	})
 }

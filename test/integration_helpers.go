@@ -72,14 +72,6 @@ func runVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 	return string(out), err
 }
 
-// registerClusterCleanup ensures a cluster is deleted at test end, regardless of outcome.
-func registerClusterCleanup(t TLike, identifier string) {
-	t.Cleanup(func() {
-		// Best-effort cleanup: skip confirmation, target cluster by ID or alias
-		_, _ = runVers(t, defaultTimeout, "kill", "-c", "-y", identifier)
-	})
-}
-
 // registerVMCleanup ensures a VM is deleted at test end.
 func registerVMCleanup(t TLike, identifier string, recursive bool) {
 	t.Cleanup(func() {
@@ -92,13 +84,12 @@ func registerVMCleanup(t TLike, identifier string, recursive bool) {
 	})
 }
 
-// uniqueAliases returns unique alias strings scoped to a test run.
-func uniqueAliases(prefix string) (clusterAlias, vmAlias string) {
+// uniqueAlias returns a unique alias string scoped to a test run.
+func uniqueAlias(prefix string) string {
 	// Keep it readable and collision-resistant without external deps.
 	ts := time.Now().UTC().Format("20060102-150405")
 	randPart := rand.Intn(1_000_000)
-	base := fmt.Sprintf("%s-it-%s-%06d", prefix, ts, randPart)
-	return base + "-cluster", base + "-vm"
+	return fmt.Sprintf("%s-it-%s-%06d", prefix, ts, randPart)
 }
 
 // TLike is the subset of *testing.T methods we use; helps reuse in helpers.

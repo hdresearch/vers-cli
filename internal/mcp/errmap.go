@@ -19,7 +19,7 @@ func mapMCPError(err error) error {
 	}
 	var isRoot *errorsx.IsRootError
 	if errors.As(err, &isRoot) {
-		return Err(E_CONFLICT, "Cannot delete root VM; delete the cluster or branch first", map[string]any{"vmId": isRoot.VMID})
+		return Err(E_CONFLICT, "Cannot delete root VM; branch from it first to preserve the topology", map[string]any{"vmId": isRoot.VMID})
 	}
 	// Heuristics for common cases
 	if strings.Contains(strings.ToLower(err.Error()), "not found") {

@@ -9,17 +9,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	clusterAlias string
-	vmAlias      string
-)
+var vmAlias string
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
-	Use:   "run [cluster]",
+	Use:   "run",
 	Short: "Start a development environment",
 	Long:  `Start a Vers development environment according to the configuration in vers.toml.`,
-	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := runconfig.Load()
 		if err != nil {
@@ -29,14 +25,12 @@ var runCmd = &cobra.Command{
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
 		req := handlers.RunReq{
-			MemSizeMib:       cfg.Machine.MemSizeMib,
-			VcpuCount:        cfg.Machine.VcpuCount,
-			RootfsName:       cfg.Rootfs.Name,
-			KernelName:       cfg.Kernel.Name,
-			FsSizeClusterMib: cfg.Machine.FsSizeClusterMib,
-			FsSizeVmMib:      cfg.Machine.FsSizeVmMib,
-			ClusterAlias:     clusterAlias,
-			VMAlias:          vmAlias,
+			MemSizeMib:  cfg.Machine.MemSizeMib,
+			VcpuCount:   cfg.Machine.VcpuCount,
+			RootfsName:  cfg.Rootfs.Name,
+			KernelName:  cfg.Kernel.Name,
+			FsSizeVmMib: cfg.Machine.FsSizeVmMib,
+			VMAlias:     vmAlias,
 		}
 		view, err := handlers.HandleRun(apiCtx, application, req)
 		if err != nil {
@@ -47,9 +41,6 @@ var runCmd = &cobra.Command{
 	},
 }
 
-// StartCluster starts a development environment according to the provided configuration
-// cluster start moved into internal/handlers/run.go
-
 func init() {
 	rootCmd.AddCommand(runCmd)
 
@@ -58,9 +49,6 @@ func init() {
 	runCmd.Flags().Int64("vcpu-count", 0, "Override number of virtual CPUs")
 	runCmd.Flags().String("rootfs", "", "Override rootfs name")
 	runCmd.Flags().String("kernel", "", "Override kernel name")
-	runCmd.Flags().Int64("fs-size-cluster", 0, "Override cluster filesystem size (MiB)")
 	runCmd.Flags().Int64("fs-size-vm", 0, "Override VM filesystem size (MiB)")
-	runCmd.Flags().Int64("size-cluster", 0, "Override total cluster size (MiB)")
-	runCmd.Flags().StringVarP(&clusterAlias, "cluster-alias", "n", "", "Set an alias for the cluster")
 	runCmd.Flags().StringVarP(&vmAlias, "vm-alias", "N", "", "Set an alias for the root VM")
 }

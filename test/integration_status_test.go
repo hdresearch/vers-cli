@@ -17,10 +17,10 @@ func TestStatus_Smoke(t *testing.T) {
 	}
 
 	// Basic sanity: output includes common markers indicating successful execution.
-	ok := strings.Contains(out, "Cluster details:") ||
+	ok := strings.Contains(out, "VM details:") ||
 		strings.Contains(out, "Tip:") ||
-		strings.Contains(out, "No clusters found.") ||
-		strings.Contains(out, "Fetching list of clusters")
+		strings.Contains(out, "No VMs found.") ||
+		strings.Contains(out, "Fetching list of VMs")
 	if !ok {
 		t.Fatalf("unexpected status output; got:\n%s", out)
 	}

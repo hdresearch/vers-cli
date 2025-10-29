@@ -5,19 +5,19 @@ import (
 	"testing"
 )
 
-// TestExecuteRunsCommand creates a cluster and executes a simple command on the VM.
+// TestExecuteRunsCommand creates a VM and executes a simple command on it.
 func TestExecuteRunsCommand(t *testing.T) {
 	testEnv(t)
 	ensureBuilt(t)
 
-	clusterAlias, vmAlias := uniqueAliases("smoke")
+	vmAlias := uniqueAlias("smoke")
 
-	// Start a cluster
-	out, err := runVers(t, defaultTimeout, "run", "-n", clusterAlias, "-N", vmAlias)
+	// Start a VM
+	out, err := runVers(t, defaultTimeout, "run", "-N", vmAlias)
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
-	registerClusterCleanup(t, clusterAlias)
+	registerVMCleanup(t, vmAlias, true)
 
 	// Execute a basic echo command on the VM
 	out, err = runVers(t, defaultTimeout, "execute", vmAlias, "echo", "hello-from-vers")
@@ -34,23 +34,23 @@ func TestKillNonRecursiveWithChildrenShowsHelpfulMessage(t *testing.T) {
 	testEnv(t)
 	ensureBuilt(t)
 
-	clusterAlias, vmAlias := uniqueAliases("smoke")
+	vmAlias := uniqueAlias("smoke")
 
-	// Start a cluster
-	out, err := runVers(t, defaultTimeout, "run", "-n", clusterAlias, "-N", vmAlias)
+	// Start a VM
+	out, err := runVers(t, defaultTimeout, "run", "-N", vmAlias)
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
-	registerClusterCleanup(t, clusterAlias)
+	registerVMCleanup(t, vmAlias, true)
 
 	// Create a child VM (branch A)
-	branchA := clusterAlias + "-a"
+	branchA := vmAlias + "-a"
 	out, err = runVers(t, defaultTimeout, "branch", "-n", branchA, vmAlias)
 	if err != nil {
 		t.Fatalf("vers branch failed: %v\nOutput:\n%s", err, out)
 	}
 	// Create a grandchild VM (branch B from branch A) so branch A has children
-	branchB := clusterAlias + "-b"
+	branchB := vmAlias + "-b"
 	out, err = runVers(t, defaultTimeout, "branch", "-n", branchB, branchA)
 	if err != nil {
 		t.Fatalf("vers branch (grandchild) failed: %v\nOutput:\n%s", err, out)

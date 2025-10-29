@@ -9,23 +9,11 @@ func (m Model) View() string {
 	var b strings.Builder
 	// header
 	b.WriteString("Vers TUI\n\n")
-	// columns with simple lipgloss columns
-	// focused styles
+	// single VM list with focused style
 	focused := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("63"))
-	blurred := lipgloss.NewStyle().Padding(0, 1).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240"))
-	leftBox := blurred
-	rightBox := blurred
-	if m.focus == focusClusters {
-		leftBox = focused
-	}
-	if m.focus == focusVMs {
-		rightBox = focused
-	}
-
-	left := leftBox.Render(m.clusters.View())
-	right := rightBox.Render(m.vms.View())
-	row := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	b.WriteString(row)
+	vmBox := focused
+	vmView := vmBox.Render(m.vms.View())
+	b.WriteString(vmView)
 	b.WriteString("\n")
 	// modal overlay
 	if m.modalActive {

@@ -31,10 +31,7 @@ func applyFlagOverrides(cmd *cobra.Command, config *runconfig.Config) {
 		config.Builder.Dockerfile = dockerfile
 	}
 
-	// Override filesystem sizes if flags are set
-	if fsCluster, _ := cmd.Flags().GetInt64("fs-size-cluster"); fsCluster > 0 {
-		config.Machine.FsSizeClusterMib = fsCluster
-	}
+	// Override filesystem size if flag is set
 	if fsVm, _ := cmd.Flags().GetInt64("fs-size-vm"); fsVm > 0 {
 		config.Machine.FsSizeVmMib = fsVm
 	}

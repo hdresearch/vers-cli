@@ -4,22 +4,22 @@ import (
 	"testing"
 )
 
-// TestBranchLifecycle creates a cluster, branches the root VM, and cleans up.
+// TestBranchLifecycle creates a VM, branches it, and cleans up.
 func TestBranchLifecycle(t *testing.T) {
 	testEnv(t)
 	ensureBuilt(t)
 
-	clusterAlias, vmAlias := uniqueAliases("smoke")
-	branchAlias := clusterAlias + "-branch"
+	vmAlias := uniqueAlias("smoke")
+	branchAlias := vmAlias + "-branch"
 
-	// Start a cluster with known aliases
-	out, err := runVers(t, defaultTimeout, "run", "-n", clusterAlias, "-N", vmAlias)
+	// Start a VM with known alias
+	out, err := runVers(t, defaultTimeout, "run", "-N", vmAlias)
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
 
-	// Cleanup entire cluster at end (will remove branch as well)
-	registerClusterCleanup(t, clusterAlias)
+	// Cleanup VM and all its children at end
+	registerVMCleanup(t, vmAlias, true)
 
 	// Branch from the explicitly named root VM alias
 	out, err = runVers(t, defaultTimeout, "branch", "-n", branchAlias, vmAlias)

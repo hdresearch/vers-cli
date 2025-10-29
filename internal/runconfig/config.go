@@ -16,10 +16,9 @@ type Config struct {
 }
 
 type MachineConfig struct {
-	MemSizeMib       int64 `toml:"mem_size_mib"`
-	VcpuCount        int64 `toml:"vcpu_count"`
-	FsSizeClusterMib int64 `toml:"fs_size_cluster_mib"`
-	FsSizeVmMib      int64 `toml:"fs_size_vm_mib"`
+	MemSizeMib  int64 `toml:"mem_size_mib"`
+	VcpuCount   int64 `toml:"vcpu_count"`
+	FsSizeVmMib int64 `toml:"fs_size_vm_mib"`
 }
 
 type RootfsConfig struct {
@@ -39,10 +38,9 @@ type KernelConfig struct {
 func Default() *Config {
 	return &Config{
 		Machine: MachineConfig{
-			MemSizeMib:       512,
-			VcpuCount:        1,
-			FsSizeClusterMib: 1024,
-			FsSizeVmMib:      512,
+			MemSizeMib:  512,
+			VcpuCount:   1,
+			FsSizeVmMib: 512,
 		},
 		Rootfs: RootfsConfig{Name: "default"},
 		Builder: BuilderConfig{

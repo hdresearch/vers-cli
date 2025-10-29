@@ -12,11 +12,11 @@ func RenderVMStatus(s *styles.StatusStyles, vm *vers.Vm) {
 	vmInfo := utils.CreateVMInfoFromVM(*vm)
     fmt.Println(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName))
 	fmt.Println(s.VMListHeader.Render("VM details:"))
-	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
+	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
 	vmInfoDisplay := fmt.Sprintf("%s\n%s\n%s",
-		s.ClusterName.Render("VM: "+s.VMID.Render(vmInfo.DisplayName)),
-		s.ClusterData.Render("IP: "+vm.IP),
-		s.ClusterData.Render("Parent: "+vm.Parent),
+		s.VMName.Render("VM: "+s.VMID.Render(vmInfo.DisplayName)),
+		s.VMData.Render("IP: "+vm.IP),
+		s.VMData.Render("Parent: "+vm.Parent),
 	)
 	vmList.Items(vmInfoDisplay)
 	fmt.Println(vmList)
@@ -26,12 +26,12 @@ func RenderVMStatus(s *styles.StatusStyles, vm *vers.Vm) {
 // RenderVMList renders a list of all VMs
 func RenderVMList(s *styles.StatusStyles, vms []vers.Vm) {
 	fmt.Println(s.VMListHeader.Render("Available VMs:"))
-	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.ClusterListItem)
+	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
 	for _, vm := range vms {
 		vmInfo := fmt.Sprintf("%s\n%s\n%s",
-			s.ClusterName.Render("VM: "+vm.VmID),
-			s.ClusterData.Render("IP: "+vm.IP),
-			s.ClusterData.Render("Parent: "+vm.Parent),
+			s.VMName.Render("VM: "+vm.VmID),
+			s.VMData.Render("IP: "+vm.IP),
+			s.VMData.Render("Parent: "+vm.Parent),
 		)
 		vmList.Items(vmInfo)
 	}

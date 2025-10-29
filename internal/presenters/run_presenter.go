@@ -6,11 +6,11 @@ import (
 	"github.com/hdresearch/vers-cli/styles"
 )
 
-type RunView struct{ ClusterID, RootVmID, VmAlias, HeadTarget string }
+type RunView struct{ RootVmID, VmAlias, HeadTarget string }
 
 func RenderRun(a *app.App, v RunView) {
-	fmt.Println("Sending request to start cluster...")
-	fmt.Printf("Cluster (ID: %s) started successfully with root vm '%s'.\n", v.ClusterID, v.RootVmID)
+	fmt.Println("Sending request to start VM...")
+	fmt.Printf("VM '%s' started successfully.\n", v.RootVmID)
 	if v.HeadTarget != "" {
 		fmt.Printf("HEAD now points to: %s\n", v.HeadTarget)
 	} else {

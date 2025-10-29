@@ -80,9 +80,6 @@ func RenderHistory(a *app.App, v HistoryView) {
 		fmt.Printf("%s %s\n", s.Author.Render("Author:"), c.Author)
 		fmt.Printf("%s %s\n", s.Date.Render("Date:"), ts)
 		fmt.Printf("%s %s\n", s.VMID.Render("VM:"), c.VMID)
-		if c.ClusterID != "" {
-			fmt.Printf("%s %s\n", s.Alias.Render("Cluster:"), c.ClusterID)
-		}
 		if c.HostArchitecture != "" {
 			fmt.Printf("%s %s\n", s.Alias.Render("Architecture:"), c.HostArchitecture)
 		}

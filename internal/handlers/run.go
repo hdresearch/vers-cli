@@ -12,17 +12,15 @@ import (
 )
 
 type RunReq struct {
-	MemSizeMib       int64
-	VcpuCount        int64
-	RootfsName       string
-	KernelName       string
-	FsSizeClusterMib int64
-	FsSizeVmMib      int64
-	ClusterAlias     string
-	VMAlias          string
+	MemSizeMib  int64
+	VcpuCount   int64
+	RootfsName  string
+	KernelName  string
+	FsSizeVmMib int64
+	VMAlias     string
 }
 
-type RunView struct{ ClusterID, RootVmID, VmAlias, HeadTarget string }
+type RunView struct{ RootVmID, VmAlias, HeadTarget string }
 
 func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, error) {
 	if err := validateAndNormalize(&r); err != nil {
@@ -64,25 +62,13 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
         }
     }
 
-    return presenters.RunView{ClusterID: "", RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
+    return presenters.RunView{RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
 }
 
 func validateAndNormalize(r *RunReq) error {
-	if r.FsSizeClusterMib == 0 && r.FsSizeVmMib == 0 {
-		r.FsSizeClusterMib = 1024
+	// Set default VM filesystem size if not specified
+	if r.FsSizeVmMib == 0 {
 		r.FsSizeVmMib = 512
-	} else if r.FsSizeClusterMib == 0 && r.FsSizeVmMib > 0 {
-		vm := r.FsSizeVmMib
-		cluster := vm * 2
-		if cluster < 1024 {
-			cluster = 1024
-		}
-		r.FsSizeClusterMib = cluster
-	} else if r.FsSizeVmMib == 0 && r.FsSizeClusterMib > 0 {
-		r.FsSizeVmMib = r.FsSizeClusterMib / 2
-	}
-	if r.FsSizeVmMib > r.FsSizeClusterMib {
-		return fmt.Errorf("invalid configuration: VM filesystem size (%d MiB) must not exceed cluster filesystem size (%d MiB). Use --fs-size-cluster and --fs-size-vm or update vers.toml", r.FsSizeVmMib, r.FsSizeClusterMib)
 	}
 	return nil
 }
