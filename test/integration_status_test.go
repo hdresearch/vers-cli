@@ -4,14 +4,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hdresearch/vers-cli/test/testutil"
 )
 
 // TestStatus_Smoke verifies we can reach the backend and list status.
 func TestStatus_Smoke(t *testing.T) {
-	testEnv(t)
-	ensureBuilt(t)
+	testutil.TestEnv(t)
+	testutil.EnsureBuilt(t)
 
-	out, err := runVers(t, 30*time.Second, "status")
+	out, err := testutil.RunVers(t, 30*time.Second, "status")
 	if err != nil {
 		t.Fatalf("vers status failed: %v\nOutput:\n%s", err, out)
 	}

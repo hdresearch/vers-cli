@@ -41,17 +41,19 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 	}
 
 	// Note: Alias parameter no longer supported in new SDK
+	// SDK alpha.24 now returns the new VM ID
 	resp, err := a.Client.Vm.Branch(ctx, vmID)
 	if err != nil {
 		return res, fmt.Errorf("failed to create branch from vm '%s': %w", res.FromName, err)
 	}
 
-	res.NewID = resp.ID
+	// New VM ID now available from Branch response in SDK alpha.24
+	res.NewID = resp.VmID
 	res.NewAlias = "" // Alias not available in new SDK
 	res.NewState = "unknown" // State not available in new SDK
 
 	if r.Checkout {
-		if err := utils.SetHead(resp.ID); err != nil {
+		if err := utils.SetHead(resp.VmID); err != nil {
 			res.CheckoutErr = err
 		} else {
 			res.CheckoutDone = true

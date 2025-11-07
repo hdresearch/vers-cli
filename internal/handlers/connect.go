@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
@@ -37,9 +38,12 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	}
 
 	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
-	// Note: State and NetworkInfo no longer available in new SDK
-	// Using VM IP and assuming default SSH port
-	sshHost := info.VM.IP
+	// Get the host from VERS_URL
+	versUrl, err := auth.GetVersUrl()
+	if err != nil {
+		return view, fmt.Errorf("failed to get host: %w", err)
+	}
+	sshHost := versUrl.Hostname()
 	sshPort := "22"
 	view.LocalRoute = true
 

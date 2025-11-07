@@ -2,9 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -32,15 +29,8 @@ func HandleRunCommit(ctx context.Context, a *app.App, r RunCommitReq) (presenter
 		return presenters.RunCommitView{}, err
 	}
 
-	vmID := resp.ID
+	// SDK alpha.24 now returns the VM ID
+	vmID := resp.VmID
 
-	if _, err := os.Stat(".vers"); os.IsNotExist(err) {
-		// warn but continue
-	} else {
-		headFile := filepath.Join(".vers", "HEAD")
-		if err := os.WriteFile(headFile, []byte(vmID+"\n"), 0644); err != nil {
-			return presenters.RunCommitView{}, fmt.Errorf("failed to update HEAD: %w", err)
-		}
-	}
 	return presenters.RunCommitView{RootVmID: vmID, HeadTarget: vmID, CommitKey: r.CommitKey}, nil
 }

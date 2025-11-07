@@ -1,4 +1,4 @@
-package test
+package testutil
 
 import (
 	"context"
@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	binPath        = "../bin/vers"
-	envFileRoot    = "../.env"
-	defaultTimeout = 60 * time.Second
+	BinPath        = "../../bin/vers"
+	envFileRoot    = "../../.env"
+	DefaultTimeout = 60 * time.Second
 )
 
-// testEnv ensures required env vars are present; loads root .env if found.
-func testEnv(t TLike) {
+// TestEnv ensures required env vars are present; loads root .env if found.
+func TestEnv(t TLike) {
 	// Load root .env and local .env for convenience if present
 	_ = godotenv.Load(envFileRoot)
 	_ = godotenv.Load(".env")
@@ -43,13 +43,13 @@ func testEnv(t TLike) {
 	}
 }
 
-// ensureBuilt builds the CLI binary if it doesn't exist.
-func ensureBuilt(t TLike) {
+// EnsureBuilt builds the CLI binary if it doesn't exist.
+func EnsureBuilt(t TLike) {
 	// Always rebuild to pick up latest changes during dev/test
-	if err := os.MkdirAll(filepath.Dir(binPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(BinPath), 0o755); err != nil {
 		t.Fatalf("failed to create bin dir: %v", err)
 	}
-	cmd := exec.Command("go", "build", "-o", binPath, "../cmd/vers")
+	cmd := exec.Command("go", "build", "-o", BinPath, "../../cmd/vers")
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -57,12 +57,12 @@ func ensureBuilt(t TLike) {
 	}
 }
 
-// runVers executes the CLI with a timeout and returns combined stdout/stderr and error.
-func runVers(t TLike, timeout time.Duration, args ...string) (string, error) {
+// RunVers executes the CLI with a timeout and returns combined stdout/stderr and error.
+func RunVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binPath, args...)
+	cmd := exec.CommandContext(ctx, BinPath, args...)
 	// Inherit env so VERS_URL and VERS_API_KEY are visible
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
@@ -72,24 +72,50 @@ func runVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 	return string(out), err
 }
 
-// registerVMCleanup ensures a VM is deleted at test end.
-func registerVMCleanup(t TLike, identifier string, recursive bool) {
+// RegisterVMCleanup ensures a VM is deleted at test end.
+func RegisterVMCleanup(t TLike, identifier string, recursive bool) {
 	t.Cleanup(func() {
 		args := []string{"kill", "-y"}
 		if recursive {
 			args = append(args, "-r")
 		}
 		args = append(args, identifier)
-		_, _ = runVers(t, defaultTimeout, args...)
+		_, _ = RunVers(t, DefaultTimeout, args...)
 	})
 }
 
-// uniqueAlias returns a unique alias string scoped to a test run.
-func uniqueAlias(prefix string) string {
+// UniqueAlias returns a unique alias string scoped to a test run.
+func UniqueAlias(prefix string) string {
 	// Keep it readable and collision-resistant without external deps.
 	ts := time.Now().UTC().Format("20060102-150405")
 	randPart := rand.Intn(1_000_000)
 	return fmt.Sprintf("%s-it-%s-%06d", prefix, ts, randPart)
+}
+
+// ParseVMID extracts the VM ID from `vers run` output.
+// The output format is: "VM '<vmID>' started successfully."
+func ParseVMID(output string) (string, error) {
+	// Look for the pattern: VM '<id>' started successfully
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "started successfully") {
+			// Extract text between "VM '" and "' started"
+			start := strings.Index(line, "VM '")
+			if start == -1 {
+				continue
+			}
+			start += 4 // Move past "VM '"
+			end := strings.Index(line[start:], "' started")
+			if end == -1 {
+				continue
+			}
+			vmID := line[start : start+end]
+			if vmID != "" {
+				return vmID, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("could not parse VM ID from output")
 }
 
 // TLike is the subset of *testing.T methods we use; helps reuse in helpers.

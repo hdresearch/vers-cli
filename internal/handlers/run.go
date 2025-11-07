@@ -2,12 +2,9 @@ package handlers
 
 import (
     "context"
-    "fmt"
-    "os"
 
     "github.com/hdresearch/vers-cli/internal/app"
     "github.com/hdresearch/vers-cli/internal/presenters"
-    "github.com/hdresearch/vers-cli/internal/utils"
     vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -52,15 +49,8 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 		return presenters.RunView{}, err
 	}
 
-	vmID := resp.ID
-    // Persist HEAD via utils to keep format/semantics consistent (store VM ID).
-    if _, err := os.Stat(".vers"); os.IsNotExist(err) {
-        // Not a vers repo; skip writing HEAD but don't fail.
-    } else {
-        if err := utils.SetHead(vmID); err != nil {
-            return presenters.RunView{}, fmt.Errorf("failed to update HEAD: %w", err)
-        }
-    }
+	// SDK alpha.24 now returns the VM ID
+	vmID := resp.VmID
 
     return presenters.RunView{RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
 }

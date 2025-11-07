@@ -153,11 +153,23 @@ func GetClientOptions() ([]option.RequestOption, error) {
 		return nil, err
 	}
 
-	// Set the base URL with protocol
-	clientOptions = append(clientOptions, option.WithBaseURL(versUrl.String()))
+	// Set the base URL with protocol and API version path
+	// The API v1 endpoints are under /api/v1/
+	baseURL := strings.TrimSuffix(versUrl.String(), "/") + "/api/v1"
+	clientOptions = append(clientOptions, option.WithBaseURL(baseURL))
+
+	// Allow overriding the Host header for testing against dev instances
+	if hostHeader := os.Getenv("VERS_HOST_HEADER"); hostHeader != "" {
+		clientOptions = append(clientOptions, option.WithHeader("Host", hostHeader))
+		if os.Getenv("VERS_VERBOSE") == "true" {
+			fmt.Printf("[DEBUG] Using Host header: %s\n", hostHeader)
+		}
+	}
 
 	if os.Getenv("VERS_VERBOSE") == "true" {
 		fmt.Printf("[DEBUG] Using API endpoint: %s\n", versUrl)
+		// Enable SDK debug logging (logs HTTP requests/responses)
+		clientOptions = append(clientOptions, option.WithDebugLog(nil))
 	}
 
 	return clientOptions, nil

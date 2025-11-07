@@ -31,18 +31,15 @@ func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (*ver
 		return nil, "", fmt.Errorf("VM %s not found", vmID)
 	}
 
-	// Use the VM's IP or fallback to env override
-	versHost := targetVM.IP
-	if versHost == "" {
-		versUrl, err := auth.GetVersUrl()
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to get host IP: %w", err)
-		}
+	// Get the host from VERS_URL
+	versUrl, err := auth.GetVersUrl()
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get host: %w", err)
+	}
 
-		versHost = versUrl.Hostname()
-		if os.Getenv("VERS_DEBUG") == "true" {
-			fmt.Printf("[DEBUG] No IP in VM data, using fallback: %s\n", versHost)
-		}
+	versHost := versUrl.Hostname()
+	if os.Getenv("VERS_DEBUG") == "true" {
+		fmt.Printf("[DEBUG] Using host: %s\n", versHost)
 	}
 
 	return targetVM, versHost, nil
