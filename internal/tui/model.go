@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	histSvc "github.com/hdresearch/vers-cli/internal/services/history"
@@ -110,7 +111,7 @@ func loadVMsCmd(m Model) tea.Cmd {
 		items := make([]list.Item, 0, len(rows))
 		for _, vm := range rows {
 			disp := vm.VmID
-			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("IP: %s | Parent: %s", vm.IP, vm.Parent), ID: vm.VmID, Alias: ""})
+			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("Parent: %s", vm.Parent), ID: vm.VmID, Alias: ""})
 		}
 		return vmsLoadedMsg{items: items}
 	}
@@ -163,8 +164,12 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 			return actionCompletedMsg{text: "SSH failed", err: err}
 		}
 
-		// Note: NetworkInfo no longer available, using VM IP
-		sshHost := info.VM.IP
+		// Get the host from VERS_URL
+		versUrl, err := auth.GetVersUrl()
+		if err != nil {
+			return actionCompletedMsg{text: "SSH failed", err: fmt.Errorf("failed to get host: %w", err)}
+		}
+		sshHost := versUrl.Hostname()
 		sshPort := "22"
 
 		// Use Bubble Tea ExecProcess to release the terminal during SSH

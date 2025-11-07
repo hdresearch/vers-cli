@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
@@ -45,8 +46,12 @@ func registerExecuteTool(server *mcp.Server, application *app.App, opts Options)
 			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get VM information: %w", err))
 		}
 		// Note: State and NetworkInfo no longer available in new SDK
-		// Using VM IP and default SSH port
-		sshHost := info.VM.IP
+		// Get the host from VERS_URL
+		versUrl, err := auth.GetVersUrl()
+		if err != nil {
+			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get host: %w", err))
+		}
+		sshHost := versUrl.Hostname()
 		sshPort := "22"
 
 		// Apply timeout override if provided.

@@ -62,5 +62,3 @@ test-integration:
 	fi
 	cd test && go test -v $(ARGS)
 
-# Build MCP-enabled binary (requires SDK dependency).
-# (MCP is now built-in; no tags required.)
