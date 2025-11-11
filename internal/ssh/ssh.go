@@ -28,6 +28,8 @@ func SSHCommand(host, port, keyPath string, extraArgs ...string) *exec.Cmd {
 		"-o", "LogLevel=ERROR",
 		"-o", "ConnectTimeout=30",
 		"-o", "ServerAliveInterval=10",
+		"-o", "ServerAliveCountMax=6",
+		"-o", "TCPKeepAlive=yes",
 		"-i", keyPath,
 	}
 	args = append(args, extraArgs...)
@@ -52,6 +54,8 @@ func SSHArgs(host, port, keyPath string, extraArgs ...string) []string {
 		"-o", "LogLevel=ERROR",
 		"-o", "ConnectTimeout=30",
 		"-o", "ServerAliveInterval=10",
+		"-o", "ServerAliveCountMax=6",
+		"-o", "TCPKeepAlive=yes",
 		"-i", keyPath,
 	}
 	args = append(args, extraArgs...)
