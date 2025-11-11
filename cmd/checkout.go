@@ -37,7 +37,7 @@ If no arguments are provided, shows the current HEAD.`,
 			return fmt.Errorf("failed to switch to VM '%s': %w", target, err)
 		}
 
-		fmt.Printf("Switched to VM '%s' (State: %s)\n", vmInfo.DisplayName, vmInfo.State)
+		fmt.Printf("Switched to VM '%s'\n", vmInfo.DisplayName)
 		return nil
 	},
 }
@@ -54,7 +54,7 @@ func showCurrentHead() error {
 		return err
 	}
 
-	fmt.Printf("Current HEAD: %s (State: %s)\n", vmInfo.DisplayName, vmInfo.State)
+	fmt.Printf("Current HEAD: %s\n", vmInfo.DisplayName)
 	return nil
 }
 

@@ -202,23 +202,20 @@ To see the VM tree structure, run:
 	return errors.New(message)
 }
 
-// isRootError checks if the error indicates the VM is a cluster root VM.
+// isRootError checks if the error indicates the VM is a root VM.
 func (p *VMDeletionProcessor) isRootError(err error) bool {
 	errStr := err.Error()
 	// Observed as 400 Bad Request with "IsRoot" token
 	return strings.Contains(errStr, "IsRoot")
 }
 
-// createRootError returns a helpful message for attempts to delete the cluster root VM directly.
+// createRootError returns a helpful message for attempts to delete a root VM directly.
 func (p *VMDeletionProcessor) createRootError(vmID string) error {
-	message := fmt.Sprintf(`Cannot delete VM because it is the cluster's root VM.
+	message := fmt.Sprintf(`Cannot delete VM because it is a root VM.
 
-Deleting the root VM would orphan the entire cluster topology.
+Deleting the root VM would orphan the entire VM topology.
 
-To remove this environment, delete the whole cluster instead:
-  vers kill -c <cluster-id-or-alias>
-
-To inspect the structure and identify the cluster, run:
+To inspect the structure, run:
   vers tree
 
 Target VM: %s`, vmID)

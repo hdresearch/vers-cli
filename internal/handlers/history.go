@@ -29,13 +29,8 @@ func HandleHistory(ctx context.Context, a *app.App, r HistoryReq) (presenters.Hi
 		vmID, display = vi.ID, vi.DisplayName
 	}
 
-	// fetch VM info for alias/state if needed
-	if strings.TrimSpace(display) == vmID {
-		if resp, err := a.Client.API.Vm.Get(ctx, vmID); err == nil {
-			vmi := utils.CreateVMInfoFromGetResponse(resp.Data)
-			display = vmi.DisplayName
-		}
-	}
+	// display is already set from ResolveVMIdentifier above
+	// No additional VM info fetch needed
 
 	commits, err := histSvc.GetCommits(ctx, a.Client, vmID)
 	if err != nil {

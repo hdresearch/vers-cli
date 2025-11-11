@@ -15,7 +15,6 @@ type CommitEntry struct {
 	Author           string   `json:"Author"`
 	VMID             string   `json:"VMID"`
 	Alias            string   `json:"Alias"`
-	ClusterID        string   `json:"ClusterID"`
 	HostArchitecture string   `json:"HostArchitecture"`
 }
 

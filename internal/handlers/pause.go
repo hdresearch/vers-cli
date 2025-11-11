@@ -34,10 +34,14 @@ func HandlePause(ctx context.Context, a *app.App, r PauseReq) (presenters.PauseV
 		vmName = info.DisplayName
 	}
 
-	updateParams := vers.APIVmUpdateParams{VmPatchRequest: vers.VmPatchRequestParam{State: vers.F(vers.VmPatchRequestStatePaused)}}
-	resp, err := a.Client.API.Vm.Update(ctx, vmID, updateParams)
+	updateParams := vers.VmUpdateStateParams{
+		VmUpdateStateRequest: vers.VmUpdateStateRequestParam{
+			State: vers.F(vers.VmUpdateStateRequestStatePaused),
+		},
+	}
+	err := a.Client.Vm.UpdateState(ctx, vmID, updateParams)
 	if err != nil {
 		return presenters.PauseView{}, fmt.Errorf("failed to pause VM '%s': %w", vmName, err)
 	}
-	return presenters.PauseView{VMName: vmName, NewState: string(resp.Data.State)}, nil
+	return presenters.PauseView{VMName: vmName, NewState: "Paused"}, nil
 }

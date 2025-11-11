@@ -11,59 +11,36 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	histSvc "github.com/hdresearch/vers-cli/internal/services/history"
 	svcstatus "github.com/hdresearch/vers-cli/internal/services/status"
-	treeSvc "github.com/hdresearch/vers-cli/internal/services/tree"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 type focus int
 
 const (
-	focusClusters focus = iota
-	focusVMs
+	focusVMs focus = iota
 	focusModal
 )
 
-// cluster and vm list items
-type clusterItem struct{ TitleText, DescText, ID, Alias string }
-
-func (i clusterItem) Title() string       { return i.TitleText }
-func (i clusterItem) Description() string { return i.DescText }
-func (i clusterItem) FilterValue() string {
-	if i.Alias != "" {
-		return i.Alias
-	}
-	return i.ID
-}
-
-type vmItem struct{ TitleText, DescText, ID, Alias, State string }
+// VM list item
+type vmItem struct{ TitleText, DescText, ID, Alias string }
 
 func (i vmItem) Title() string       { return i.TitleText }
 func (i vmItem) Description() string { return i.DescText }
 func (i vmItem) FilterValue() string {
-	if i.Alias != "" {
-		return i.Alias
-	}
 	return i.ID
 }
 
 // messages
 type initLoadMsg struct{}
-type clustersLoadedMsg struct {
-	items []list.Item
-	raw   []svcCluster
-	err   error
-}
 type vmsLoadedMsg struct {
-	clusterID string
-	items     []list.Item
-	err       error
+	items []list.Item
+	err   error
 }
 type actionCompletedMsg struct {
 	text string
@@ -73,23 +50,12 @@ type historyLoadedMsg struct {
 	lines []string
 	err   error
 }
-type treeLoadedMsg struct {
-	lines []string
-	err   error
-}
-
-// raw backing info we may need
-type svcCluster struct{ ID, Alias string }
 
 type Model struct {
 	app *app.App
 
-	focus    focus
-	clusters list.Model
-	vms      list.Model
-
-	clusterBacking []svcCluster
-	prevClusterIdx int
+	focus focus
+	vms   list.Model
 
 	loading bool
 	spin    spinner.Model
@@ -114,8 +80,6 @@ type Model struct {
 }
 
 func New(appc *app.App) Model {
-	lclusters := list.New(nil, list.NewDefaultDelegate(), 40, 12)
-	lclusters.Title = "Clusters"
 	lvms := list.New(nil, list.NewDefaultDelegate(), 60, 12)
 	lvms.Title = "VMs"
 	sp := spinner.New()
@@ -123,67 +87,33 @@ func New(appc *app.App) Model {
 	ti := textinput.New()
 	ti.Placeholder = "alias"
 	ti.CharLimit = 64
-	m := Model{app: appc, focus: focusClusters, clusters: lclusters, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys()}
-	m.setFocus(focusClusters)
+	m := Model{app: appc, focus: focusVMs, vms: lvms, spin: sp, input: ti, help: help.New(), keys: defaultKeys()}
+	m.setFocus(focusVMs)
 	return m
 }
 
 func (m *Model) setFocus(f focus) {
 	m.focus = f
-	m.clusters.SetFilteringEnabled(true)
 	m.vms.SetFilteringEnabled(true)
 }
 
 func (m Model) Init() tea.Cmd { return tea.Batch(func() tea.Msg { return initLoadMsg{} }, m.spin.Tick) }
 
 // commands
-func loadClustersCmd(m Model) tea.Cmd {
+func loadVMsCmd(m Model) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
 		defer cancel()
-		rows, err := svcstatus.ListClusters(ctx, m.app.Client)
+		rows, err := svcstatus.ListVMs(ctx, m.app.Client)
 		if err != nil {
-			return clustersLoadedMsg{err: err}
+			return vmsLoadedMsg{err: err}
 		}
 		items := make([]list.Item, 0, len(rows))
-		backing := make([]svcCluster, 0, len(rows))
-		for _, c := range rows {
-			disp := c.Alias
-			if disp == "" {
-				disp = c.ID
-			}
-			root := c.RootVmID
-			// best-effort root alias lookup
-			for _, v := range c.Vms {
-				if v.ID == c.RootVmID && v.Alias != "" {
-					root = v.Alias
-					break
-				}
-			}
-			items = append(items, clusterItem{TitleText: disp, DescText: fmt.Sprintf("Root: %s | VMs: %d", root, c.VmCount), ID: c.ID, Alias: c.Alias})
-			backing = append(backing, svcCluster{ID: c.ID, Alias: c.Alias})
+		for _, vm := range rows {
+			disp := vm.VmID
+			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("Parent: %s", vm.Parent), ID: vm.VmID, Alias: ""})
 		}
-		return clustersLoadedMsg{items: items, raw: backing}
-	}
-}
-
-func loadVMsCmd(m Model, clusterID string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-		defer cancel()
-		cl, err := svcstatus.GetCluster(ctx, m.app.Client, clusterID)
-		if err != nil {
-			return vmsLoadedMsg{clusterID: clusterID, err: err}
-		}
-		items := make([]list.Item, 0, len(cl.Vms))
-		for _, v := range cl.Vms {
-			disp := v.Alias
-			if disp == "" {
-				disp = v.ID
-			}
-			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("State: %s", v.State), ID: v.ID, Alias: v.Alias, State: string(v.State)})
-		}
-		return vmsLoadedMsg{clusterID: cl.ID, items: items}
+		return vmsLoadedMsg{items: items}
 	}
 }
 
@@ -234,13 +164,13 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 			return actionCompletedMsg{text: "SSH failed", err: err}
 		}
 
-		// Determine host/port (DNAT vs local route)
-		sshHost := info.Host
-		sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-		if utils.IsHostLocal(info.Host) {
-			sshHost = info.VM.IPAddress
-			sshPort = "22"
+		// Get the host from VERS_URL
+		versUrl, err := auth.GetVersUrl()
+		if err != nil {
+			return actionCompletedMsg{text: "SSH failed", err: fmt.Errorf("failed to get host: %w", err)}
 		}
+		sshHost := versUrl.Hostname()
+		sshPort := "22"
 
 		// Use Bubble Tea ExecProcess to release the terminal during SSH
 		cmd := sshutil.SSHCommand(sshHost, sshPort, info.KeyPath)
@@ -253,27 +183,14 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 	}
 }
 
-func refreshCurrentVMsCmd(m Model) tea.Cmd {
-	idx := m.clusters.Index()
-	if idx < 0 || idx >= len(m.clusterBacking) {
-		return nil
-	}
-	cid := m.clusterBacking[idx].ID
-	return loadVMsCmd(m, cid)
+func refreshVMsCmd(m Model) tea.Cmd {
+	return loadVMsCmd(m)
 }
 
 // helpers
 func (m Model) selectedVMID() (string, bool) {
 	if it, ok := m.vms.SelectedItem().(vmItem); ok {
 		return it.ID, true
-	}
-	return "", false
-}
-
-func (m Model) selectedClusterID() (string, bool) {
-	idx := m.clusters.Index()
-	if idx >= 0 && idx < len(m.clusterBacking) {
-		return m.clusterBacking[idx].ID, true
 	}
 	return "", false
 }
@@ -299,49 +216,6 @@ func loadHistoryCmd(m Model, vmID string) tea.Cmd {
 	}
 }
 
-func loadTreeCmd(m Model, clusterID string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-		defer cancel()
-		cl, err := treeSvc.GetClusterByIdentifier(ctx, m.app.Client, clusterID)
-		if err != nil {
-			return treeLoadedMsg{err: err}
-		}
-		// simple tree render
-		vmMap := map[string]vers.VmDto{}
-		for _, v := range cl.Vms {
-			vmMap[v.ID] = v
-		}
-		var lines []string
-		var walk func(id string, prefix string, isLast bool)
-		walk = func(id string, prefix string, isLast bool) {
-			v := vmMap[id]
-			name := v.Alias
-			if name == "" {
-				name = v.ID
-			}
-			connector := "├── "
-			if isLast {
-				connector = "└── "
-			}
-			lines = append(lines, prefix+connector+name+" ["+string(v.State)+"]")
-			childPrefix := prefix
-			if isLast {
-				childPrefix += "    "
-			} else {
-				childPrefix += "│   "
-			}
-			for i, cid := range v.Children {
-				walk(cid, childPrefix, i == len(v.Children)-1)
-			}
-		}
-		if cl.RootVmID != "" {
-			walk(cl.RootVmID, "", true)
-		}
-		return treeLoadedMsg{lines: lines}
-	}
-}
-
 func doCommitCmd(m Model, vmID string, tagCSV string) tea.Cmd {
 	return func() tea.Msg {
 		// Split and trim tags
@@ -354,10 +228,8 @@ func doCommitCmd(m Model, vmID string, tagCSV string) tea.Cmd {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APILong)
 		defer cancel()
-		// direct SDK call mirrors cmd/commit.go
-		body := vers.APIVmCommitParams{VmCommitRequest: vers.VmCommitRequestParam{Tags: vers.F(tags)}}
-		// If we cannot resolve alias to id, the API accepts id only; the TUI uses vmID
-		_, err := m.app.Client.API.Vm.Commit(ctx, vmID, body)
+		// direct SDK call - note: tags no longer supported in new SDK
+		_, err := m.app.Client.Vm.Commit(ctx, vmID)
 		if err != nil {
 			return actionCompletedMsg{text: "Commit failed", err: err}
 		}

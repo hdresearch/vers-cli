@@ -36,26 +36,18 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 		return view, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	vmInfo := utils.CreateVMInfoFromGetResponse(info.VM)
-	if info.VM.State != "Running" {
-		return view, fmt.Errorf("VM is not running (current state: %s)", info.VM.State)
-	}
-	if info.VM.NetworkInfo.SSHPort == 0 {
-		return view, fmt.Errorf("VM does not have SSH port information available")
-	}
-
-	// local vs DNAT
+	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
+	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.vm.vers.sh)
 	sshHost := info.Host
-	sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-	if utils.IsHostLocal(info.Host) {
-		sshHost = info.VM.IPAddress
-		sshPort = "22"
-		view.LocalRoute = true
-	}
+	sshPort := "443" // SSH-over-TLS uses port 443
+	view.LocalRoute = true
 
 	view.VMName = vmInfo.DisplayName
 	view.SSHHost = sshHost
 	view.SSHPort = sshPort
+
+	// Render connection info BEFORE running SSH so it displays before connecting
+	presenters.RenderConnect(a, view)
 
 	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath)
 	err = a.Runner.Run(ctx, "ssh", args, runrt.Stdio{In: a.IO.In, Out: a.IO.Out, Err: a.IO.Err})

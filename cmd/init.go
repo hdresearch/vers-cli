@@ -15,14 +15,13 @@ import (
 )
 
 var (
-	projectName      string
-	memSize          int64
-	vcpuCount        int64
-	rootfsName       string
-	kernelName       string
-	dockerfileName   string
-	fsSizeClusterMib int64
-	fsSizeVmMib      int64
+	projectName    string
+	memSize        int64
+	vcpuCount      int64
+	rootfsName     string
+	kernelName     string
+	dockerfileName string
+	fsSizeVmMib    int64
 )
 
 // initCmd represents the init command
@@ -100,10 +99,9 @@ var initCmd = &cobra.Command{
 			// Create the vers.toml content
 			config := &runconfig.Config{
 				Machine: runconfig.MachineConfig{
-					MemSizeMib:       memSize,
-					VcpuCount:        vcpuCount,
-					FsSizeClusterMib: fsSizeClusterMib,
-					FsSizeVmMib:      fsSizeVmMib,
+					MemSizeMib:  memSize,
+					VcpuCount:   vcpuCount,
+					FsSizeVmMib: fsSizeVmMib,
 				},
 				Rootfs: runconfig.RootfsConfig{
 					Name: rootfsName,
@@ -158,6 +156,5 @@ func init() {
 	initCmd.Flags().StringVar(&rootfsName, "rootfs", "", "Name of the rootfs image (defaults to project name)")
 	initCmd.Flags().StringVar(&kernelName, "kernel", "default.bin", "Name of the kernel image")
 	initCmd.Flags().StringVar(&dockerfileName, "dockerfile", "Dockerfile", "Name of the Docker file")
-	initCmd.Flags().Int64Var(&fsSizeClusterMib, "fs-size-cluster", 1024, "Total cluster filesystem size in MiB")
 	initCmd.Flags().Int64Var(&fsSizeVmMib, "fs-size-vm", 512, "VM filesystem size in MiB")
 }

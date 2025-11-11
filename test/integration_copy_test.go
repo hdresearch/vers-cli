@@ -5,12 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hdresearch/vers-cli/test/testutil"
 )
 
 // TestCopyWithNonExistentVM verifies copy fails early with a clear error when VM is unknown.
 func TestCopyWithNonExistentVM(t *testing.T) {
-	testEnv(t)
-	ensureBuilt(t)
+	testutil.TestEnv(t)
+	testutil.EnsureBuilt(t)
 
 	// Create a temporary local file to act as upload source
 	dir := t.TempDir()
@@ -19,7 +21,7 @@ func TestCopyWithNonExistentVM(t *testing.T) {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
 
-	out, err := runVers(t, defaultTimeout, "copy", "non-existent-vm", src, "/tmp/test.txt")
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "copy", "non-existent-vm", src, "/tmp/test.txt")
 	if err == nil {
 		t.Fatalf("expected failure for non-existent VM, got success. Output:\n%s", out)
 	}

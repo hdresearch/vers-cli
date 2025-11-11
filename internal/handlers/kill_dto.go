@@ -6,13 +6,12 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
-	statsvc "github.com/hdresearch/vers-cli/internal/services/status"
 	"github.com/hdresearch/vers-cli/internal/utils"
 )
 
 // KillDTO is a structured summary suitable for MCP outputs.
 type KillDTO struct {
-	Scope        string              `json:"scope"` // "vms", "clusters", "all-clusters"
+	Scope        string              `json:"scope"` // "vms"
 	Targets      []string            `json:"targets"`
 	Recursive    bool                `json:"recursive"`
 	DeletedIDs   []string            `json:"deletedIds,omitempty"`
@@ -23,46 +22,7 @@ type KillDTO struct {
 // HandleKillDTO performs non-interactive deletion with a structured result.
 // It does not prompt and does not print; callers must enforce confirmation policy.
 func HandleKillDTO(ctx context.Context, a *app.App, r KillReq) (KillDTO, error) {
-	dto := KillDTO{Targets: r.Targets, Recursive: r.Recursive}
-	// Determine mode
-	if r.KillAll {
-		dto.Scope = "all-clusters"
-		list, err := statsvc.ListClusters(ctx, a.Client)
-		if err != nil {
-			return dto, err
-		}
-		dto.DeletedByRef = map[string][]string{}
-		for _, c := range list {
-			ids, err := delsvc.DeleteCluster(ctx, a.Client, c.ID)
-			if err != nil {
-				return dto, err
-			}
-			dto.DeletedIDs = append(dto.DeletedIDs, ids...)
-			dto.DeletedByRef[c.ID] = ids
-		}
-		return dto, nil
-	}
-
-	if r.IsCluster {
-		dto.Scope = "clusters"
-		dto.DeletedByRef = map[string][]string{}
-		for _, ref := range r.Targets {
-			cl, err := statsvc.GetCluster(ctx, a.Client, ref)
-			if err != nil {
-				return dto, err
-			}
-			ids, err := delsvc.DeleteCluster(ctx, a.Client, cl.ID)
-			if err != nil {
-				return dto, err
-			}
-			dto.DeletedIDs = append(dto.DeletedIDs, ids...)
-			dto.DeletedByRef[ref] = ids
-		}
-		return dto, nil
-	}
-
-	// VM mode
-	dto.Scope = "vms"
+	dto := KillDTO{Targets: r.Targets, Recursive: r.Recursive, Scope: "vms"}
 	targets := r.Targets
 	if len(targets) == 0 {
 		head, err := utils.GetCurrentHeadVM()

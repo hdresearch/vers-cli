@@ -29,10 +29,14 @@ func HandleResume(ctx context.Context, a *app.App, r ResumeReq) (presenters.Resu
 		vmID, vmName = info.ID, info.DisplayName
 	}
 
-	updateParams := vers.APIVmUpdateParams{VmPatchRequest: vers.VmPatchRequestParam{State: vers.F(vers.VmPatchRequestStateRunning)}}
-	resp, err := a.Client.API.Vm.Update(ctx, vmID, updateParams)
+	updateParams := vers.VmUpdateStateParams{
+		VmUpdateStateRequest: vers.VmUpdateStateRequestParam{
+			State: vers.F(vers.VmUpdateStateRequestStateRunning),
+		},
+	}
+	err := a.Client.Vm.UpdateState(ctx, vmID, updateParams)
 	if err != nil {
 		return presenters.ResumeView{}, fmt.Errorf("failed to resume VM '%s': %w", vmName, err)
 	}
-	return presenters.ResumeView{VMName: vmName, NewState: string(resp.Data.State)}, nil
+	return presenters.ResumeView{VMName: vmName, NewState: "Running"}, nil
 }

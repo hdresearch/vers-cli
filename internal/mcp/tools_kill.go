@@ -14,7 +14,7 @@ import (
 func registerKillTool(server *mcp.Server, application *app.App, opts Options) error {
 	tool := &mcp.Tool{
 		Name:        "vers.kill",
-		Description: "Delete VMs or clusters; when no targets, deletes HEAD VM",
+		Description: "Delete VMs; when no targets, deletes HEAD VM",
 	}
 	handler := withMetrics("vers.kill", func(ctx context.Context, req *mcp.CallToolRequest, in KillInput) (*mcp.CallToolResult, handlers.KillDTO, error) {
 		started := time.Now()
@@ -28,15 +28,7 @@ func registerKillTool(server *mcp.Server, application *app.App, opts Options) er
 			return nil, handlers.KillDTO{}, err
 		}
 		dto := dtoAny.(handlers.KillDTO)
-		var scope string
-		switch {
-		case in.KillAll:
-			scope = "all-clusters"
-		case in.IsCluster:
-			scope = "clusters"
-		default:
-			scope = "vms"
-		}
+		scope := "vms"
 		summary := redact(fmt.Sprintf("deleted %s targets=%v recursive=%t", scope, in.Targets, in.Recursive))
 		fmt.Fprintf(os.Stderr, "[mcp] tool=vers.kill ok dur=%s scope=%s count=%d\n", time.Since(started).Truncate(time.Millisecond), scope, len(in.Targets))
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, dto, nil

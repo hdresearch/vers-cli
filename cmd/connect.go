@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
-	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
 
@@ -21,11 +20,10 @@ var connectCmd = &cobra.Command{
 		if len(args) > 0 {
 			target = args[0]
 		}
-		view, err := handlers.HandleConnect(apiCtx, application, handlers.ConnectReq{Target: target})
+		_, err := handlers.HandleConnect(apiCtx, application, handlers.ConnectReq{Target: target})
 		if err != nil {
 			return err
 		}
-		pres.RenderConnect(application, view)
 		return nil
 	},
 }

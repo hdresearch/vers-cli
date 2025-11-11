@@ -3,28 +3,29 @@ package test
 import (
 	"regexp"
 	"testing"
+
+	"github.com/hdresearch/vers-cli/test/testutil"
 )
 
-// TestCommitAndRunCommit commits a VM and starts a new cluster from that commit.
+// TestCommitAndRunCommit commits a VM and starts a new VM from that commit.
 func TestCommitAndRunCommit(t *testing.T) {
-	testEnv(t)
-	ensureBuilt(t)
+	testutil.TestEnv(t)
+	testutil.EnsureBuilt(t)
 
-	// Original cluster aliases
-	clusterAlias, vmAlias := uniqueAliases("smoke")
-	// New cluster aliases for run-commit
-	newClusterAlias := clusterAlias + "-from-commit"
+	// Original VM alias
+	vmAlias := testutil.UniqueAlias("smoke")
+	// New VM alias for run-commit
 	newVmAlias := vmAlias + "-from-commit"
 
-	// Start a cluster
-	out, err := runVers(t, defaultTimeout, "run", "-n", clusterAlias, "-N", vmAlias)
+	// Start a VM
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run", "-N", vmAlias)
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
-	registerClusterCleanup(t, clusterAlias)
+	testutil.RegisterVMCleanup(t, vmAlias, true)
 
 	// Commit the VM; capture Commit ID from output
-	out, err = runVers(t, defaultTimeout, "commit", vmAlias)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "commit", vmAlias)
 	if err != nil {
 		if regexp.MustCompile(`(?i)Error uploading commit to S3|AWS CLI|S3 bucket`).FindString(out) != "" {
 			t.Skipf("skipping commit test due to backend storage configuration: %v\nOutput:\n%s", err, out)
@@ -39,16 +40,16 @@ func TestCommitAndRunCommit(t *testing.T) {
 	}
 	commitID := m[1]
 
-	// Start a new cluster from the commit
-	out, err = runVers(t, defaultTimeout, "run-commit", commitID, "-n", newClusterAlias, "-N", newVmAlias)
+	// Start a new VM from the commit
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "run-commit", commitID, "-N", newVmAlias)
 	if err != nil {
 		t.Fatalf("vers run-commit failed: %v\nOutput:\n%s", err, out)
 	}
-	registerClusterCleanup(t, newClusterAlias)
+	testutil.RegisterVMCleanup(t, newVmAlias, true)
 
-	// Verify status resolves for the new cluster alias
-	out, err = runVers(t, defaultTimeout, "status", "-c", newClusterAlias)
+	// Verify status resolves for the new VM alias
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "status", newVmAlias)
 	if err != nil {
-		t.Fatalf("vers status -c <new-from-commit> failed: %v\nOutput:\n%s", err, out)
+		t.Fatalf("vers status <new-from-commit> failed: %v\nOutput:\n%s", err, out)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/hdresearch/vers-cli/internal/utils"
-	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 type BranchReq struct {
@@ -41,22 +40,20 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 		res.FromName = vmInfo.DisplayName
 	}
 
-	body := vers.APIVmBranchParams{VmBranchRequest: vers.VmBranchRequestParam{}}
-	if r.Alias != "" {
-		body.VmBranchRequest.Alias = vers.F(r.Alias)
-	}
-
-	resp, err := a.Client.API.Vm.Branch(ctx, vmID, body)
+	// Note: Alias parameter no longer supported in new SDK
+	// SDK alpha.24 now returns the new VM ID
+	resp, err := a.Client.Vm.Branch(ctx, vmID)
 	if err != nil {
 		return res, fmt.Errorf("failed to create branch from vm '%s': %w", res.FromName, err)
 	}
 
-	res.NewID = resp.Data.ID
-	res.NewAlias = resp.Data.Alias
-	res.NewState = string(resp.Data.State)
+	// New VM ID now available from Branch response in SDK alpha.24
+	res.NewID = resp.VmID
+	res.NewAlias = "" // Alias not available in new SDK
+	res.NewState = "unknown" // State not available in new SDK
 
 	if r.Checkout {
-		if err := utils.SetHead(resp.Data.ID); err != nil {
+		if err := utils.SetHead(resp.VmID); err != nil {
 			res.CheckoutErr = err
 		} else {
 			res.CheckoutDone = true

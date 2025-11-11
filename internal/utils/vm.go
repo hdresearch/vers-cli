@@ -11,54 +11,33 @@ import (
 type VMInfo struct {
 	ID          string
 	DisplayName string
-	State       string
 }
 
-// ResolveVMIdentifier takes a VM ID or alias and returns the VM ID and display info
-// This ensures all API calls use IDs while providing good UX with display names
-func ResolveVMIdentifier(ctx context.Context, client *vers.Client, identifier string) (*VMInfo, error) {
-	response, err := client.API.Vm.Get(ctx, identifier)
+// ResolveVMIdentifier takes a VM ID and returns the VM info
+// Note: Alias lookups are no longer supported in the new SDK
+func ResolveVMIdentifier(ctx context.Context, client *vers.Client, vmID string) (*VMInfo, error) {
+	vms, err := client.Vm.List(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("VM '%s' not found: %w", identifier, err)
+		return nil, fmt.Errorf("failed to list VMs: %w", err)
 	}
 
-	vm := response.Data
-	displayName := vm.Alias
-	if displayName == "" {
-		displayName = vm.ID
+	for _, vm := range *vms {
+		if vm.VmID == vmID {
+			return &VMInfo{
+				ID:          vm.VmID,
+				DisplayName: vm.VmID,
+			}, nil
+		}
 	}
 
-	return &VMInfo{
-		ID:          vm.ID,
-		DisplayName: displayName,
-		State:       string(vm.State),
-	}, nil
+	return nil, fmt.Errorf("VM '%s' not found", vmID)
 }
 
-// CreateVMInfoFromGetResponse creates VMInfo from a Get API response
-func CreateVMInfoFromGetResponse(vm vers.APIVmGetResponseData) *VMInfo {
-	displayName := vm.Alias
-	if displayName == "" {
-		displayName = vm.ID
-	}
-
+// CreateVMInfoFromVM creates VMInfo from a Vm struct
+func CreateVMInfoFromVM(vm vers.Vm) *VMInfo {
 	return &VMInfo{
-		ID:          vm.ID,
-		DisplayName: displayName,
-		State:       string(vm.State),
+		ID:          vm.VmID,
+		DisplayName: vm.VmID,
 	}
 }
 
-// CreateVMInfoFromUpdateResponse creates VMInfo from an Update API response
-func CreateVMInfoFromUpdateResponse(vm vers.APIVmUpdateResponseData) *VMInfo {
-	displayName := vm.Alias
-	if displayName == "" {
-		displayName = vm.ID
-	}
-
-	return &VMInfo{
-		ID:          vm.ID,
-		DisplayName: displayName,
-		State:       string(vm.State),
-	}
-}

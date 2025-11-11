@@ -25,4 +25,7 @@ Please report issues to the project repository.
 	},
 }
 
-func init() { rootCmd.AddCommand(uiCmd) }
+func init() {
+	// TUI disabled
+	// rootCmd.AddCommand(uiCmd)
+}

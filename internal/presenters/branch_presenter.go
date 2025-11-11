@@ -26,7 +26,6 @@ func RenderBranch(a *app.App, res BranchView) {
 	if res.NewAlias != "" {
         fmt.Println(s.ListItem.Render(s.InfoLabel.Render("Alias")+": "+s.BranchName.Render(res.NewAlias)))
     }
-    fmt.Println(s.ListItem.Render(s.InfoLabel.Render("State")+": "+s.CurrentState.Render(res.NewState)))
     fmt.Println()
 
 	if res.CheckoutDone {

@@ -23,8 +23,8 @@ func setupMockServer(tb testing.TB, nodeIP string, statusCode int) *httptest.Ser
 			return
 		}
 
-		// Verify the URL path format
-		if !strings.HasPrefix(r.URL.Path, "/api/vm/") {
+		// New SDK uses /vms path
+		if !strings.HasPrefix(r.URL.Path, "/vms") {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -34,17 +34,17 @@ func setupMockServer(tb testing.TB, nodeIP string, statusCode int) *httptest.Ser
 			w.Header().Set("X-Node-IP", nodeIP)
 		}
 
+		// Set content-type for JSON response
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		// Return proper VM response structure
-		w.Write([]byte(`{
-			"data": {
-				"id": "test-vm-123",
-				"state": "Running",
-				"network_info": {
-					"ssh_port": 22
-				}
-			}
-		}`))
+		// Return proper VM list response structure for new SDK
+		w.Write([]byte(`[{
+			"vm_id": "test-vm-123",
+			"ip": "192.168.1.100",
+			"parent": "",
+			"owner_id": "owner-123",
+			"created_at": "2024-01-01T00:00:00Z"
+		}]`))
 	}))
 }
 
@@ -110,11 +110,8 @@ func TestGetVmAndNodeIP_Success(t *testing.T) {
 	if nodeIP != expectedIP {
 		t.Errorf("Expected node IP %s, got %s", expectedIP, nodeIP)
 	}
-	if vm.ID != "test-vm-123" {
-		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
-	}
-	if vm.State != "Running" {
-		t.Errorf("Expected VM state Running, got %s", vm.State)
+	if vm.VmID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.VmID)
 	}
 }
 
@@ -145,8 +142,8 @@ func TestGetVmAndNodeIP_NoNodeIPHeader(t *testing.T) {
 	if nodeIP == "" {
 		t.Error("Expected fallback node IP, got empty string")
 	}
-	if vm.ID != "test-vm-123" {
-		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
+	if vm.VmID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.VmID)
 	}
 	// Should use fallback host from auth.GetVersUrlHost()
 	t.Logf("Fallback node IP used: %s", nodeIP)
@@ -179,8 +176,8 @@ func TestGetVmAndNodeIP_UnknownNodeIP(t *testing.T) {
 	if nodeIP == "" {
 		t.Error("Expected fallback node IP, got empty string")
 	}
-	if vm.ID != "test-vm-123" {
-		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
+	if vm.VmID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.VmID)
 	}
 }
 
@@ -211,8 +208,8 @@ func TestGetVmAndNodeIP_HTTPError(t *testing.T) {
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
-	if vm.ID != "" {
-		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
+	if vm != nil {
+		t.Errorf("Expected nil VM, got %+v", vm)
 	}
 }
 
@@ -227,6 +224,7 @@ func TestGetVmAndNodeIP_InvalidJSON(t *testing.T) {
 		}
 
 		w.Header().Set("X-Node-IP", "192.168.1.100")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`invalid json response`))
 	}))
@@ -251,14 +249,14 @@ func TestGetVmAndNodeIP_InvalidJSON(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error when response contains invalid JSON")
 	}
-	if !strings.Contains(err.Error(), "failed to decode VM response") {
-		t.Errorf("Expected JSON decode error, got: %v", err)
+	if !strings.Contains(err.Error(), "error parsing") && !strings.Contains(err.Error(), "invalid character") {
+		t.Errorf("Expected JSON parsing error, got: %v", err)
 	}
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
-	if vm.ID != "" {
-		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
+	if vm != nil {
+		t.Errorf("Expected nil VM, got %+v", vm)
 	}
 }
 
@@ -298,8 +296,8 @@ func TestGetVmAndNodeIP_ContextTimeout(t *testing.T) {
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
-	if vm.ID != "" {
-		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
+	if vm != nil {
+		t.Errorf("Expected nil VM, got %+v", vm)
 	}
 	if duration > 1*time.Second {
 		t.Error("Request should have timed out quickly")
@@ -344,8 +342,8 @@ func TestGetVmAndNodeIP_FallbackBehavior(t *testing.T) {
 	if nodeIP == "" {
 		t.Error("Expected fallback node IP, got empty string")
 	}
-	if vm.ID != "test-vm-123" {
-		t.Errorf("Expected VM ID test-vm-123, got %s", vm.ID)
+	if vm.VmID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.VmID)
 	}
 	// In debug mode, a debug message should be printed
 	t.Logf("Fallback node IP used: %s", nodeIP)
@@ -382,8 +380,8 @@ func TestGetVmAndNodeIP_AuthFailure(t *testing.T) {
 	if nodeIP != "" {
 		t.Errorf("Expected empty node IP, got %s", nodeIP)
 	}
-	if vm.ID != "" {
-		t.Errorf("Expected empty VM data, got ID %s", vm.ID)
+	if vm != nil {
+		t.Errorf("Expected nil VM, got %+v", vm)
 	}
 }
 

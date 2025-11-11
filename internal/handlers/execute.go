@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
@@ -39,20 +40,14 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	if info.VM.State != "Running" {
-		return v, fmt.Errorf("VM is not running (current state: %s)", info.VM.State)
+	// Note: State and NetworkInfo no longer available in new SDK
+	// Get the host from VERS_URL
+	versUrl, err := auth.GetVersUrl()
+	if err != nil {
+		return v, fmt.Errorf("failed to get host: %w", err)
 	}
-	if info.VM.NetworkInfo.SSHPort == 0 {
-		return v, fmt.Errorf("VM does not have SSH port information available")
-	}
-
-	versHost := info.Host
-	sshHost := versHost
-	sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-	if utils.IsHostLocal(versHost) {
-		sshHost = info.VM.IPAddress
-		sshPort = "22"
-	}
+	sshHost := versUrl.Hostname()
+	sshPort := "22"
 
 	cmdStr := strings.Join(r.Command, " ")
 	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath, cmdStr)

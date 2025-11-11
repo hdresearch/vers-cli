@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
@@ -41,22 +42,18 @@ func HandleCopy(ctx context.Context, a *app.App, r CopyReq) (presenters.CopyView
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	vmInfo := utils.CreateVMInfoFromGetResponse(info.VM)
+	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
 	v.VMName = vmInfo.DisplayName
-	if info.VM.State != "Running" {
-		return v, fmt.Errorf("VM is not running (current state: %s)", info.VM.State)
-	}
-	if info.VM.NetworkInfo.SSHPort == 0 {
-		return v, fmt.Errorf("VM does not have SSH port information available")
-	}
+	// Note: State and NetworkInfo no longer available in new SDK
+	// Proceeding with default SSH configuration
 
-	versHost := info.Host
-	sshHost := versHost
-	sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-	if utils.IsHostLocal(versHost) {
-		sshHost = info.VM.IPAddress
-		sshPort = "22"
+	// Get the host from VERS_URL
+	versUrl, err := auth.GetVersUrl()
+	if err != nil {
+		return v, fmt.Errorf("failed to get host: %w", err)
 	}
+	sshHost := versUrl.Hostname()
+	sshPort := "22"
 
 	scpTarget := fmt.Sprintf("root@%s", sshHost)
 	var scpSource, scpDest string

@@ -2,20 +2,17 @@ package mcp
 
 // StatusInput is the input schema for vers.status tool.
 type StatusInput struct {
-	Cluster string `json:"cluster,omitempty" jsonschema:"Cluster ID or alias to filter"`
-	Target  string `json:"target,omitempty" jsonschema:"VM ID or alias for VM-specific status"`
+	Target string `json:"target,omitempty" jsonschema:"VM ID or alias for VM-specific status"`
 }
 
 // RunInput defines inputs for vers.run
 type RunInput struct {
-	MemSizeMib       int64  `json:"memSizeMib,omitempty" jsonschema:"VM memory size in MiB"`
-	VcpuCount        int64  `json:"vcpuCount,omitempty" jsonschema:"Number of vCPUs"`
-	RootfsName       string `json:"rootfsName,omitempty" jsonschema:"Rootfs image name"`
-	KernelName       string `json:"kernelName,omitempty" jsonschema:"Kernel image name"`
-	FsSizeClusterMib int64  `json:"fsSizeClusterMib,omitempty" jsonschema:"Cluster filesystem size in MiB"`
-	FsSizeVmMib      int64  `json:"fsSizeVmMib,omitempty" jsonschema:"VM filesystem size in MiB"`
-	ClusterAlias     string `json:"clusterAlias,omitempty" jsonschema:"Alias for the new cluster"`
-	VMAlias          string `json:"vmAlias,omitempty" jsonschema:"Alias for the root VM"`
+	MemSizeMib  int64  `json:"memSizeMib,omitempty" jsonschema:"VM memory size in MiB"`
+	VcpuCount   int64  `json:"vcpuCount,omitempty" jsonschema:"Number of vCPUs"`
+	RootfsName  string `json:"rootfsName,omitempty" jsonschema:"Rootfs image name"`
+	KernelName  string `json:"kernelName,omitempty" jsonschema:"Kernel image name"`
+	FsSizeVmMib int64  `json:"fsSizeVmMib,omitempty" jsonschema:"VM filesystem size in MiB"`
+	VMAlias     string `json:"vmAlias,omitempty" jsonschema:"Alias for the root VM"`
 }
 
 // ExecuteInput defines inputs for vers.execute
@@ -34,9 +31,7 @@ type BranchInput struct {
 
 // KillInput defines inputs for vers.kill
 type KillInput struct {
-	Targets          []string `json:"targets,omitempty" jsonschema:"VM or cluster identifiers; empty means HEAD VM for VM mode"`
+	Targets          []string `json:"targets,omitempty" jsonschema:"VM identifiers; empty means HEAD VM"`
 	SkipConfirmation bool     `json:"skipConfirmation,omitempty" jsonschema:"Required for destructive operations in MCP"`
-	Recursive        bool     `json:"recursive,omitempty" jsonschema:"Delete all descendants (VMs only)"`
-	IsCluster        bool     `json:"isCluster,omitempty" jsonschema:"Treat targets as cluster IDs/aliases"`
-	KillAll          bool     `json:"killAll,omitempty" jsonschema:"Delete ALL clusters (dangerous)"`
+	Recursive        bool     `json:"recursive,omitempty" jsonschema:"Delete all descendants"`
 }

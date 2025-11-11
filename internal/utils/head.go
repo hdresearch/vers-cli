@@ -7,7 +7,6 @@ import (
     "os"
     "path/filepath"
     "strings"
-    "time"
 
     vers "github.com/hdresearch/vers-sdk-go"
 )
@@ -96,24 +95,6 @@ func CheckVMImpactsHead(vmID string) bool {
 		return false
 	}
 	return headVM == vmID
-}
-
-// CheckClusterImpactsHead checks if a specific cluster deletion will affect HEAD
-func CheckClusterImpactsHead(ctx context.Context, client *vers.Client, clusterID string) bool {
-	headVM, err := GetCurrentHeadVM()
-	if err != nil {
-		return false
-	}
-
-	apiCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	vmResponse, err := client.API.Vm.Get(apiCtx, headVM)
-	if err != nil {
-		return false
-	}
-
-	return vmResponse.Data.ClusterID == clusterID
 }
 
 // ConfirmVMHeadImpact checks and confirms HEAD impact for a single VM deletion

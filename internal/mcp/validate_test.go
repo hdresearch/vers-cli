@@ -15,10 +15,10 @@ func TestValidateExecute(t *testing.T) {
 }
 
 func TestValidateRun(t *testing.T) {
-	if err := validateRun(RunInput{FsSizeClusterMib: 512, FsSizeVmMib: 1024}); err == nil {
-		t.Fatalf("expected error when VM fs > cluster fs")
+	if err := validateRun(RunInput{FsSizeVmMib: -1}); err == nil {
+		t.Fatalf("expected error for negative filesystem size")
 	}
-	if err := validateRun(RunInput{FsSizeClusterMib: 1024, FsSizeVmMib: 512}); err != nil {
+	if err := validateRun(RunInput{FsSizeVmMib: 512}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -26,9 +26,6 @@ func TestValidateRun(t *testing.T) {
 func TestValidateKill(t *testing.T) {
 	if err := validateKill(KillInput{}); err == nil {
 		t.Fatalf("expected confirmation-required error for MCP kill without skipConfirmation")
-	}
-	if err := validateKill(KillInput{SkipConfirmation: true, KillAll: true, IsCluster: true}); err == nil {
-		t.Fatalf("expected error for mutually exclusive killAll+isCluster")
 	}
 	if err := validateKill(KillInput{SkipConfirmation: true}); err != nil {
 		t.Fatalf("unexpected error: %v", err)

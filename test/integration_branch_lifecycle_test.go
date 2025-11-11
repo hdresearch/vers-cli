@@ -2,27 +2,29 @@ package test
 
 import (
 	"testing"
+
+	"github.com/hdresearch/vers-cli/test/testutil"
 )
 
-// TestBranchLifecycle creates a cluster, branches the root VM, and cleans up.
+// TestBranchLifecycle creates a VM, branches it, and cleans up.
 func TestBranchLifecycle(t *testing.T) {
-	testEnv(t)
-	ensureBuilt(t)
+	testutil.TestEnv(t)
+	testutil.EnsureBuilt(t)
 
-	clusterAlias, vmAlias := uniqueAliases("smoke")
-	branchAlias := clusterAlias + "-branch"
+	vmAlias := testutil.UniqueAlias("smoke")
+	branchAlias := vmAlias + "-branch"
 
-	// Start a cluster with known aliases
-	out, err := runVers(t, defaultTimeout, "run", "-n", clusterAlias, "-N", vmAlias)
+	// Start a VM with known alias
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run", "-N", vmAlias)
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
 
-	// Cleanup entire cluster at end (will remove branch as well)
-	registerClusterCleanup(t, clusterAlias)
+	// Cleanup VM and all its children at end
+	testutil.RegisterVMCleanup(t, vmAlias, true)
 
 	// Branch from the explicitly named root VM alias
-	out, err = runVers(t, defaultTimeout, "branch", "-n", branchAlias, vmAlias)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", "-n", branchAlias, vmAlias)
 	if err != nil {
 		t.Fatalf("vers branch failed: %v\nOutput:\n%s", err, out)
 	}

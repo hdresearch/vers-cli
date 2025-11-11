@@ -6,17 +6,17 @@ import (
 
 // StatusStyles contains all styles used in the status command
 type StatusStyles struct {
-	Container       lipgloss.Style
-	HeadStatus      lipgloss.Style
-	ClusterInfo     lipgloss.Style
-	VMListHeader    lipgloss.Style
-	ClusterName     lipgloss.Style
-	ClusterListItem lipgloss.Style
-	ClusterData     lipgloss.Style
-	VMInfo          lipgloss.Style
-	NoData          lipgloss.Style
-	Tip             lipgloss.Style
-	VMID            lipgloss.Style
+	Container    lipgloss.Style
+	HeadStatus   lipgloss.Style
+	VMSection    lipgloss.Style
+	VMListHeader lipgloss.Style
+	VMName       lipgloss.Style
+	VMListItem   lipgloss.Style
+	VMData       lipgloss.Style
+	VMInfo       lipgloss.Style
+	NoData       lipgloss.Style
+	Tip          lipgloss.Style
+	VMID         lipgloss.Style
 }
 
 // NewStatusStyles initializes and returns all styles used in the status command
@@ -32,24 +32,24 @@ func NewStatusStyles() StatusStyles {
 	return StatusStyles{
 		Container:  containerStyle,
 		HeadStatus: HeadStatusStyle,
-		ClusterInfo: containerStyle.
+		VMSection: containerStyle.
 			Inherit(PrimaryTextStyle).
 			Padding(0, 1),
 		VMListHeader: containerStyle.
 			Inherit(PrimaryTextStyle).
 			PaddingBottom(1),
-		ClusterName: listItemStyle.
+		VMName: listItemStyle.
 			Inherit(HeaderStyle).
 			Background(TerminalBlue).
 			Foreground(TerminalWhite).
 			Padding(0, 1),
-		ClusterListItem: listItemStyle.
+		VMListItem: listItemStyle.
 			MarginBottom(1).
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(BorderColor).
 			BorderRight(true).
 			BorderBottom(true),
-		ClusterData: dataItemStyle.
+		VMData: dataItemStyle.
 			PaddingLeft(2).
 			PaddingRight(1),
 		VMInfo: listItemStyle,

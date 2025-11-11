@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
@@ -44,20 +45,14 @@ func registerExecuteTool(server *mcp.Server, application *app.App, opts Options)
 		if err != nil {
 			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get VM information: %w", err))
 		}
-		if info.VM.State != "Running" {
-			return nil, presenters.ExecuteView{}, Err(E_CONFLICT, fmt.Sprintf("VM is not running (current state: %s)", info.VM.State), nil)
+		// Note: State and NetworkInfo no longer available in new SDK
+		// Get the host from VERS_URL
+		versUrl, err := auth.GetVersUrl()
+		if err != nil {
+			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get host: %w", err))
 		}
-		if info.VM.NetworkInfo.SSHPort == 0 {
-			return nil, presenters.ExecuteView{}, Err(E_CONFLICT, "VM does not have SSH port information available", nil)
-		}
-
-		versHost := info.Host
-		sshHost := versHost
-		sshPort := fmt.Sprintf("%d", info.VM.NetworkInfo.SSHPort)
-		if utils.IsHostLocal(versHost) {
-			sshHost = info.VM.IPAddress
-			sshPort = "22"
-		}
+		sshHost := versUrl.Hostname()
+		sshPort := "22"
 
 		// Apply timeout override if provided.
 		runCtx := ctx

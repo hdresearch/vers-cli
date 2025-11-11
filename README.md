@@ -38,14 +38,14 @@ go install github.com/hdresearch/vers-cli/cmd/vers@latest
 ### Available Commands
 
 ```bash
-# Check the status of all clusters
+# Check the status of all VMs
 vers status
 
-# Check the status of a specific cluster
-vers status -c <cluster-id>
+# Check the status of a specific VM
+vers status <vm-id>
 
-# Start a development environment (creates a new cluster)
-vers run [cluster-name]
+# Start a development environment (creates a new VM)
+vers run
 
 # Execute a command on a VM
 vers execute <vm-id> <command> [args...]
@@ -125,18 +125,16 @@ This repo includes an MCP server to expose Vers operations as tools and resource
   - `curl http://localhost:3920/healthz` → `ok`
 
 Tools exposed
-- `vers.status` — snapshot of clusters/VMs (inputs: cluster?, target?)
-- `vers.run` — start a cluster (inputs: memSizeMib?, vcpuCount?, rootfsName?, kernelName?, fsSizeClusterMib?, fsSizeVmMib?, clusterAlias?, vmAlias?)
+- `vers.status` — snapshot of VMs (inputs: target?)
+- `vers.run` — start a VM (inputs: memSizeMib?, vcpuCount?, rootfsName?, kernelName?, fsSizeVmMib?, vmAlias?)
 - `vers.execute` — run a command in a VM (inputs: target?, command [required], timeoutSeconds?)
 - `vers.branch` — create a VM from existing/HEAD (inputs: target?, alias?, checkout?)
-- `vers.kill` — delete VMs/clusters (inputs: targets?, skipConfirmation [required], recursive?, isCluster?, killAll?)
+- `vers.kill` — delete VMs (inputs: targets?, skipConfirmation [required], recursive?)
 - `vers.version` — server info (no backend calls)
 - `vers.capabilities` — server settings/tool list
 
 Resources
 - `vers://status` — global status as JSON
-- `vers://status/{cluster}` — cluster-specific status
-- `vers://cluster/{id}/tree` — VM tree and HEAD for a cluster
 
 Notes
 - Execute streams stdout/stderr via MCP logging messages; final summary + structured output returned.

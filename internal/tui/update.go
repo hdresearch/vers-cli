@@ -1,33 +1,16 @@
 package tui
 
 import (
-	"context"
-	tea "github.com/charmbracelet/bubbletea"
-	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case initLoadMsg:
 		m.loading = true
-		return m, loadClustersCmd(m)
-
-	case clustersLoadedMsg:
-		m.loading = false
-		if msg.err != nil {
-			m.status = "Failed to load clusters: " + msg.err.Error()
-			return m, nil
-		}
-		m.clusterBacking = msg.raw
-		m.clusters.SetItems(msg.items)
-		if len(msg.items) > 0 {
-			m.clusters.Select(0)
-			cid := m.clusterBacking[0].ID
-			m.loading = true
-			return m, loadVMsCmd(m, cid)
-		}
-		return m, nil
+		return m, loadVMsCmd(m)
 
 	case vmsLoadedMsg:
 		m.loading = false
@@ -48,7 +31,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = msg.text
 		}
 		m.loading = true
-		return m, refreshCurrentVMsCmd(m)
+		return m, refreshVMsCmd(m)
 	case historyLoadedMsg:
 		m.status = ""
 		if msg.err != nil {
@@ -61,75 +44,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.modalKind = "text"
 		m.modalPrompt = "History:"
 		return m, nil
-	case treeLoadedMsg:
-		m.status = ""
-		if msg.err != nil {
-			m.status = "Tree error: " + msg.err.Error()
-			m.modalActive = false
-			return m, nil
-		}
-		m.modalText = msg.lines
-		m.modalActive = true
-		m.modalKind = "text"
-		m.modalPrompt = "Tree:"
-		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
-		case "tab":
-			if m.focus == focusClusters {
-				m.setFocus(focusVMs)
-			} else {
-				m.setFocus(focusClusters)
-			}
-			return m, nil
 		}
-		// pass keys to active list
-		if m.focus == focusClusters {
-			var cmd tea.Cmd
-			m.clusters, cmd = m.clusters.Update(msg)
-			idx := m.clusters.Index()
-			if idx != m.prevClusterIdx && idx >= 0 && idx < len(m.clusterBacking) {
-				m.prevClusterIdx = idx
-				m.loading = true
-				cid := m.clusterBacking[idx].ID
-				return m, loadVMsCmd(m, cid)
-			}
-			// cluster actions
-			switch msg.String() {
-			case "k":
-				if cid, ok := m.selectedClusterID(); ok {
-					m.modalActive = true
-					m.modalKind = "confirm"
-					m.modalPrompt = "Delete cluster '" + cid + "'?"
-					id := cid
-					m.onConfirm = func() tea.Cmd {
-						m.modalActive = false
-						m.status = "Deleting cluster..."
-						return func() tea.Msg {
-							ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-							defer cancel()
-							_, err := delsvc.DeleteCluster(ctx, m.app.Client, id)
-							if err != nil {
-								return actionCompletedMsg{text: "Cluster delete failed", err: err}
-							}
-							return actionCompletedMsg{text: "Cluster deleted", err: nil}
-						}
-					}
-					return m, nil
-				}
-			case "t":
-				if cid, ok := m.selectedClusterID(); ok {
-					m.status = "Loading tree..."
-					return m, loadTreeCmd(m, cid)
-				}
-			}
-			return m, cmd
-		}
-		if m.focus == focusVMs {
-			// action keys on VMs
+		// action keys on VMs
+		if m.focus == focusVMs && !m.modalActive {
 			switch msg.String() {
 			case "enter":
 				if it, ok := m.vms.SelectedItem().(vmItem); ok {
@@ -212,9 +134,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		// give lists some space
-		m.clusters.SetSize(msg.Width/2-2, msg.Height-6)
-		m.vms.SetSize(msg.Width/2-2, msg.Height-6)
+		m.vms.SetSize(msg.Width-4, msg.Height-6)
 		return m, nil
 	}
 	// modal input/confirm handling
