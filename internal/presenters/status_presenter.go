@@ -13,10 +13,13 @@ func RenderVMStatus(s *styles.StatusStyles, vm *vers.Vm) {
     fmt.Println(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName))
 	fmt.Println(s.VMListHeader.Render("VM details:"))
 	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
-	vmInfoDisplay := fmt.Sprintf("%s\n%s",
-		s.VMName.Render("VM: "+s.VMID.Render(vmInfo.DisplayName)),
-		s.VMData.Render("Parent: "+vm.Parent),
-	)
+	vmInfoDisplay := s.VMName.Render("VM: " + s.VMID.Render(vmInfo.DisplayName))
+	if vm.Parent != "" {
+		vmInfoDisplay = fmt.Sprintf("%s\n%s",
+			vmInfoDisplay,
+			s.VMData.Render("Parent: "+vm.Parent),
+		)
+	}
 	vmList.Items(vmInfoDisplay)
 	fmt.Println(vmList)
 	fmt.Println(s.Tip.Render("\nTip: To view all VMs, run: vers status"))
@@ -27,10 +30,13 @@ func RenderVMList(s *styles.StatusStyles, vms []vers.Vm) {
 	fmt.Println(s.VMListHeader.Render("Available VMs:"))
 	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
 	for _, vm := range vms {
-		vmInfo := fmt.Sprintf("%s\n%s",
-			s.VMName.Render("VM: "+vm.VmID),
-			s.VMData.Render("Parent: "+vm.Parent),
-		)
+		vmInfo := s.VMName.Render("VM: " + vm.VmID)
+		if vm.Parent != "" {
+			vmInfo = fmt.Sprintf("%s\n%s",
+				vmInfo,
+				s.VMData.Render("Parent: "+vm.Parent),
+			)
+		}
 		vmList.Items(vmInfo)
 	}
 	fmt.Println(vmList)

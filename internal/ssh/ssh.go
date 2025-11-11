@@ -16,7 +16,7 @@ func SSHCommand(host, port, keyPath string, extraArgs ...string) *exec.Cmd {
 	// Use SSH-over-TLS via proxy (bypass load balancer which terminates TLS)
 	proxyHost := "44.210.239.66" // Direct connection to proxy server
 	vmHostname := fmt.Sprintf("%s.vm.vers.sh", host) // SNI hostname
-	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet", proxyHost, vmHostname)
+	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet 2>/dev/null", proxyHost, vmHostname)
 
 	args := []string{
 		fmt.Sprintf("root@%s", vmHostname),
@@ -42,7 +42,7 @@ func SSHArgs(host, port, keyPath string, extraArgs ...string) []string {
 	// Use SSH-over-TLS via proxy (bypass load balancer which terminates TLS)
 	proxyHost := "44.210.239.66" // Direct connection to proxy server
 	vmHostname := fmt.Sprintf("%s.vm.vers.sh", host) // SNI hostname
-	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet", proxyHost, vmHostname)
+	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet 2>/dev/null", proxyHost, vmHostname)
 
 	args := []string{
 		fmt.Sprintf("root@%s", vmHostname),

@@ -46,6 +46,9 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	view.SSHHost = sshHost
 	view.SSHPort = sshPort
 
+	// Render connection info BEFORE running SSH so it displays before connecting
+	presenters.RenderConnect(a, view)
+
 	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath)
 	err = a.Runner.Run(ctx, "ssh", args, runrt.Stdio{In: a.IO.In, Out: a.IO.Out, Err: a.IO.Err})
 	if err != nil {

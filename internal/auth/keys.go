@@ -83,8 +83,7 @@ func GetOrCreateSSHKey(vmID string, client *vers.Client, apiCtx context.Context)
 
 	// Check if SSH key already exists
 	if _, err := os.Stat(keyPath); err == nil {
-		// Key exists, return the path
-		fmt.Printf("%s\n", styles.HeadStatusStyle.Render(fmt.Sprintf("Using existing SSH key from %s", keyPath)))
+		// Key exists, return the path silently
 		return keyPath, nil
 	}
 

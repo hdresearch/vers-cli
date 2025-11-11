@@ -14,17 +14,18 @@ var (
 )
 
 var killCmd = &cobra.Command{
-	Use:   "kill [vm-id]...",
-	Short: "Delete one or more VMs",
+	Use:     "delete [vm-id]...",
+	Aliases: []string{"kill"},
+	Short:   "Delete one or more VMs",
 	Long: `Delete one or more VMs by ID. If no arguments are provided, deletes the current HEAD VM.
 
 Examples:
-  vers kill                              # Delete current HEAD VM
-  vers kill vm-123abc                    # Delete single VM by ID
-  vers kill vm-1 vm-2 vm-3               # Delete multiple VMs by ID
-  vers kill -y                           # Delete HEAD VM without confirmation
-  vers kill -r vm-with-children          # Recursively delete VM and all its children
-  vers kill -y -r vm-with-children       # Skip confirmations AND delete children`,
+  vers delete                              # Delete current HEAD VM
+  vers delete vm-123abc                    # Delete single VM by ID
+  vers delete vm-1 vm-2 vm-3               # Delete multiple VMs by ID
+  vers delete -y                           # Delete HEAD VM without confirmation
+  vers delete -r vm-with-children          # Recursively delete VM and all its children
+  vers delete -y -r vm-with-children       # Skip confirmations AND delete children`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
