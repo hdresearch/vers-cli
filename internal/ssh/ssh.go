@@ -13,15 +13,21 @@ func getTimeout() string { return "5" }
 // SSHCommand builds an ssh command with consistent options.
 // extraArgs may include a remote command string.
 func SSHCommand(host, port, keyPath string, extraArgs ...string) *exec.Cmd {
+	// Use SSH-over-TLS via proxy (bypass load balancer which terminates TLS)
+	proxyHost := "44.210.239.66" // Direct connection to proxy server
+	vmHostname := fmt.Sprintf("%s.vm.vers.sh", host) // SNI hostname
+	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet", proxyHost, vmHostname)
+
 	args := []string{
-		fmt.Sprintf("root@%s", host),
-		"-p", port,
+		fmt.Sprintf("root@%s", vmHostname),
+		"-o", fmt.Sprintf("ProxyCommand=%s", proxyCommand),
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-o", "IdentitiesOnly=yes",
 		"-o", "PreferredAuthentications=publickey",
 		"-o", "LogLevel=ERROR",
-		"-o", "ConnectTimeout=" + getTimeout(),
+		"-o", "ConnectTimeout=30",
+		"-o", "ServerAliveInterval=10",
 		"-i", keyPath,
 	}
 	args = append(args, extraArgs...)
@@ -31,15 +37,21 @@ func SSHCommand(host, port, keyPath string, extraArgs ...string) *exec.Cmd {
 // SSHArgs builds argument list for ssh with consistent options.
 // extraArgs may include a remote command string.
 func SSHArgs(host, port, keyPath string, extraArgs ...string) []string {
+	// Use SSH-over-TLS via proxy (bypass load balancer which terminates TLS)
+	proxyHost := "44.210.239.66" // Direct connection to proxy server
+	vmHostname := fmt.Sprintf("%s.vm.vers.sh", host) // SNI hostname
+	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet", proxyHost, vmHostname)
+
 	args := []string{
-		fmt.Sprintf("root@%s", host),
-		"-p", port,
+		fmt.Sprintf("root@%s", vmHostname),
+		"-o", fmt.Sprintf("ProxyCommand=%s", proxyCommand),
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "UserKnownHostsFile=/dev/null",
 		"-o", "IdentitiesOnly=yes",
 		"-o", "PreferredAuthentications=publickey",
 		"-o", "LogLevel=ERROR",
-		"-o", "ConnectTimeout=" + getTimeout(),
+		"-o", "ConnectTimeout=30",
+		"-o", "ServerAliveInterval=10",
 		"-i", keyPath,
 	}
 	args = append(args, extraArgs...)

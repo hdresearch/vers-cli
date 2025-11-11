@@ -21,7 +21,7 @@ type Info struct {
 func GetConnectInfo(ctx context.Context, client *vers.Client, identifier string) (Info, error) {
 	var out Info
 
-	vm, nodeIP, err := utils.GetVmAndNodeIP(ctx, client, identifier)
+	vm, _, err := utils.GetVmAndNodeIP(ctx, client, identifier)
 	if err != nil {
 		return out, err
 	}
@@ -33,11 +33,8 @@ func GetConnectInfo(ctx context.Context, client *vers.Client, identifier string)
 	}
 	out.BaseURL = versURL
 
-	host := nodeIP
-	if host == "" {
-		host = versURL.Hostname()
-	}
-	out.Host = host
+	// For SSH-over-TLS, use VM ID as host (will be formatted as {vm-id}.vm.vers.sh)
+	out.Host = vm.VmID
 
 	keyPath, err := auth.GetOrCreateSSHKey(vm.VmID, client, ctx)
 	if err != nil {
