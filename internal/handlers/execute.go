@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
@@ -40,14 +39,9 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	// Note: State and NetworkInfo no longer available in new SDK
-	// Get the host from VERS_URL
-	versUrl, err := auth.GetVersUrl()
-	if err != nil {
-		return v, fmt.Errorf("failed to get host: %w", err)
-	}
-	sshHost := versUrl.Hostname()
-	sshPort := "22"
+	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.vm.vers.sh)
+	sshHost := info.Host
+	sshPort := "443" // SSH-over-TLS uses port 443
 
 	cmdStr := strings.Join(r.Command, " ")
 	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath, cmdStr)
