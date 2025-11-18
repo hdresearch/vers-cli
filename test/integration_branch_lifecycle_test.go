@@ -11,20 +11,23 @@ func TestBranchLifecycle(t *testing.T) {
 	testutil.TestEnv(t)
 	testutil.EnsureBuilt(t)
 
-	vmAlias := testutil.UniqueAlias("smoke")
-	branchAlias := vmAlias + "-branch"
-
-	// Start a VM with known alias
-	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run", "-N", vmAlias)
+	// Start a VM
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run")
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
 
-	// Cleanup VM and all its children at end
-	testutil.RegisterVMCleanup(t, vmAlias, true)
+	// Parse VM ID from output
+	vmID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
+	}
 
-	// Branch from the explicitly named root VM alias
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", "-n", branchAlias, vmAlias)
+	// Cleanup VM and all its children at end
+	testutil.RegisterVMCleanup(t, vmID, true)
+
+	// Branch from the root VM
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", vmID)
 	if err != nil {
 		t.Fatalf("vers branch failed: %v\nOutput:\n%s", err, out)
 	}

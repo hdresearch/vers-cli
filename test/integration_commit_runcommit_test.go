@@ -12,20 +12,21 @@ func TestCommitAndRunCommit(t *testing.T) {
 	testutil.TestEnv(t)
 	testutil.EnsureBuilt(t)
 
-	// Original VM alias
-	vmAlias := testutil.UniqueAlias("smoke")
-	// New VM alias for run-commit
-	newVmAlias := vmAlias + "-from-commit"
-
 	// Start a VM
-	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run", "-N", vmAlias)
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run")
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
-	testutil.RegisterVMCleanup(t, vmAlias, true)
+
+	// Parse VM ID from output
+	vmID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
+	}
+	testutil.RegisterVMCleanup(t, vmID, true)
 
 	// Commit the VM; capture Commit ID from output
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "commit", vmAlias)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "commit", vmID)
 	if err != nil {
 		if regexp.MustCompile(`(?i)Error uploading commit to S3|AWS CLI|S3 bucket`).FindString(out) != "" {
 			t.Skipf("skipping commit test due to backend storage configuration: %v\nOutput:\n%s", err, out)
@@ -41,14 +42,20 @@ func TestCommitAndRunCommit(t *testing.T) {
 	commitID := m[1]
 
 	// Start a new VM from the commit
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "run-commit", commitID, "-N", newVmAlias)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "run-commit", commitID)
 	if err != nil {
 		t.Fatalf("vers run-commit failed: %v\nOutput:\n%s", err, out)
 	}
-	testutil.RegisterVMCleanup(t, newVmAlias, true)
 
-	// Verify status resolves for the new VM alias
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "status", newVmAlias)
+	// Parse new VM ID from output
+	newVmID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse new VM ID: %v\nOutput:\n%s", err, out)
+	}
+	testutil.RegisterVMCleanup(t, newVmID, true)
+
+	// Verify status resolves for the new VM
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "status", newVmID)
 	if err != nil {
 		t.Fatalf("vers status <new-from-commit> failed: %v\nOutput:\n%s", err, out)
 	}

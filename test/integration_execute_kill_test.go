@@ -12,17 +12,21 @@ func TestExecuteRunsCommand(t *testing.T) {
 	testutil.TestEnv(t)
 	testutil.EnsureBuilt(t)
 
-	vmAlias := testutil.UniqueAlias("smoke")
-
 	// Start a VM
-	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run", "-N", vmAlias)
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run")
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
-	testutil.RegisterVMCleanup(t, vmAlias, true)
+
+	// Parse VM ID from output
+	vmID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
+	}
+	testutil.RegisterVMCleanup(t, vmID, false)
 
 	// Execute a basic echo command on the VM
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "execute", vmAlias, "echo", "hello-from-vers")
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "execute", vmID, "echo", "hello-from-vers")
 	if err != nil {
 		t.Fatalf("vers execute failed: %v\nOutput:\n%s", err, out)
 	}
@@ -36,30 +40,37 @@ func TestKillNonRecursiveWithChildrenShowsHelpfulMessage(t *testing.T) {
 	testutil.TestEnv(t)
 	testutil.EnsureBuilt(t)
 
-	vmAlias := testutil.UniqueAlias("smoke")
-
 	// Start a VM
-	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run", "-N", vmAlias)
+	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run")
 	if err != nil {
 		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
 	}
-	testutil.RegisterVMCleanup(t, vmAlias, true)
+
+	// Parse VM ID from output
+	vmID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
+	}
+	testutil.RegisterVMCleanup(t, vmID, true)
 
 	// Create a child VM (branch A)
-	branchA := vmAlias + "-a"
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", "-n", branchA, vmAlias)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", vmID)
 	if err != nil {
 		t.Fatalf("vers branch failed: %v\nOutput:\n%s", err, out)
 	}
+	branchAID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse branch A VM ID: %v\nOutput:\n%s", err, out)
+	}
+
 	// Create a grandchild VM (branch B from branch A) so branch A has children
-	branchB := vmAlias + "-b"
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", "-n", branchB, branchA)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", branchAID)
 	if err != nil {
 		t.Fatalf("vers branch (grandchild) failed: %v\nOutput:\n%s", err, out)
 	}
 
 	// Attempt to delete the parent VM without -r (skip confirmation)
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "kill", "-y", branchA)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "kill", "-y", branchAID)
 	if err == nil {
 		t.Fatalf("expected kill to fail without -r for VM with children; output:\n%s", out)
 	}
