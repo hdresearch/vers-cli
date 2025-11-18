@@ -1,60 +1,50 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
+	vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-sdk-go/option"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
 var token string
 
-// validateAPIKey validates the API key against the validation endpoint
+// validateAPIKey validates the API key by attempting to list VMs
 func validateAPIKey(apiKey string) error {
-	baseURL, err := auth.GetVersUrl()
+	// Get client options
+	clientOptions, err := auth.GetClientOptions()
 	if err != nil {
-		return fmt.Errorf("error getting API URL: %w", err)
+		return fmt.Errorf("error getting client options: %w", err)
 	}
 
-	validateEndpoint := baseURL
-	validateEndpoint.Path = strings.TrimRight(validateEndpoint.Path, "/") + "/api/validate"
+	// Add the API key to the options
+	clientOptions = append(clientOptions, option.WithAPIKey(apiKey))
 
-	payload := map[string]string{
-		"api_key": apiKey,
-	}
+	// Create a client with the provided API key
+	client := vers.NewClient(clientOptions...)
 
-	jsonData, err := json.Marshal(payload)
+	// Try to list VMs as a validation check
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err = client.Vm.List(ctx)
 	if err != nil {
-		return fmt.Errorf("error preparing validation request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", validateEndpoint.String(), bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("error creating validation request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
+		// Check if it's an authentication/authorization error
+		errStr := err.Error()
+		errStrLower := strings.ToLower(errStr)
+		if strings.Contains(errStr, "401") || strings.Contains(errStr, "403") ||
+			strings.Contains(errStrLower, "unauthorized") || strings.Contains(errStrLower, "forbidden") {
+			return fmt.Errorf("invalid API key - please check your key and try again")
+		}
+		// Other errors might be network issues, etc.
 		return fmt.Errorf("could not validate API key: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 {
-		return fmt.Errorf("invalid API key - please check your key and try again")
-	}
-
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("validation failed with status %d - please try again", resp.StatusCode)
 	}
 
 	// Key validated successfully
@@ -89,7 +79,7 @@ var loginCmd = &cobra.Command{
 	Short: "Authenticate with the Vers platform",
 	Long: `Login to the Vers platform using your API token.
 
-When you run this command without the --token flag, you'll be prompted 
+When you run this command without the --token flag, you'll be prompted
 to enter your API key securely (input will be hidden for security).
 
 You can get your API key from: https://vers.sh/dashboard`,
