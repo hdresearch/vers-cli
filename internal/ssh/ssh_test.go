@@ -13,10 +13,10 @@ func TestSSHCommand_BuildsExpectedArgs(t *testing.T) {
 	if !strings.Contains(joined, "ssh ") || !strings.Contains(joined, "root@1.2.3.4") {
 		t.Fatalf("unexpected ssh args: %v", args)
 	}
-	// Port, key, timeout
-	mustContain(t, joined, "-p 2222")
+	// Key, timeout, ProxyCommand for SSH-over-TLS
 	mustContain(t, joined, "-i /path/to/key")
 	mustContain(t, joined, "ConnectTimeout=")
+	mustContain(t, joined, "ProxyCommand=")
 	// Command propagated
 	mustContain(t, joined, "echo hi")
 }

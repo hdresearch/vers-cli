@@ -14,10 +14,27 @@ import (
 )
 
 const (
-	BinPath        = "../../bin/vers"
-	envFileRoot    = "../../.env"
 	DefaultTimeout = 60 * time.Second
 )
+
+var (
+	BinPath     string
+	envFileRoot string
+)
+
+func init() {
+	// Dynamically determine paths based on working directory
+	// Tests can run from test/ or test/single-action/
+	if _, err := os.Stat("../cmd/vers"); err == nil {
+		// Running from test/ directory
+		BinPath = "../bin/vers"
+		envFileRoot = "../.env"
+	} else {
+		// Running from test/single-action/ or similar
+		BinPath = "../../bin/vers"
+		envFileRoot = "../../.env"
+	}
+}
 
 // TestEnv ensures required env vars are present; loads root .env if found.
 func TestEnv(t TLike) {
@@ -49,7 +66,12 @@ func EnsureBuilt(t TLike) {
 	if err := os.MkdirAll(filepath.Dir(BinPath), 0o755); err != nil {
 		t.Fatalf("failed to create bin dir: %v", err)
 	}
-	cmd := exec.Command("go", "build", "-o", BinPath, "../../cmd/vers")
+	// Determine the correct path to cmd/vers
+	cmdPath := "../cmd/vers"
+	if _, err := os.Stat(cmdPath); err != nil {
+		cmdPath = "../../cmd/vers"
+	}
+	cmd := exec.Command("go", "build", "-o", BinPath, cmdPath)
 	cmd.Env = os.Environ()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
