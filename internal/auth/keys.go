@@ -20,9 +20,9 @@ type SSHKeyResponse struct {
 }
 
 // getSSHKeyPath returns the path to the SSH key file for a given VM
+// Keys are stored in the system temp directory to avoid cluttering user directories
 func getSSHKeyPath(vmID string) string {
-	versDir := ".vers"
-	keysDir := filepath.Join(versDir, "keys")
+	keysDir := filepath.Join(os.TempDir(), "vers-ssh-keys")
 	return filepath.Join(keysDir, fmt.Sprintf("%s.key", vmID))
 }
 
@@ -106,6 +106,6 @@ func GetOrCreateSSHKey(vmID string, client *vers.Client, apiCtx context.Context)
 	}
 
 	successStyle := styles.PrimaryTextStyle.Foreground(styles.TerminalGreen).Bold(true)
-	fmt.Printf("%s\n", successStyle.Render(fmt.Sprintf("✓ SSH key saved to %s", keyPath)))
+	fmt.Printf("%s\n", successStyle.Render("✓ SSH key cached"))
 	return keyPath, nil
 }

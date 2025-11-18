@@ -31,8 +31,8 @@ func TestGetOrCreateSSHKey_ExistingKey(t *testing.T) {
 	}
 	t.Logf("Working in temp directory: %s", tempDir)
 
-	// Create the .vers/keys directory structure
-	keysDir := filepath.Join(".vers", "keys")
+	// Create the temp SSH keys directory structure
+	keysDir := filepath.Join(os.TempDir(), "vers-ssh-keys")
 	if err := os.MkdirAll(keysDir, 0755); err != nil {
 		t.Fatalf("failed to create keys directory: %v", err)
 	}
