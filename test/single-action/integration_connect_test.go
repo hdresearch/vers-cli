@@ -62,9 +62,9 @@ func TestConnect_SSHOverTLS(t *testing.T) {
 
 	// Test SSH connection using SSH-over-TLS with retry logic
 	// Based on our debugging, first connections may fail if networking isn't fully ready
-	proxyHost := "44.210.239.66" // Direct connection to proxy server
+	proxyHost := "44.210.239.66" // Direct connection to proxy server (bypasses load balancer)
 	vmHostname := fmt.Sprintf("%s.vm.vers.sh", vmID)
-	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet", proxyHost, vmHostname)
+	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:80 -servername %s -quiet", proxyHost, vmHostname)
 
 	sshArgs := []string{
 		fmt.Sprintf("root@%s", vmHostname),
