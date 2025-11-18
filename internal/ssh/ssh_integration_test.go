@@ -51,9 +51,9 @@ func TestSSHCommand_ExecutesStubWithExpectedArgs(t *testing.T) {
 	got := string(data)
 	// Check core flags/args present
 	mustContain(t, got, "root@10.0.0.1")
-	mustContain(t, got, "-p 2200")
 	mustContain(t, got, "-i /tmp/key")
 	mustContain(t, got, "ConnectTimeout=")
+	mustContain(t, got, "ProxyCommand=")
 	// Command propagated
 	mustContain(t, got, "echo")
 	mustContain(t, got, "hello")

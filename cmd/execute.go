@@ -10,21 +10,17 @@ import (
 
 // executeCmd represents the execute command
 var executeCmd = &cobra.Command{
-	Use:   "execute [vm-id|alias] [args...]",
+	Use:   "execute <vm-id|alias> <command> [args...]",
 	Short: "Run a command on a specific VM",
-	Long:  `Execute a command within the Vers environment on the specified VM. If no VM ID or alias is provided, uses the current HEAD.`,
-	Args:  cobra.MinimumNArgs(1),
+	Long:  `Execute a command within the Vers environment on the specified VM.`,
+	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
-		// If more than one arg: treat first as potential target; handlers mirror original behavior
-		var target string
-		var command []string
-		if len(args) > 1 {
-			target, command = args[0], args[1:]
-		} else {
-			command = args
-		}
+		// First arg is the target VM, remaining args are the command
+		target := args[0]
+		command := args[1:]
+
 		view, err := handlers.HandleExecute(apiCtx, application, handlers.ExecuteReq{Target: target, Command: command})
 		if err != nil {
 			return err
