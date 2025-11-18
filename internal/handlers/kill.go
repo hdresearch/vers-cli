@@ -29,7 +29,7 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 		if err != nil {
 			return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
 		}
-        fmt.Printf("%s", s.Progress.Render(fmt.Sprintf("Using current HEAD VM: %s\n", headVMID)))
+		fmt.Printf("%s", s.Progress.Render(fmt.Sprintf("Using current HEAD VM: %s\n", headVMID)))
 
 		if !r.SkipConfirmation {
 			fmt.Println(s.Warning.Render("Warning: You are about to delete VM '" + headVMID + "'"))

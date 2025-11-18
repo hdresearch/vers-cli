@@ -49,7 +49,7 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 
 	// New VM ID now available from Branch response in SDK alpha.24
 	res.NewID = resp.VmID
-	res.NewAlias = "" // Alias not available in new SDK
+	res.NewAlias = ""        // Alias not available in new SDK
 	res.NewState = "unknown" // State not available in new SDK
 
 	if r.Checkout {

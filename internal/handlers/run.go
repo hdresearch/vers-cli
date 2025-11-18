@@ -1,11 +1,11 @@
 package handlers
 
 import (
-    "context"
+	"context"
 
-    "github.com/hdresearch/vers-cli/internal/app"
-    "github.com/hdresearch/vers-cli/internal/presenters"
-    vers "github.com/hdresearch/vers-sdk-go"
+	"github.com/hdresearch/vers-cli/internal/app"
+	"github.com/hdresearch/vers-cli/internal/presenters"
+	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 type RunReq struct {
@@ -52,7 +52,7 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 	// SDK alpha.24 now returns the VM ID
 	vmID := resp.VmID
 
-    return presenters.RunView{RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
+	return presenters.RunView{RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
 }
 
 func validateAndNormalize(r *RunReq) error {

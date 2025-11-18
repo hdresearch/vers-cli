@@ -45,12 +45,12 @@ var mcpServeCmd = &cobra.Command{
 		// Give a brief startup message; real logging stays internal.
 		fmt.Fprintf(application.IO.Out, "Starting MCP server (transport=%s, addr=%s)\n", opts.Transport, opts.Addr)
 
-        // Provide a grace period for clean shutdown on CTRL-C.
-        // In future we can wire signal.NotifyContext here.
-        ctx, cancel2 := context.WithTimeout(ctx, application.Timeouts.APILong+time.Minute)
-        defer cancel2()
-        return imcp.StartServer(ctx, application, opts)
-    },
+		// Provide a grace period for clean shutdown on CTRL-C.
+		// In future we can wire signal.NotifyContext here.
+		ctx, cancel2 := context.WithTimeout(ctx, application.Timeouts.APILong+time.Minute)
+		defer cancel2()
+		return imcp.StartServer(ctx, application, opts)
+	},
 }
 
 func init() {

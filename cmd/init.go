@@ -122,13 +122,13 @@ var initCmd = &cobra.Command{
 			}
 			versTomlContent := buf.String()
 
-            if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
-                return fmt.Errorf("error creating vers.toml file: %w", err)
-            }
-            fmt.Print(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
-        } else {
-            fmt.Print(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
-        }
+			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
+				return fmt.Errorf("error creating vers.toml file: %w", err)
+			}
+			fmt.Print(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
+		} else {
+			fmt.Print(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
+		}
 
 		logoStyle := styles.AppStyle.Foreground(styles.TerminalMagenta)
 		fmt.Println(logoStyle.Render(`	
@@ -138,7 +138,7 @@ var initCmd = &cobra.Command{
 		 ▝▚▞▘ ▐▙▄▄▖▐▌ ▐▌▗▄▄▞▘						 
    `))
 
-        fmt.Printf("%s", styles.MutedTextStyle.Render(fmt.Sprintf("Initialized vers repository in %s directory\n", versDir)))
+		fmt.Printf("%s", styles.MutedTextStyle.Render(fmt.Sprintf("Initialized vers repository in %s directory\n", versDir)))
 
 		return nil
 	},

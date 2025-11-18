@@ -1,9 +1,9 @@
 package handlers
 
 import (
-    "context"
-    "errors"
-    "time"
+	"context"
+	"errors"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -22,21 +22,21 @@ func HandleStatus(ctx context.Context, a *app.App, req StatusReq) (presenters.St
 
 	// Show head status only when target not requested
 	res.Head.Show = (req.Target == "")
-    if res.Head.Show {
-        headID, err := utils.GetCurrentHeadVM()
-        if err != nil {
-            // HEAD missing or empty
-            res.Head.Present = false
-            if errors.Is(err, utils.ErrHeadEmpty) {
-                res.Head.Empty = true
-            }
-        } else {
-            res.Head.Present = true
-            res.Head.ID = headID
-            res.Head.DisplayName = headID
-            // Note: State/Alias no longer available in new SDK
-        }
-    }
+	if res.Head.Show {
+		headID, err := utils.GetCurrentHeadVM()
+		if err != nil {
+			// HEAD missing or empty
+			res.Head.Present = false
+			if errors.Is(err, utils.ErrHeadEmpty) {
+				res.Head.Empty = true
+			}
+		} else {
+			res.Head.Present = true
+			res.Head.ID = headID
+			res.Head.DisplayName = headID
+			// Note: State/Alias no longer available in new SDK
+		}
+	}
 
 	if req.Target != "" {
 		vm, err := svc.GetVM(ctx, a.Client, req.Target)

@@ -40,4 +40,3 @@ func CreateVMInfoFromVM(vm vers.Vm) *VMInfo {
 		DisplayName: vm.VmID,
 	}
 }
-

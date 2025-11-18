@@ -10,7 +10,7 @@ import (
 
 func RenderVMStatus(s *styles.StatusStyles, vm *vers.Vm) {
 	vmInfo := utils.CreateVMInfoFromVM(*vm)
-    fmt.Println(s.HeadStatus.Render("Getting status for VM: "+vmInfo.DisplayName))
+	fmt.Println(s.HeadStatus.Render("Getting status for VM: " + vmInfo.DisplayName))
 	fmt.Println(s.VMListHeader.Render("VM details:"))
 	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
 	vmInfoDisplay := s.VMName.Render("VM: " + s.VMID.Render(vmInfo.DisplayName))
