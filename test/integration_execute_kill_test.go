@@ -3,6 +3,7 @@ package test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hdresearch/vers-cli/test/testutil"
 )
@@ -24,6 +25,10 @@ func TestExecuteRunsCommand(t *testing.T) {
 		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
 	}
 	testutil.RegisterVMCleanup(t, vmID, false)
+
+	// Wait for VM networking to be configured (WireGuard, DNAT rules)
+	t.Logf("Waiting for VM networking to be ready...")
+	time.Sleep(15 * time.Second)
 
 	// Execute a basic echo command on the VM
 	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "execute", vmID, "echo", "hello-from-vers")
@@ -52,6 +57,10 @@ func TestKillNonRecursiveWithChildrenShowsHelpfulMessage(t *testing.T) {
 		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
 	}
 	testutil.RegisterVMCleanup(t, vmID, true)
+
+	// Wait for VM networking to be configured
+	t.Logf("Waiting for VM networking to be ready...")
+	time.Sleep(15 * time.Second)
 
 	// Create a child VM (branch A)
 	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", vmID)

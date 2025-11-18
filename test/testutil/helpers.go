@@ -118,6 +118,7 @@ func UniqueAlias(prefix string) string {
 // The output format is: "VM '<vmID>' started successfully."
 func ParseVMID(output string) (string, error) {
 	// Look for the pattern: VM '<id>' started successfully
+	// or: VM ID       : <id> (from branch command)
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "started successfully") {
@@ -134,6 +135,16 @@ func ParseVMID(output string) (string, error) {
 			vmID := line[start : start+end]
 			if vmID != "" {
 				return vmID, nil
+			}
+		}
+		// Also check for branch output format: "VM ID       : <id>"
+		if strings.Contains(line, "VM ID") && strings.Contains(line, ":") {
+			parts := strings.Split(line, ":")
+			if len(parts) >= 2 {
+				vmID := strings.TrimSpace(parts[1])
+				if vmID != "" {
+					return vmID, nil
+				}
 			}
 		}
 	}

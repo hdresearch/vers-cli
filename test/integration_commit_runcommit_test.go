@@ -32,6 +32,10 @@ func TestCommitAndRunCommit(t *testing.T) {
 			t.Skipf("skipping commit test due to backend storage configuration: %v\nOutput:\n%s", err, out)
 			return
 		}
+		if regexp.MustCompile(`(?i)500 Internal Server Error|Internal server error`).FindString(out) != "" {
+			t.Skipf("skipping commit test due to backend server error: %v\nOutput:\n%s", err, out)
+			return
+		}
 		t.Fatalf("vers commit failed: %v\nOutput:\n%s", err, out)
 	}
 	re := regexp.MustCompile(`(?m)^Commit ID:\s*([\w-]+)\s*$`)
