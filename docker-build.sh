@@ -2,6 +2,8 @@
 
 docker rm vers_cli
 
+set -e
+
 docker build -t vers_cli .
 
 docker run --init -d --name vers_cli vers_cli sleep infinity
