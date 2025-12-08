@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
+	"golang.org/x/term"
 )
 
 type ConnectReq struct{ Target string }
@@ -49,8 +51,19 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	// Render connection info BEFORE running SSH so it displays before connecting
 	presenters.RenderConnect(a, view)
 
+	// Save terminal state before SSH so we can restore it if the connection
+	// exits abnormally (network drop, server crash, etc.)
+	fd := int(os.Stdin.Fd())
+	oldState, termErr := term.GetState(fd)
+
 	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath)
 	err = a.Runner.Run(ctx, "ssh", args, runrt.Stdio{In: a.IO.In, Out: a.IO.Out, Err: a.IO.Err})
+
+	// Always restore terminal state after SSH exits, regardless of how it exited
+	if termErr == nil && oldState != nil {
+		_ = term.Restore(fd, oldState)
+	}
+
 	if err != nil {
 		if _, ok := err.(*exec.ExitError); !ok {
 			return view, fmt.Errorf("failed to run SSH command: %w", err)
