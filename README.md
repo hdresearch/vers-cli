@@ -28,9 +28,42 @@ If a request field needs a `param.Field[T]`, wrap with `vers.F(value)`. See the 
 
 ## Installation
 
+### Quick Install (Recommended)
+
+Install the latest version using our installation script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hdresearch/vers-cli/main/install.sh | sh
+```
+
+This script will:
+- Detect your OS and architecture automatically
+- Download the appropriate prebuilt binary
+- Verify the checksum for security
+- Install to `~/.local/bin` (or use `INSTALL_DIR` to customize)
+- Make the binary executable
+
+**Custom installation directory:**
+```bash
+INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/hdresearch/vers-cli/main/install.sh | sh
+```
+
+**Install a specific version:**
+```bash
+VERS_VERSION=v0.5.0 curl -fsSL https://raw.githubusercontent.com/hdresearch/vers-cli/main/install.sh | sh
+```
+
+### Install from Source
+
+If you have Go installed, you can build from source:
+
 ```bash
 go install github.com/hdresearch/vers-cli/cmd/vers@latest
 ```
+
+### Manual Installation
+
+Download prebuilt binaries from the [releases page](https://github.com/hdresearch/vers-cli/releases).
 
 
 ## Usage

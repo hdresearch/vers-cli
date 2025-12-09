@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
-	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -45,14 +43,9 @@ func registerExecuteTool(server *mcp.Server, application *app.App, opts Options)
 		if err != nil {
 			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get VM information: %w", err))
 		}
-		// Note: State and NetworkInfo no longer available in new SDK
-		// Get the host from VERS_URL
-		versUrl, err := auth.GetVersUrl()
-		if err != nil {
-			return nil, presenters.ExecuteView{}, mapMCPError(fmt.Errorf("failed to get host: %w", err))
-		}
-		sshHost := versUrl.Hostname()
-		sshPort := "22"
+
+		// Use VM ID as host for SSH-over-TLS
+		sshHost := info.Host
 
 		// Apply timeout override if provided.
 		runCtx := ctx
@@ -69,8 +62,9 @@ func registerExecuteTool(server *mcp.Server, application *app.App, opts Options)
 		outw := &sessionWriter{session: req.Session, level: "info"}
 		errw := &sessionWriter{session: req.Session, level: "error"}
 
-		args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath, joinCmd(in.Command))
-		runErr := application.Runner.Run(runCtx, "ssh", args, runrt.Stdio{Out: outw, Err: errw})
+		// Use native SSH client
+		client := sshutil.NewClient(sshHost, info.KeyPath)
+		runErr := client.Execute(runCtx, joinCmd(in.Command), outw, errw)
 		duration := time.Since(start)
 		target := ident
 		if v.UsedHEAD && in.Target == "" {

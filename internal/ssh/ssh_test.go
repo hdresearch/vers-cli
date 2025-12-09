@@ -1,38 +1,44 @@
 package ssh
 
 import (
-	"strings"
 	"testing"
 )
 
-func TestSSHCommand_BuildsExpectedArgs(t *testing.T) {
-	cmd := SSHCommand("1.2.3.4", "2222", "/path/to/key", "echo hi")
-	args := cmd.Args
-	joined := strings.Join(args, " ")
-	// Binary and target
-	if !strings.Contains(joined, "ssh ") || !strings.Contains(joined, "root@1.2.3.4") {
-		t.Fatalf("unexpected ssh args: %v", args)
+func TestNewClient(t *testing.T) {
+	client := NewClient("test-vm-id", "/path/to/key")
+	if client == nil {
+		t.Fatal("NewClient returned nil")
 	}
-	// Key, timeout, ProxyCommand for SSH-over-TLS
-	mustContain(t, joined, "-i /path/to/key")
-	mustContain(t, joined, "ConnectTimeout=")
-	mustContain(t, joined, "ProxyCommand=")
-	// Command propagated
-	mustContain(t, joined, "echo hi")
+	if client.host != "test-vm-id" {
+		t.Errorf("expected host 'test-vm-id', got %q", client.host)
+	}
+	if client.keyPath != "/path/to/key" {
+		t.Errorf("expected keyPath '/path/to/key', got %q", client.keyPath)
+	}
 }
 
-func TestSCPArgs_IncludesRecursiveAndTimeout(t *testing.T) {
-	args := SCPArgs("2222", "/k", true)
-	joined := strings.Join(args, " ")
-	mustContain(t, joined, "-P 2222")
-	mustContain(t, joined, "-i /k")
-	mustContain(t, joined, "-r")
-	mustContain(t, joined, "ConnectTimeout=")
+func TestClient_Hostname(t *testing.T) {
+	client := NewClient("abc123", "/key")
+	hostname := client.hostname()
+	expected := "abc123.vm.vers.sh"
+	if hostname != expected {
+		t.Errorf("expected hostname %q, got %q", expected, hostname)
+	}
 }
 
-func mustContain(t *testing.T, s, sub string) {
-	t.Helper()
-	if !strings.Contains(s, sub) {
-		t.Fatalf("expected %q to contain %q", s, sub)
+func TestPortToString(t *testing.T) {
+	tests := []struct {
+		port     int
+		expected string
+	}{
+		{22, "22"},
+		{443, "443"},
+		{2222, "2222"},
+	}
+	for _, tc := range tests {
+		got := PortToString(tc.port)
+		if got != tc.expected {
+			t.Errorf("PortToString(%d) = %q, want %q", tc.port, got, tc.expected)
+		}
 	}
 }
