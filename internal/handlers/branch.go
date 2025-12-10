@@ -19,7 +19,7 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 	res := presenters.BranchView{}
 
 	// Resolve source VM id
-	var vmID string
+	vmID := r.Target
 	var vmInfo *utils.VMInfo
 	var err error
 	if r.Target == "" {
@@ -32,12 +32,12 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 		res.FromName = vmID
 	} else {
 		vmInfo, err = utils.ResolveVMIdentifier(ctx, a.Client, r.Target)
-		if err != nil {
-			return res, fmt.Errorf("failed to find VM: %w", err)
+		// If VM cannot be resolved, this request may be targeting a commit ID instead
+		if err == nil {
+			vmID = vmInfo.ID
+			res.FromID = vmID
+			res.FromName = vmInfo.DisplayName
 		}
-		vmID = vmInfo.ID
-		res.FromID = vmID
-		res.FromName = vmInfo.DisplayName
 	}
 
 	// Note: Alias parameter no longer supported in new SDK
