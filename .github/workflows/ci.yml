@@ -12,7 +12,10 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,13 +25,20 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Run unit tests
+      - name: Run unit tests (Linux)
+        if: runner.os != 'Windows'
         run: make test
 
-      - name: Run go vet
-        run: make vet
+      - name: Run unit tests (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: go test -tags mcp ./cmd/... ./internal/... -v
 
-      - name: Run go fmt check
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run go fmt check (Linux only)
+        if: runner.os != 'Windows'
         run: |
           if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
             echo "The following files are not formatted:"
@@ -37,7 +47,16 @@ jobs:
           fi
 
   build-test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: ./bin/vers
+          - os: macos-latest
+            binary: ./bin/vers
+          - os: windows-latest
+            binary: ./bin/vers.exe
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,13 +68,20 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Build with make
-        run: make build
+      - name: Build binary
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/vers.exe ./cmd/vers
+          else
+            make build
+          fi
 
       - name: Test binary
+        shell: bash
         run: |
-          ./bin/vers --version
-          ./bin/vers --VVersion
+          ${{ matrix.binary }} --version
+          ${{ matrix.binary }} --help
 
   integration-tests:
     if: github.event_name == 'pull_request'

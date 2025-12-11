@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -11,7 +12,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	histSvc "github.com/hdresearch/vers-cli/internal/services/history"
@@ -164,17 +164,14 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 			return actionCompletedMsg{text: "SSH failed", err: err}
 		}
 
-		// Get the host from VERS_URL
-		versUrl, err := auth.GetVersUrl()
-		if err != nil {
-			return actionCompletedMsg{text: "SSH failed", err: fmt.Errorf("failed to get host: %w", err)}
-		}
-		sshHost := versUrl.Hostname()
-		sshPort := "22"
+		// Use VM ID as host for SSH-over-TLS
+		sshHost := info.Host
 
-		// Use Bubble Tea ExecProcess to release the terminal during SSH
-		cmd := sshutil.SSHCommand(sshHost, sshPort, info.KeyPath)
-		return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		// Use native SSH client via Bubble Tea Exec
+		// We wrap the SSH interactive session in an exec.Cmd-like interface
+		return tea.Exec(&sshExecCmd{
+			client: sshutil.NewClient(sshHost, info.KeyPath),
+		}, func(err error) tea.Msg {
 			if err != nil {
 				return actionCompletedMsg{text: "SSH failed", err: err}
 			}
@@ -182,6 +179,22 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 		})()
 	}
 }
+
+// sshExecCmd implements tea.ExecCommand for native SSH sessions.
+type sshExecCmd struct {
+	client *sshutil.Client
+	stdin  io.Reader
+	stdout io.Writer
+	stderr io.Writer
+}
+
+func (c *sshExecCmd) Run() error {
+	return c.client.Interactive(context.Background(), c.stdin, c.stdout, c.stderr)
+}
+
+func (c *sshExecCmd) SetStdin(r io.Reader)  { c.stdin = r }
+func (c *sshExecCmd) SetStdout(w io.Writer) { c.stdout = w }
+func (c *sshExecCmd) SetStderr(w io.Writer) { c.stderr = w }
 
 func refreshVMsCmd(m Model) tea.Cmd {
 	return loadVMsCmd(m)

@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/presenters"
-	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -44,61 +41,59 @@ func HandleCopy(ctx context.Context, a *app.App, r CopyReq) (presenters.CopyView
 
 	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
 	v.VMName = vmInfo.DisplayName
-	// Note: State and NetworkInfo no longer available in new SDK
-	// Proceeding with default SSH configuration
 
-	// Get the host from VERS_URL
-	versUrl, err := auth.GetVersUrl()
-	if err != nil {
-		return v, fmt.Errorf("failed to get host: %w", err)
-	}
-	sshHost := versUrl.Hostname()
-	sshPort := "22"
+	// Use VM ID as host for SSH-over-TLS
+	sshHost := info.Host
 
-	scpTarget := fmt.Sprintf("root@%s", sshHost)
-	var scpSource, scpDest string
+	var localPath, remotePath string
+	var isUpload bool
 
 	// Determine transfer direction
 	if strings.HasPrefix(r.Source, "/") && !strings.HasPrefix(r.Destination, "/") {
-		// Remote -> Local
-		scpSource = fmt.Sprintf("%s:%s", scpTarget, r.Source)
-		scpDest = r.Destination
+		// Remote -> Local (source starts with /, dest doesn't)
+		remotePath = r.Source
+		localPath = r.Destination
+		isUpload = false
 		v.Action = "Downloading"
 	} else if !strings.HasPrefix(r.Source, "/") && strings.HasPrefix(r.Destination, "/") {
-		// Local -> Remote
-		scpSource = r.Source
-		scpDest = fmt.Sprintf("%s:%s", scpTarget, r.Destination)
+		// Local -> Remote (source doesn't start with /, dest does)
+		localPath = r.Source
+		remotePath = r.Destination
+		isUpload = true
 		v.Action = "Uploading"
 	} else {
+		// Ambiguous - check if source exists locally
 		if _, err := os.Stat(r.Source); err == nil {
-			scpSource = r.Source
-			scpDest = fmt.Sprintf("%s:%s", scpTarget, r.Destination)
+			localPath = r.Source
+			remotePath = r.Destination
+			isUpload = true
 			v.Action = "Uploading"
 		} else {
-			scpSource = fmt.Sprintf("%s:%s", scpTarget, r.Source)
-			scpDest = r.Destination
+			remotePath = r.Source
+			localPath = r.Destination
+			isUpload = false
 			v.Action = "Downloading"
 		}
 	}
 
-	// Expand ~ and clean paths for local files for nicer output
-	v.Src = scpSource
-	v.Dest = scpDest
-	if !strings.Contains(scpSource, ":") {
-		v.Src = expandTilde(scpSource)
-	}
-	if !strings.Contains(scpDest, ":") {
-		v.Dest = expandTilde(scpDest)
+	// Expand ~ and clean paths for nicer output
+	v.Src = r.Source
+	v.Dest = r.Destination
+	if isUpload {
+		v.Src = expandTilde(localPath)
+	} else {
+		v.Dest = expandTilde(localPath)
 	}
 
-	args := sshutil.SCPArgs(sshPort, info.KeyPath, r.Recursive)
-	args = append(args, scpSource, scpDest)
-	err = a.Runner.Run(ctx, "scp", args, runrt.Stdio{Out: a.IO.Out, Err: a.IO.Err})
+	// Use native SFTP client
+	client := sshutil.NewClient(sshHost, info.KeyPath)
+	if isUpload {
+		err = client.Upload(ctx, expandTilde(localPath), remotePath, r.Recursive)
+	} else {
+		err = client.Download(ctx, remotePath, expandTilde(localPath), r.Recursive)
+	}
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return v, fmt.Errorf("scp command exited with code %d", ee.ExitCode())
-		}
-		return v, fmt.Errorf("failed to run SCP command: %w", err)
+		return v, fmt.Errorf("file transfer failed: %w", err)
 	}
 	return v, nil
 }

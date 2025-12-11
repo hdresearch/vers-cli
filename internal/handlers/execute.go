@@ -3,15 +3,14 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
-	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
+	"golang.org/x/crypto/ssh"
 )
 
 type ExecuteReq struct {
@@ -41,17 +40,18 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 
 	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.vm.vers.sh)
 	sshHost := info.Host
-	sshPort := "443" // SSH-over-TLS uses port 443
 
 	cmdStr := strings.Join(r.Command, " ")
-	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath, cmdStr)
 
-	err = a.Runner.Run(ctx, "ssh", args, runrt.Stdio{Out: a.IO.Out, Err: a.IO.Err})
+	// Use native SSH client
+	client := sshutil.NewClient(sshHost, info.KeyPath)
+	err = client.Execute(ctx, cmdStr, a.IO.Out, a.IO.Err)
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return v, fmt.Errorf("command exited with code %d", ee.ExitCode())
+		// Check for SSH exit error to get exit code
+		if exitErr, ok := err.(*ssh.ExitError); ok {
+			return v, fmt.Errorf("command exited with code %d", exitErr.ExitStatus())
 		}
-		return v, fmt.Errorf("failed to run SSH command: %w", err)
+		return v, fmt.Errorf("failed to execute command: %w", err)
 	}
 	return v, nil
 }

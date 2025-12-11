@@ -3,13 +3,12 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
-	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
@@ -51,23 +50,47 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	// Render connection info BEFORE running SSH so it displays before connecting
 	presenters.RenderConnect(a, view)
 
-	// Save terminal state before SSH so we can restore it if the connection
-	// exits abnormally (network drop, server crash, etc.)
-	fd := int(os.Stdin.Fd())
-	oldState, termErr := term.GetState(fd)
+	// Get stdin as io.Reader
+	var stdin io.Reader
+	if a.IO.In != nil {
+		stdin = a.IO.In
+	} else {
+		stdin = os.Stdin
+	}
 
-	args := sshutil.SSHArgs(sshHost, sshPort, info.KeyPath)
-	err = a.Runner.Run(ctx, "ssh", args, runrt.Stdio{In: a.IO.In, Out: a.IO.Out, Err: a.IO.Err})
+	// Check if stdin is a terminal
+	var fd int
+	var oldState *term.State
+	if f, ok := stdin.(*os.File); ok {
+		fd = int(f.Fd())
+		if term.IsTerminal(fd) {
+			// Save terminal state before SSH so we can restore it if the connection
+			// exits abnormally (network drop, server crash, etc.)
+			oldState, _ = term.GetState(fd)
+
+			// Put terminal in raw mode for interactive session
+			rawState, err := term.MakeRaw(fd)
+			if err == nil {
+				defer term.Restore(fd, rawState)
+			}
+		}
+	}
+
+	// Use native SSH client
+	client := sshutil.NewClient(sshHost, info.KeyPath)
+	err = client.Interactive(ctx, stdin, a.IO.Out, a.IO.Err)
 
 	// Always restore terminal state after SSH exits, regardless of how it exited
-	if termErr == nil && oldState != nil {
+	if oldState != nil {
 		_ = term.Restore(fd, oldState)
 	}
 
 	if err != nil {
-		if _, ok := err.(*exec.ExitError); !ok {
-			return view, fmt.Errorf("failed to run SSH command: %w", err)
+		// Context cancellation is not an error for interactive sessions
+		if ctx.Err() != nil {
+			return view, nil
 		}
+		return view, fmt.Errorf("SSH session failed: %w", err)
 	}
 	return view, nil
 }

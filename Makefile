@@ -21,10 +21,26 @@ LDFLAGS = -s -w \
 	-X 'github.com/hdresearch/vers-cli/cmd.Repository=$(REPOSITORY)' \
 	-X 'github.com/hdresearch/vers-cli/cmd.License=$(LICENSE)'
 
-# Build the vers binary
+# Build the vers binary (static, no libc dependency)
 .PHONY: build
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/vers ./cmd/vers
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS) -extldflags '-static'" -o bin/vers ./cmd/vers
+
+# Build static Linux binaries for distribution
+.PHONY: build-linux
+build-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS) -extldflags '-static'" -o bin/vers-linux-amd64 ./cmd/vers
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS) -extldflags '-static'" -o bin/vers-linux-arm64 ./cmd/vers
+
+# Build Windows binaries for distribution
+.PHONY: build-windows
+build-windows:
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o bin/vers-windows-amd64.exe ./cmd/vers
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o bin/vers-windows-arm64.exe ./cmd/vers
+
+# Build all platforms
+.PHONY: build-all
+build-all: build build-linux build-windows
 
 # Clean build artifacts
 .PHONY: clean
