@@ -13,7 +13,6 @@ import (
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
-	histSvc "github.com/hdresearch/vers-cli/internal/services/history"
 	svcstatus "github.com/hdresearch/vers-cli/internal/services/status"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
@@ -45,10 +44,6 @@ type vmsLoadedMsg struct {
 type actionCompletedMsg struct {
 	text string
 	err  error
-}
-type historyLoadedMsg struct {
-	lines []string
-	err   error
 }
 
 type Model struct {
@@ -206,27 +201,6 @@ func (m Model) selectedVMID() (string, bool) {
 		return it.ID, true
 	}
 	return "", false
-}
-
-func loadHistoryCmd(m Model, vmID string) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
-		defer cancel()
-		commits, err := histSvc.GetCommits(ctx, m.app.Client, vmID)
-		if err != nil {
-			return historyLoadedMsg{err: err}
-		}
-		lines := make([]string, 0, len(commits))
-		for _, c := range commits {
-			line := c.ID
-			if c.Alias != "" {
-				line = c.Alias + " (" + c.ID + ")"
-			}
-			line += " | " + c.Author
-			lines = append(lines, line)
-		}
-		return historyLoadedMsg{lines: lines}
-	}
 }
 
 func doCommitCmd(m Model, vmID string, tagCSV string) tea.Cmd {

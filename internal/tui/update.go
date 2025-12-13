@@ -32,18 +32,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.loading = true
 		return m, refreshVMsCmd(m)
-	case historyLoadedMsg:
-		m.status = ""
-		if msg.err != nil {
-			m.status = "History error: " + msg.err.Error()
-			m.modalActive = false
-			return m, nil
-		}
-		m.modalText = msg.lines
-		m.modalActive = true
-		m.modalKind = "text"
-		m.modalPrompt = "History:"
-		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -118,14 +106,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return doKillVMCmd(m, id, m.recursiveVMKill)
 					}
 					return m, nil
-				}
-			case "h":
-				if it, ok := m.vms.SelectedItem().(vmItem); ok {
-					m.modalActive = true
-					m.modalKind = "text"
-					m.modalPrompt = "History:"
-					m.status = "Loading history..."
-					return m, loadHistoryCmd(m, it.ID)
 				}
 			}
 			var cmd tea.Cmd
