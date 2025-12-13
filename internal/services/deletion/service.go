@@ -11,7 +11,7 @@ import (
 // DeleteVM deletes a VM by ID. If recursive is false and the VM has children, returns *errorsx.HasChildrenError.
 // If the VM is a root VM, returns *errorsx.IsRootError.
 func DeleteVM(ctx context.Context, client *vers.Client, vmID string, recursive bool) ([]string, error) {
-	result, err := client.Vm.Delete(ctx, vmID)
+	result, err := client.Vm.Delete(ctx, vmID, vers.VmDeleteParams{})
 	if err != nil {
 		es := err.Error()
 		if strings.Contains(es, "HasChildren") {
@@ -22,5 +22,5 @@ func DeleteVM(ctx context.Context, client *vers.Client, vmID string, recursive b
 		}
 		return nil, err
 	}
-	return result.DeletedIDs, nil
+	return []string{result.VmID}, nil
 }

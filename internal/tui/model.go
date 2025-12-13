@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
 
@@ -18,6 +17,7 @@ import (
 	svcstatus "github.com/hdresearch/vers-cli/internal/services/status"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
+	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 type focus int
@@ -111,7 +111,7 @@ func loadVMsCmd(m Model) tea.Cmd {
 		items := make([]list.Item, 0, len(rows))
 		for _, vm := range rows {
 			disp := vm.VmID
-			items = append(items, vmItem{TitleText: disp, DescText: fmt.Sprintf("Parent: %s", vm.Parent), ID: vm.VmID, Alias: ""})
+			items = append(items, vmItem{TitleText: disp, DescText: "", ID: vm.VmID, Alias: ""})
 		}
 		return vmsLoadedMsg{items: items}
 	}
@@ -242,7 +242,7 @@ func doCommitCmd(m Model, vmID string, tagCSV string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APILong)
 		defer cancel()
 		// direct SDK call - note: tags no longer supported in new SDK
-		_, err := m.app.Client.Vm.Commit(ctx, vmID)
+		_, err := m.app.Client.Vm.Commit(ctx, vmID, vers.VmCommitParams{})
 		if err != nil {
 			return actionCompletedMsg{text: "Commit failed", err: err}
 		}

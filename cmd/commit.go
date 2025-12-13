@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/utils"
+	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -53,14 +54,13 @@ var commitCmd = &cobra.Command{
 			}
 		}
 
-		response, err := client.Vm.Commit(apiCtx, vmInfo.ID)
+		response, err := client.Vm.Commit(apiCtx, vmInfo.ID, vers.VmCommitParams{})
 		if err != nil {
 			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
 		}
 
 		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
 		fmt.Printf("Commit ID: %s\n", response.CommitID)
-		fmt.Printf("Host Architecture: %s\n", response.HostArchitecture)
 
 		return nil
 	},
