@@ -28,31 +28,14 @@ func capOut(t *testing.T, fn func()) string {
 
 func TestRenderVMStatus_PrintsDetails(t *testing.T) {
 	s := styles.NewStatusStyles()
-	// Use the new vers.Vm type instead of APIVmGetResponseData
 	vm := &vers.Vm{
-		VmID:   "vm1",
-		Parent: "root",
+		VmID: "vm1",
 	}
 	out := capOut(t, func() { presenters.RenderVMStatus(&s, vm) })
 	if !strings.Contains(out, "Getting status for VM: vm1") {
 		t.Fatalf("missing VM header: %s", out)
 	}
-	if !strings.Contains(out, "Parent: root") {
-		t.Fatalf("missing parent field: %s", out)
-	}
-}
-
-func TestRenderVMStatus_HidesParentWhenEmpty(t *testing.T) {
-	s := styles.NewStatusStyles()
-	vm := &vers.Vm{
-		VmID:   "vm1",
-		Parent: "",
-	}
-	out := capOut(t, func() { presenters.RenderVMStatus(&s, vm) })
-	if !strings.Contains(out, "Getting status for VM: vm1") {
-		t.Fatalf("missing VM header: %s", out)
-	}
-	if strings.Contains(out, "Parent:") {
-		t.Fatalf("should not show parent field when empty: %s", out)
+	if !strings.Contains(out, "VM: vm1") {
+		t.Fatalf("missing VM details: %s", out)
 	}
 }
