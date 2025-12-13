@@ -49,8 +49,13 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 
 	// New VM ID now available from Branch response in SDK alpha.24
 	res.NewID = resp.VmID
-	res.NewAlias = ""        // Alias not available in new SDK
 	res.NewState = "unknown" // State not available in new SDK
+
+	// Save alias locally if provided
+	if r.Alias != "" {
+		_ = utils.SetAlias(r.Alias, resp.VmID)
+		res.NewAlias = r.Alias
+	}
 
 	if r.Checkout {
 		if err := utils.SetHead(resp.VmID); err != nil {

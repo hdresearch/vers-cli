@@ -5,6 +5,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -52,7 +53,12 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 	// SDK alpha.24 now returns the VM ID
 	vmID := resp.VmID
 
-	return presenters.RunView{RootVmID: vmID, VmAlias: "", HeadTarget: vmID}, nil
+	// Save alias locally if provided
+	if r.VMAlias != "" {
+		_ = utils.SetAlias(r.VMAlias, vmID)
+	}
+
+	return presenters.RunView{RootVmID: vmID, VmAlias: r.VMAlias, HeadTarget: vmID}, nil
 }
 
 func validateAndNormalize(r *RunReq) error {

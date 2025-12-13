@@ -13,9 +13,12 @@ type VMInfo struct {
 	DisplayName string
 }
 
-// ResolveVMIdentifier takes a VM ID and returns the VM info
-// Note: Alias lookups are no longer supported in the new SDK
-func ResolveVMIdentifier(ctx context.Context, client *vers.Client, vmID string) (*VMInfo, error) {
+// ResolveVMIdentifier takes a VM ID or alias and returns the VM info
+// Aliases are resolved locally from ~/.vers/aliases.json
+func ResolveVMIdentifier(ctx context.Context, client *vers.Client, identifier string) (*VMInfo, error) {
+	// Resolve alias to VM ID if applicable
+	vmID := ResolveAlias(identifier)
+
 	vms, err := client.Vm.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list VMs: %w", err)
@@ -30,7 +33,7 @@ func ResolveVMIdentifier(ctx context.Context, client *vers.Client, vmID string) 
 		}
 	}
 
-	return nil, fmt.Errorf("VM '%s' not found", vmID)
+	return nil, fmt.Errorf("VM '%s' not found", identifier)
 }
 
 // CreateVMInfoFromVM creates VMInfo from a Vm struct

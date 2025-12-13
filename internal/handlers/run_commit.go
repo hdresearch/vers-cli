@@ -5,6 +5,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
+	"github.com/hdresearch/vers-cli/internal/utils"
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -31,6 +32,11 @@ func HandleRunCommit(ctx context.Context, a *app.App, r RunCommitReq) (presenter
 
 	// SDK alpha.24 now returns the VM ID
 	vmID := resp.VmID
+
+	// Save alias locally if provided
+	if r.VMAlias != "" {
+		_ = utils.SetAlias(r.VMAlias, vmID)
+	}
 
 	return presenters.RunCommitView{RootVmID: vmID, HeadTarget: vmID, CommitKey: r.CommitKey}, nil
 }
