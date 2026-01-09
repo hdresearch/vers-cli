@@ -154,8 +154,7 @@ func GetClientOptions() ([]option.RequestOption, error) {
 	}
 
 	// Set the base URL with protocol and API version path
-	// The API v1 endpoints are under /api/v1/
-	baseURL := strings.TrimSuffix(versUrl.String(), "/") + "/api/v1"
+	baseURL := strings.TrimSuffix(versUrl.String(), "/")
 	clientOptions = append(clientOptions, option.WithBaseURL(baseURL))
 
 	// Allow overriding the Host header for testing against dev instances
