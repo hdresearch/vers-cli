@@ -2,10 +2,7 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -27,52 +24,13 @@ func getSSHKeyPath(vmID string) string {
 }
 
 // fetchSSHKey makes a direct HTTP request to fetch the SSH key for a VM
-func fetchSSHKey(ctx context.Context, client *vers.Client, vmID string) (*SSHKeyResponse, error) {
-	// Get the API base URL and token
-	versURL, err := GetVersUrl()
+func fetchSSHKey(ctx context.Context, client *vers.Client, vmID string) (*vers.VmSSHKeyResponse, error) {
+	resp, err := client.Vm.GetSSHKey(ctx, vmID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get VERS URL: %w", err)
+		return nil, err
 	}
 
-	apiKey, err := GetAPIKey()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get API key: %w", err)
-	}
-
-	// Build the URL
-	url := fmt.Sprintf("%s://%s/api/v1/vm/%s/ssh_key", versURL.Scheme, versURL.Host, vmID)
-
-	// Create the HTTP request
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add headers
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	req.Header.Set("Accept", "application/json")
-
-	// Make the request
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Check status code
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse the response
-	var sshKeyResp SSHKeyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&sshKeyResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &sshKeyResp, nil
+	return resp, nil
 }
 
 // GetOrCreateSSHKey retrieves the path to an SSH key, fetching and saving it if necessary.
