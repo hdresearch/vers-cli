@@ -58,7 +58,7 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 		return res, fmt.Errorf("failed to parse branch response: %w", err)
 	}
 
-	// New VM ID now available from Branch response in SDK alpha.24 (or fallback parser)
+	// New VM ID now available from Branch response in SDK alpha.24 
 	res.NewID = newID
 	res.NewState = "unknown" // State not available in new SDK
 
