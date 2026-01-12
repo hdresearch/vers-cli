@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -47,22 +49,71 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 		return res, fmt.Errorf("failed to create branch from vm '%s': %w", res.FromName, err)
 	}
 
-	// New VM ID now available from Branch response in SDK alpha.24
-	res.NewID = resp.VmID
+	if resp == nil {
+		return res, fmt.Errorf("failed to create branch from vm '%s': empty API response", res.FromName)
+	}
+
+	newID, err := extractBranchVMID(resp.VmID, resp.JSON.RawJSON())
+	if err != nil {
+		return res, fmt.Errorf("failed to parse branch response: %w", err)
+	}
+
+	// New VM ID now available from Branch response in SDK alpha.24 (or fallback parser)
+	res.NewID = newID
 	res.NewState = "unknown" // State not available in new SDK
 
 	// Save alias locally if provided
 	if r.Alias != "" {
-		_ = utils.SetAlias(r.Alias, resp.VmID)
+		_ = utils.SetAlias(r.Alias, newID)
 		res.NewAlias = r.Alias
 	}
 
 	if r.Checkout {
-		if err := utils.SetHead(resp.VmID); err != nil {
+		if err := utils.SetHead(newID); err != nil {
 			res.CheckoutErr = err
 		} else {
 			res.CheckoutDone = true
 		}
 	}
 	return res, nil
+}
+
+func extractBranchVMID(primaryID, raw string) (string, error) {
+	if primaryID != "" {
+		return primaryID, nil
+	}
+	if strings.TrimSpace(raw) == "" {
+		return "", fmt.Errorf("branch response missing vm ID")
+	}
+
+	type fallbackVM struct {
+		VMID string `json:"vm_id"`
+	}
+	var fallback struct {
+		VMID string       `json:"vm_id"`
+		VMs  []fallbackVM `json:"vms"`
+	}
+
+	if err := json.Unmarshal([]byte(raw), &fallback); err != nil {
+		return "", fmt.Errorf("branch response parse error: %w", err)
+	}
+
+	if fallback.VMID != "" {
+		return fallback.VMID, nil
+	}
+	var ids []string
+	for _, vm := range fallback.VMs {
+		if vm.VMID != "" {
+			ids = append(ids, vm.VMID)
+		}
+	}
+
+	switch len(ids) {
+	case 1:
+		return ids[0], nil
+	case 0:
+		return "", fmt.Errorf("branch response missing vm ID")
+	default:
+		return "", fmt.Errorf("branch response contained multiple vm IDs")
+	}
 }
