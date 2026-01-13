@@ -33,7 +33,7 @@ func ExecuteAdapter(ctx context.Context, a *app.App, in ExecuteInput) (any, erro
 
 // BranchAdapter creates a VM branch and returns presenters.BranchView.
 func BranchAdapter(ctx context.Context, a *app.App, in BranchInput) (any, error) {
-	req := handlers.BranchReq{Target: in.Target, Alias: in.Alias, Checkout: in.Checkout}
+	req := handlers.BranchReq{Target: in.Target, Alias: in.Alias, Checkout: in.Checkout, Count: in.Count}
 	return handlers.HandleBranch(ctx, a, req)
 }
 

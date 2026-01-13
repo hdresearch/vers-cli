@@ -20,7 +20,14 @@ func validateExecute(in ExecuteInput) error {
 }
 
 func validateBranch(in BranchInput) error {
-	// Alias optional; no additional constraints
+	if in.Count < 0 {
+		return Err(E_INVALID, "count must be >= 1", nil)
+	}
+	if in.Count > 1 {
+		if in.Alias != "" {
+			return Err(E_INVALID, "alias cannot be used when creating multiple branches", nil)
+		}
+	}
 	return nil
 }
 

@@ -83,8 +83,8 @@ vers run
 # Execute a command on a VM
 vers execute <vm-id> <command> [args...]
 
-# Create a new branch from a VM
-vers branch <vm-id>
+# Create one or more new branches from a VM (HEAD switches to the first when --checkout is used)
+vers branch <vm-id> [--count N] [--checkout]
 ```
 
 ## Configuration

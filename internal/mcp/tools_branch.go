@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
@@ -30,7 +31,12 @@ func registerBranchTool(server *mcp.Server, application *app.App, opts Options) 
 		res := resAny.(presenters.BranchView)
 		display := res.NewAlias
 		if display == "" {
-			display = res.NewID
+			switch {
+			case len(res.NewIDs) > 0:
+				display = strings.Join(res.NewIDs, ", ")
+			default:
+				display = res.NewID
+			}
 		}
 		summary := redact(fmt.Sprintf("branch created: new=%s from=%s checkout=%t", display, res.FromID, res.CheckoutDone))
 		fmt.Fprintf(os.Stderr, "[mcp] tool=vers.branch ok dur=%s new=%s\n", time.Since(started).Truncate(time.Millisecond), display)
