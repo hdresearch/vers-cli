@@ -4,21 +4,36 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-sdk-go/option"
 )
 
 type BranchReq struct {
 	Target   string // vm id or alias; if empty, use HEAD
 	Alias    string // alias for new VM
 	Checkout bool   // whether to set HEAD to new VM
+	Count    int    // number of branches to create
 }
 
 func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.BranchView, error) {
 	res := presenters.BranchView{}
+	count := r.Count
+	if count == 0 {
+		count = 1
+	}
+	if count < 1 {
+		return res, fmt.Errorf("count must be at least 1")
+	}
+	if count > 1 {
+		if r.Alias != "" {
+			return res, fmt.Errorf("cannot set alias when creating multiple branches")
+		}
+	}
 
 	// Resolve source VM id
 	vmID := r.Target
@@ -44,7 +59,11 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 
 	// Note: Alias parameter no longer supported in new SDK
 	// SDK alpha.24 now returns the new VM ID
-	resp, err := a.Client.Vm.Branch(ctx, vmID)
+	var opts []option.RequestOption
+	if count > 1 {
+		opts = append(opts, option.WithQuery("count", strconv.Itoa(count)))
+	}
+	resp, err := a.Client.Vm.Branch(ctx, vmID, opts...)
 	if err != nil {
 		return res, fmt.Errorf("failed to create branch from vm '%s': %w", res.FromName, err)
 	}
@@ -53,23 +72,30 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 		return res, fmt.Errorf("failed to create branch from vm '%s': empty API response", res.FromName)
 	}
 
-	newID, err := extractBranchVMID(resp.VmID, resp.JSON.RawJSON())
+	newIDs, err := extractBranchVMIDs(resp.VmID, resp.JSON.RawJSON())
 	if err != nil {
 		return res, fmt.Errorf("failed to parse branch response: %w", err)
 	}
+	if len(newIDs) == 0 {
+		return res, fmt.Errorf("failed to parse branch response: no VM IDs returned")
+	}
+	if count > 1 && len(newIDs) != count {
+		return res, fmt.Errorf("expected %d new VMs, but API returned %d", count, len(newIDs))
+	}
 
-	// New VM ID now available from Branch response in SDK alpha.24
-	res.NewID = newID
+	// New VM IDs now available from Branch response in SDK alpha.24
+	res.NewIDs = newIDs
+	res.NewID = newIDs[0]
 	res.NewState = "unknown" // State not available in new SDK
 
 	// Save alias locally if provided
 	if r.Alias != "" {
-		_ = utils.SetAlias(r.Alias, newID)
+		_ = utils.SetAlias(r.Alias, newIDs[0])
 		res.NewAlias = r.Alias
 	}
 
 	if r.Checkout {
-		if err := utils.SetHead(newID); err != nil {
+		if err := utils.SetHead(newIDs[0]); err != nil {
 			res.CheckoutErr = err
 		} else {
 			res.CheckoutDone = true
@@ -78,12 +104,12 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 	return res, nil
 }
 
-func extractBranchVMID(primaryID, raw string) (string, error) {
+func extractBranchVMIDs(primaryID, raw string) ([]string, error) {
 	if primaryID != "" {
-		return primaryID, nil
+		return []string{primaryID}, nil
 	}
 	if strings.TrimSpace(raw) == "" {
-		return "", fmt.Errorf("branch response missing vm ID")
+		return nil, fmt.Errorf("branch response missing vm ID")
 	}
 
 	type fallbackVM struct {
@@ -95,25 +121,20 @@ func extractBranchVMID(primaryID, raw string) (string, error) {
 	}
 
 	if err := json.Unmarshal([]byte(raw), &fallback); err != nil {
-		return "", fmt.Errorf("branch response parse error: %w", err)
+		return nil, fmt.Errorf("branch response parse error: %w", err)
 	}
 
-	if fallback.VMID != "" {
-		return fallback.VMID, nil
-	}
 	var ids []string
+	if fallback.VMID != "" {
+		ids = append(ids, fallback.VMID)
+	}
 	for _, vm := range fallback.VMs {
 		if vm.VMID != "" {
 			ids = append(ids, vm.VMID)
 		}
 	}
-
-	switch len(ids) {
-	case 1:
-		return ids[0], nil
-	case 0:
-		return "", fmt.Errorf("branch response missing vm ID")
-	default:
-		return "", fmt.Errorf("branch response contained multiple vm IDs")
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("branch response missing vm ID")
 	}
+	return ids, nil
 }
