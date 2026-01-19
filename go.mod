@@ -39,7 +39,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.14-0.20250501183327-ad3bc78c6a81 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
-	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.26.0.20260109230209-26478ae5d25f
+	github.com/hdresearch/vers-sdk-go v0.1.0-alpha.27.0.20260119153316-fe17269b5c0d
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
