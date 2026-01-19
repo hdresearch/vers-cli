@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var alias string
+var (
+	alias       string
+	branchCount int
+)
 
 // branchCmd represents the branch command
 var branchCmd = &cobra.Command{
@@ -19,6 +22,7 @@ var branchCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		aliasFlag := alias
 		checkoutFlag, _ := cmd.Flags().GetBool("checkout")
+		count := branchCount
 
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -27,7 +31,7 @@ var branchCmd = &cobra.Command{
 		if len(args) > 0 {
 			target = args[0]
 		}
-		res, err := handlers.HandleBranch(apiCtx, application, handlers.BranchReq{Target: target, Alias: aliasFlag, Checkout: checkoutFlag})
+		res, err := handlers.HandleBranch(apiCtx, application, handlers.BranchReq{Target: target, Alias: aliasFlag, Checkout: checkoutFlag, Count: count})
 		if err != nil {
 			return err
 		}
@@ -42,4 +46,5 @@ func init() {
 	// Define flags for the branch command
 	branchCmd.Flags().StringVarP(&alias, "alias", "n", "", "Alias for the new VM")
 	branchCmd.Flags().BoolP("checkout", "c", false, "Switch to the new VM after creation")
+	branchCmd.Flags().IntVar(&branchCount, "count", 1, "Number of branches to create")
 }

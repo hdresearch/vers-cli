@@ -141,7 +141,7 @@ func doBranchCmd(m Model, vmID, alias string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), m.app.Timeouts.APIMedium)
 		defer cancel()
-		_, err := handlers.HandleBranch(ctx, m.app, handlers.BranchReq{Target: vmID, Alias: alias, Checkout: false})
+		_, err := handlers.HandleBranch(ctx, m.app, handlers.BranchReq{Target: vmID, Alias: alias, Checkout: false, Count: 1})
 		if err != nil {
 			return actionCompletedMsg{text: "Branch failed", err: err}
 		}

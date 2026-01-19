@@ -39,8 +39,9 @@ func TestBranchBasic(t *testing.T) {
 	t.Logf("Branch creation output:\n%s", out)
 
 	// Verify success message
-	if !strings.Contains(out, "New VM created successfully") {
-		t.Fatalf("expected 'New VM created successfully' in output, got:\n%s", out)
+	lowerOut := strings.ToLower(out)
+	if !strings.Contains(out, "New VM created successfully") && !strings.Contains(lowerOut, "new vms created successfully") {
+		t.Fatalf("expected branch success message in output, got:\n%s", out)
 	}
 
 	// Extract the new VM ID from output (format: "VM ID       : <uuid>" with variable whitespace)

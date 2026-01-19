@@ -27,6 +27,7 @@ type BranchInput struct {
 	Target   string `json:"target,omitempty" jsonschema:"Source VM ID or alias; defaults to HEAD"`
 	Alias    string `json:"alias,omitempty" jsonschema:"Alias for the new VM"`
 	Checkout bool   `json:"checkout,omitempty" jsonschema:"Switch HEAD to the new VM after creation"`
+	Count    int    `json:"count,omitempty" jsonschema:"Number of branches to create (default 1)"`
 }
 
 // KillInput defines inputs for vers.kill
