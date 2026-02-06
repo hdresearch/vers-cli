@@ -18,7 +18,7 @@ func TestValidateRun(t *testing.T) {
 	if err := validateRun(RunInput{FsSizeVmMib: -1}); err == nil {
 		t.Fatalf("expected error for negative filesystem size")
 	}
-	if err := validateRun(RunInput{FsSizeVmMib: 512}); err != nil {
+	if err := validateRun(RunInput{FsSizeVmMib: 1024}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
