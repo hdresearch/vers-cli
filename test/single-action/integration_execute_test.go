@@ -231,20 +231,20 @@ func TestExecuteMissingCommand(t *testing.T) {
 	t.Logf("Created VM: %s", vmID)
 	testutil.RegisterVMCleanup(t, vmID, false)
 
-	// Try to execute without a command
-	t.Log("Running: vers execute", vmID, "(no command)")
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "execute", vmID)
+	// Try to execute without any arguments at all (no VM, no command)
+	t.Log("Running: vers execute (no args)")
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "execute")
 
 	// We expect this to fail
 	if err == nil {
-		t.Fatal("expected error when executing without a command, got nil")
+		t.Fatal("expected error when executing without any arguments, got nil")
 	}
 
 	t.Logf("Got expected error output:\n%s", out)
 
 	// Verify error message indicates missing arguments
-	if !strings.Contains(out, "requires at least 2 arg(s)") {
-		t.Fatalf("expected 'requires at least 2 arg(s)' in error, got:\n%s", out)
+	if !strings.Contains(out, "requires at least 1 arg(s)") {
+		t.Fatalf("expected 'requires at least 1 arg(s)' in error, got:\n%s", out)
 	}
 
 	// Verify usage is shown

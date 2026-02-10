@@ -82,6 +82,140 @@ func setupTestClient() (*vers.Client, error) {
 	return vers.NewClient(clientOptions...), nil
 }
 
+func TestGetVmAndNodeIP_WithAlias(t *testing.T) {
+	// Setup mock server
+	server := setupMockServer(t, "192.168.1.100", http.StatusOK)
+	defer server.Close()
+
+	// Setup test environment
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
+
+	// Setup a temporary alias mapping "my-server" -> "test-vm-123"
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get home dir: %v", err)
+	}
+	aliasDir := homeDir + "/.vers"
+	aliasFile := aliasDir + "/aliases.json"
+
+	// Backup existing aliases file if present
+	existingAliases, hadExisting := backupFile(t, aliasFile)
+	defer restoreFile(t, aliasFile, existingAliases, hadExisting)
+
+	// Write test alias
+	if err := os.MkdirAll(aliasDir, 0755); err != nil {
+		t.Fatalf("failed to create alias dir: %v", err)
+	}
+	if err := os.WriteFile(aliasFile, []byte(`{"my-server": "test-vm-123"}`), 0644); err != nil {
+		t.Fatalf("failed to write alias file: %v", err)
+	}
+
+	// Create test client
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Test that alias "my-server" resolves to VM "test-vm-123"
+	vm, nodeIP, err := GetVmAndNodeIP(ctx, client, "my-server")
+
+	if err != nil {
+		t.Fatalf("Expected no error when using alias, got: %v", err)
+	}
+	if nodeIP == "" {
+		t.Error("Expected non-empty node IP")
+	}
+	if vm.VmID != "test-vm-123" {
+		t.Errorf("Expected VM ID test-vm-123, got %s", vm.VmID)
+	}
+}
+
+func TestGetVmAndNodeIP_AliasNotFound(t *testing.T) {
+	// Setup mock server that returns a VM list NOT containing the aliased ID
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if !strings.Contains(r.URL.Path, "/vms") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[{
+			"vm_id": "other-vm-456",
+			"ip": "192.168.1.101",
+			"parent": "",
+			"owner_id": "owner-123",
+			"created_at": "2024-01-01T00:00:00Z"
+		}]`))
+	}))
+	defer server.Close()
+
+	restore := setupTestEnvironment(server.URL)
+	defer restore()
+
+	// Setup alias pointing to a VM not in the list
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get home dir: %v", err)
+	}
+	aliasFile := homeDir + "/.vers/aliases.json"
+	existingAliases, hadExisting := backupFile(t, aliasFile)
+	defer restoreFile(t, aliasFile, existingAliases, hadExisting)
+
+	if err := os.MkdirAll(homeDir+"/.vers", 0755); err != nil {
+		t.Fatalf("failed to create alias dir: %v", err)
+	}
+	if err := os.WriteFile(aliasFile, []byte(`{"my-alias": "nonexistent-vm"}`), 0644); err != nil {
+		t.Fatalf("failed to write alias file: %v", err)
+	}
+
+	client, err := setupTestClient()
+	if err != nil {
+		t.Fatalf("Failed to create test client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	// Should fail with descriptive error mentioning both alias and resolved ID
+	_, _, err = GetVmAndNodeIP(ctx, client, "my-alias")
+	if err == nil {
+		t.Fatal("Expected error when alias resolves to non-existent VM")
+	}
+	if !strings.Contains(err.Error(), "my-alias") {
+		t.Errorf("Expected error to mention alias 'my-alias', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "nonexistent-vm") {
+		t.Errorf("Expected error to mention resolved ID 'nonexistent-vm', got: %v", err)
+	}
+}
+
+// backupFile reads and returns a file's contents, and whether it existed
+func backupFile(t *testing.T, path string) ([]byte, bool) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// restoreFile restores a file to its previous state
+func restoreFile(t *testing.T, path string, data []byte, existed bool) {
+	t.Helper()
+	if existed {
+		os.WriteFile(path, data, 0644)
+	} else {
+		os.Remove(path)
+	}
+}
+
 func TestGetVmAndNodeIP_Success(t *testing.T) {
 	// Setup mock server
 	server := setupMockServer(t, "192.168.1.100", http.StatusOK)

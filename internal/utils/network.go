@@ -12,6 +12,9 @@ import (
 // GetVmAndNodeIP retrieves VM information and the node IP from headers in a single request.
 // We use the lower-level client.Get() instead of client.Vm.List() because we need response headers.
 func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (*vers.Vm, string, error) {
+	// Resolve alias to VM ID if applicable
+	resolvedID := ResolveAlias(vmID)
+
 	// For now, use List() to get VM data
 	// TODO: Implement proper Get with headers if needed
 	vms, err := client.Vm.List(ctx)
@@ -21,14 +24,17 @@ func GetVmAndNodeIP(ctx context.Context, client *vers.Client, vmID string) (*ver
 
 	var targetVM *vers.Vm
 	for _, vm := range *vms {
-		if vm.VmID == vmID {
+		if vm.VmID == resolvedID {
 			targetVM = &vm
 			break
 		}
 	}
 
 	if targetVM == nil {
-		return nil, "", fmt.Errorf("VM %s not found", vmID)
+		if resolvedID != vmID {
+			return nil, "", fmt.Errorf("VM '%s' (alias for '%s') not found", vmID, resolvedID)
+		}
+		return nil, "", fmt.Errorf("VM '%s' not found", vmID)
 	}
 
 	// Get the host from VERS_URL
