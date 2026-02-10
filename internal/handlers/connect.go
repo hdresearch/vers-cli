@@ -14,6 +14,7 @@ import (
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
 	"github.com/hdresearch/vers-cli/styles"
+	vers "github.com/hdresearch/vers-sdk-go"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
@@ -38,6 +39,48 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	info, err := vmSvc.GetConnectInfo(ctx, a.Client, ident)
 	if err != nil {
 		return view, fmt.Errorf("failed to get VM information: %w", err)
+	}
+
+	s := styles.NewStatusStyles()
+
+	// Check VM state before attempting to connect
+	switch info.VM.State {
+	case vers.VmStateRunning:
+		// Good to go
+	case vers.VmStatePaused:
+		fmt.Fprintln(a.IO.Out, s.HeadStatus.Render("VM is paused. Resuming..."))
+		updateParams := vers.VmUpdateStateParams{
+			VmUpdateStateRequest: vers.VmUpdateStateRequestParam{
+				State: vers.F(vers.VmUpdateStateRequestStateRunning),
+			},
+		}
+		if err := a.Client.Vm.UpdateState(ctx, info.VM.VmID, updateParams); err != nil {
+			return view, fmt.Errorf("failed to resume VM: %w", err)
+		}
+		// Wait briefly for the VM to become ready
+		time.Sleep(2 * time.Second)
+	case vers.VmStateBooting:
+		fmt.Fprintln(a.IO.Out, s.HeadStatus.Render("VM is still booting. Waiting..."))
+		// Poll until the VM is running
+		for i := 0; i < 30; i++ {
+			time.Sleep(2 * time.Second)
+			refreshed, _, err := utils.GetVmAndNodeIP(ctx, a.Client, info.VM.VmID)
+			if err != nil {
+				return view, fmt.Errorf("failed to check VM status: %w", err)
+			}
+			if refreshed.State == vers.VmStateRunning {
+				info.VM = refreshed
+				break
+			}
+			if refreshed.State == vers.VmStatePaused {
+				return view, fmt.Errorf("VM entered paused state while booting — try 'vers resume %s' first", ident)
+			}
+			if i == 29 {
+				return view, fmt.Errorf("timed out waiting for VM to finish booting")
+			}
+		}
+	default:
+		return view, fmt.Errorf("VM is in '%s' state and cannot be connected to", info.VM.State)
 	}
 
 	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
@@ -85,8 +128,6 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	const maxReconnectAttempts = 5
 	const initialBackoff = 1 * time.Second
 	const maxBackoff = 10 * time.Second
-
-	s := styles.NewStatusStyles()
 
 	for attempt := 0; ; attempt++ {
 		err = client.Interactive(ctx, stdin, a.IO.Out, a.IO.Err)
