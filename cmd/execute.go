@@ -14,7 +14,7 @@ var executeCmd = &cobra.Command{
 	Short: "Run a command on a specific VM",
 	Long: `Execute a command within the Vers environment on the specified VM.
 If no VM is specified, the current HEAD VM is used.`,
-	Args:  cobra.MinimumNArgs(1),
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
