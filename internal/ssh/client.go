@@ -34,6 +34,11 @@ func (c *Client) hostname() string {
 	return fmt.Sprintf("%s.vm.vers.sh", c.host)
 }
 
+// Host returns the host identifier (VM ID).
+func (c *Client) Host() string {
+	return c.host
+}
+
 // Connect establishes an SSH connection over TLS.
 func (c *Client) Connect(ctx context.Context) (*ssh.Client, error) {
 	hostname := c.hostname()
@@ -159,6 +164,74 @@ func (c *Client) Interactive(ctx context.Context, stdin io.Reader, stdout, stder
 	// Start shell
 	if err := session.Shell(); err != nil {
 		return fmt.Errorf("start shell: %w", err)
+	}
+
+	// Handle terminal resize if we have a real terminal
+	if isTerm {
+		go c.watchResize(ctx, fd, session)
+	}
+
+	// Wait for session to end or context cancellation
+	done := make(chan error, 1)
+	go func() {
+		done <- session.Wait()
+	}()
+
+	select {
+	case <-ctx.Done():
+		session.Close()
+		return ctx.Err()
+	case err := <-done:
+		return err
+	}
+}
+
+// InteractiveCommand runs a command interactively with PTY support.
+func (c *Client) InteractiveCommand(ctx context.Context, cmd string, stdin io.Reader, stdout, stderr io.Writer) error {
+	client, err := c.Connect(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("new session: %w", err)
+	}
+	defer session.Close()
+
+	// Get terminal size
+	width, height := 80, 24
+	var fd int
+	var isTerm bool
+	if f, ok := stdin.(*os.File); ok {
+		fd = int(f.Fd())
+		if term.IsTerminal(fd) {
+			isTerm = true
+			if w, h, err := term.GetSize(fd); err == nil {
+				width, height = w, h
+			}
+		}
+	}
+
+	// Request PTY
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          1,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+	if err := session.RequestPty("xterm-256color", height, width, modes); err != nil {
+		return fmt.Errorf("request PTY: %w", err)
+	}
+
+	// Wire up IO
+	session.Stdin = stdin
+	session.Stdout = stdout
+	session.Stderr = stderr
+
+	// Start command
+	if err := session.Start(cmd); err != nil {
+		return fmt.Errorf("start command: %w", err)
 	}
 
 	// Handle terminal resize if we have a real terminal
