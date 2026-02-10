@@ -106,9 +106,10 @@ jobs:
             -X 'github.com/hdresearch/vers-cli/cmd.Description=A CLI tool for version management' \
             -X 'github.com/hdresearch/vers-cli/cmd.Author=the VERS team' \
             -X 'github.com/hdresearch/vers-cli/cmd.Repository=https://github.com/hdresearch/vers-cli' \
-            -X 'github.com/hdresearch/vers-cli/cmd.License=MIT'"
+            -X 'github.com/hdresearch/vers-cli/cmd.License=MIT' \
+            -extldflags '-static'"
 
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.arch }} \
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.arch }} \
             go build -ldflags "$LDFLAGS" -o ${{ matrix.artifact_name }} ./cmd/vers
 
       - name: Generate checksums
@@ -211,6 +212,20 @@ jobs:
           ./vers-linux-amd64 --version
           echo -e "\nTesting metadata command:"
           ./vers-linux-amd64 --VVersion || echo "Metadata command test completed"
+
+      - name: Verify static linking
+        run: |
+          echo "Checking binary is statically linked:"
+          if ldd ./vers-linux-amd64 2>&1 | grep -q "not a dynamic executable"; then
+            echo "✅ Binary is statically linked"
+          elif file ./vers-linux-amd64 | grep -q "statically linked"; then
+            echo "✅ Binary is statically linked"
+          else
+            echo "❌ Binary appears to be dynamically linked:"
+            ldd ./vers-linux-amd64 || true
+            file ./vers-linux-amd64
+            exit 1
+          fi
 
   # homebrew:
   #   name: Update Homebrew Tap
