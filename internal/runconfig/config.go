@@ -40,7 +40,7 @@ func Default() *Config {
 		Machine: MachineConfig{
 			MemSizeMib:  512,
 			VcpuCount:   1,
-			FsSizeVmMib: 512,
+			FsSizeVmMib: 1024,
 		},
 		Rootfs: RootfsConfig{Name: "default"},
 		Builder: BuilderConfig{

@@ -156,5 +156,5 @@ func init() {
 	initCmd.Flags().StringVar(&rootfsName, "rootfs", "", "Name of the rootfs image (defaults to project name)")
 	initCmd.Flags().StringVar(&kernelName, "kernel", "default.bin", "Name of the kernel image")
 	initCmd.Flags().StringVar(&dockerfileName, "dockerfile", "Dockerfile", "Name of the Docker file")
-	initCmd.Flags().Int64Var(&fsSizeVmMib, "fs-size-vm", 512, "VM filesystem size in MiB")
+	initCmd.Flags().Int64Var(&fsSizeVmMib, "fs-size-vm", 1024, "VM filesystem size in MiB")
 }

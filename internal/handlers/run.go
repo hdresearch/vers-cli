@@ -64,7 +64,7 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 func validateAndNormalize(r *RunReq) error {
 	// Set default VM filesystem size if not specified
 	if r.FsSizeVmMib == 0 {
-		r.FsSizeVmMib = 512
+		r.FsSizeVmMib = 1024
 	}
 	return nil
 }
