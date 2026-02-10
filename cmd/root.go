@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -18,7 +19,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// These variables are set at build time using ldflags
+// These variables are set at build time using ldflags.
+// If not set, init() will attempt to populate them from Go's embedded
+// build info (VCS revision, module version, etc.).
 var (
 	// Core version info
 	Version   = "dev"
@@ -32,6 +35,52 @@ var (
 	Repository  = "https://github.com/hdresearch/vers-cli"
 	License     = "MIT"
 )
+
+func init() {
+	// If ldflags weren't used, try to get version info from Go's embedded build info.
+	// This covers `go install` and plain `go build` without ldflags.
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+
+	var vcsRev, vcsTime, vcsDirty string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			vcsRev = s.Value
+		case "vcs.time":
+			vcsTime = s.Value
+		case "vcs.modified":
+			vcsDirty = s.Value
+		}
+	}
+
+	if Version == "dev" {
+		// Prefer the module version if it's a clean semver tag (from `go install`)
+		if v := info.Main.Version; v != "" && v != "(devel)" && !strings.Contains(v, "-0.") {
+			Version = v
+		} else if vcsRev != "" {
+			// Fall back to VCS revision for local builds
+			short := vcsRev
+			if len(short) > 7 {
+				short = short[:7]
+			}
+			Version = "dev-" + short
+			if vcsDirty == "true" {
+				Version += "-dirty"
+			}
+		}
+	}
+
+	if GitCommit == "unknown" && vcsRev != "" {
+		GitCommit = vcsRev
+	}
+
+	if BuildDate == "unknown" && vcsTime != "" {
+		BuildDate = vcsTime
+	}
+}
 
 // Global vars for configuration and SDK client
 var (
