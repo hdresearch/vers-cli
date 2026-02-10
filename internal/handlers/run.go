@@ -58,6 +58,11 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 		_ = utils.SetAlias(r.VMAlias, vmID)
 	}
 
+	// Set HEAD to the newly created VM
+	if err := utils.SetHead(vmID); err != nil {
+		return presenters.RunView{}, err
+	}
+
 	return presenters.RunView{RootVmID: vmID, VmAlias: r.VMAlias, HeadTarget: vmID}, nil
 }
 
