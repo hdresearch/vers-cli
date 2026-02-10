@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
@@ -105,7 +104,5 @@ func joinCmd(parts []string) string {
 	if len(parts) == 0 {
 		return ""
 	}
-	// Minimal shell escaping: join with spaces; SSH will run via sh -lc on remote depending on server side.
-	// For safety, users should pass a full command array.
-	return strings.Join(parts, " ")
+	return utils.ShellJoin(parts)
 }

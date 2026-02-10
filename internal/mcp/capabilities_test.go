@@ -37,6 +37,9 @@ func TestCapabilitiesListsExpectedTools(t *testing.T) {
 	if err := registerMetricsTool(server, nil, Options{}); err != nil {
 		t.Fatal(err)
 	}
+	if err := registerTunnelTool(server, nil, Options{}); err != nil {
+		t.Fatal(err)
+	}
 
 	t1, t2 := mcp.NewInMemoryTransports()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -70,7 +73,7 @@ func TestCapabilitiesListsExpectedTools(t *testing.T) {
 		}
 		return false
 	}
-	expected := []string{"vers.status", "vers.run", "vers.execute", "vers.branch", "vers.kill", "vers.version", "vers.capabilities", "vers.metrics"}
+	expected := []string{"vers.status", "vers.run", "vers.execute", "vers.branch", "vers.kill", "vers.version", "vers.capabilities", "vers.metrics", "vers.tunnel", "vers.tunnel.close"}
 	for _, name := range expected {
 		if !has(name) {
 			t.Fatalf("capabilities missing tool: %s (got %v)", name, rawTools)

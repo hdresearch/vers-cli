@@ -30,6 +30,14 @@ type BranchInput struct {
 	Count    int    `json:"count,omitempty" jsonschema:"Number of branches to create (default 1)"`
 }
 
+// TunnelInput defines inputs for vers.tunnel
+type TunnelInput struct {
+	Target     string `json:"target,omitempty" jsonschema:"VM ID or alias; defaults to HEAD"`
+	LocalPort  int    `json:"localPort" jsonschema:"Local port to listen on (0 for auto)"`
+	RemotePort int    `json:"remotePort" jsonschema:"Remote port on the VM to forward to"`
+	RemoteHost string `json:"remoteHost,omitempty" jsonschema:"Remote host from the VM perspective; defaults to localhost"`
+}
+
 // KillInput defines inputs for vers.kill
 type KillInput struct {
 	Targets          []string `json:"targets,omitempty" jsonschema:"VM identifiers; empty means HEAD VM"`
