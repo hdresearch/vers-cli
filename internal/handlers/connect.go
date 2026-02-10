@@ -6,12 +6,15 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
+	"github.com/hdresearch/vers-cli/styles"
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 )
 
@@ -76,21 +79,66 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 		}
 	}
 
-	// Use native SSH client
+	// Use native SSH client with automatic reconnection on dropped connections
 	client := sshutil.NewClient(sshHost, info.KeyPath)
-	err = client.Interactive(ctx, stdin, a.IO.Out, a.IO.Err)
 
-	// Always restore terminal state after SSH exits, regardless of how it exited
-	if oldState != nil {
-		_ = term.Restore(fd, oldState)
-	}
+	const maxReconnectAttempts = 5
+	const initialBackoff = 1 * time.Second
+	const maxBackoff = 10 * time.Second
 
-	if err != nil {
-		// Context cancellation is not an error for interactive sessions
+	s := styles.NewStatusStyles()
+
+	for attempt := 0; ; attempt++ {
+		err = client.Interactive(ctx, stdin, a.IO.Out, a.IO.Err)
+
+		// Always restore terminal state after SSH exits
+		if oldState != nil {
+			_ = term.Restore(fd, oldState)
+		}
+
+		// Clean exit (user typed exit/logout) — done
+		if err == nil {
+			return view, nil
+		}
+
+		// Context cancelled (e.g. vers process killed) — done
 		if ctx.Err() != nil {
 			return view, nil
 		}
-		return view, fmt.Errorf("SSH session failed: %w", err)
+
+		// User's shell exited with a status code — done (not a dropped connection)
+		if _, ok := err.(*ssh.ExitError); ok {
+			return view, nil
+		}
+
+		// Connection dropped — attempt reconnect
+		if attempt >= maxReconnectAttempts {
+			return view, fmt.Errorf("SSH connection lost after %d reconnection attempts: %w", maxReconnectAttempts, err)
+		}
+
+		backoff := initialBackoff * time.Duration(1<<uint(attempt))
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+
+		fmt.Fprintf(a.IO.Out, "\r\n%s\r\n", s.HeadStatus.Render(
+			fmt.Sprintf("Connection lost. Reconnecting (attempt %d/%d)...", attempt+1, maxReconnectAttempts),
+		))
+		if f, ok := a.IO.Out.(*os.File); ok {
+			f.Sync()
+		}
+
+		select {
+		case <-ctx.Done():
+			return view, nil
+		case <-time.After(backoff):
+		}
+
+		// Re-enter raw mode for next interactive session
+		if oldState != nil {
+			if _, rawErr := term.MakeRaw(fd); rawErr != nil {
+				return view, fmt.Errorf("failed to restore raw terminal for reconnect: %w", rawErr)
+			}
+		}
 	}
-	return view, nil
 }
