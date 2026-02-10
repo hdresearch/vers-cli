@@ -6,7 +6,7 @@ import "strings"
 // POSIX shell. If s is already "safe" (only alphanumerics, hyphens,
 // underscores, dots, forward-slashes, colons, equals, and commas)
 // it is returned unchanged. Otherwise it is wrapped in single quotes
-// with any embedded single quotes escaped as '\''.
+// with any embedded single quotes escaped.
 func ShellQuote(s string) string {
 	if s == "" {
 		return "''"
