@@ -15,23 +15,33 @@ import (
 	"golang.org/x/term"
 )
 
+// DefaultVMDomain is the production VM domain suffix.
+const DefaultVMDomain = "vm.vers.sh"
+
 // Client provides native SSH connectivity over TLS.
 type Client struct {
-	host    string // VM ID (becomes {vm-id}.vm.vers.sh)
-	keyPath string // Path to SSH private key
+	host     string // VM ID (becomes {vm-id}.{vmDomain})
+	keyPath  string // Path to SSH private key
+	vmDomain string // VM domain suffix (e.g. "vm.vers.sh", "vm.staging.vers.sh")
 }
 
 // NewClient creates a new SSH client for the given VM.
-func NewClient(host, keyPath string) *Client {
+// Optional vmDomain overrides the default "vm.vers.sh" suffix.
+func NewClient(host, keyPath string, vmDomain ...string) *Client {
+	domain := DefaultVMDomain
+	if len(vmDomain) > 0 && vmDomain[0] != "" {
+		domain = vmDomain[0]
+	}
 	return &Client{
-		host:    host,
-		keyPath: keyPath,
+		host:     host,
+		keyPath:  keyPath,
+		vmDomain: domain,
 	}
 }
 
 // hostname returns the full hostname for TLS/SSH connection.
 func (c *Client) hostname() string {
-	return fmt.Sprintf("%s.vm.vers.sh", c.host)
+	return fmt.Sprintf("%s.%s", c.host, c.vmDomain)
 }
 
 // Host returns the host identifier (VM ID).

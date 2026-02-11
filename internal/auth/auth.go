@@ -174,4 +174,21 @@ func GetClientOptions() ([]option.RequestOption, error) {
 	return clientOptions, nil
 }
 
+// GetVMDomain derives the VM SSH domain from the configured VERS_URL.
+// For example:
+//   - "https://api.vers.sh"         -> "vm.vers.sh"
+//   - "https://api.staging.vers.sh" -> "vm.staging.vers.sh"
+func GetVMDomain() string {
+	versUrl, err := GetVersUrl()
+	if err != nil {
+		return "vm.vers.sh" // safe fallback to production
+	}
+	host := versUrl.Hostname()
+	if strings.HasPrefix(host, "api.") {
+		return "vm." + strings.TrimPrefix(host, "api.")
+	}
+	// Fallback: assume production domain
+	return "vm.vers.sh"
+}
+
 // Backward-compatibility checks removed; the CLI only targets DEFAULT_VERS_URL (or VERS_URL override).

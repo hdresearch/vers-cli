@@ -62,7 +62,8 @@ func TestConnect_SSHOverTLS(t *testing.T) {
 
 	// Test SSH connection using SSH-over-TLS with retry logic
 	// Based on our debugging, first connections may fail if networking isn't fully ready
-	vmHostname := fmt.Sprintf("%s.vm.vers.sh", vmID)
+	vmDomain := auth.GetVMDomain()
+	vmHostname := fmt.Sprintf("%s.%s", vmID, vmDomain)
 	proxyCommand := fmt.Sprintf("openssl s_client -connect %s:443 -servername %s -quiet", vmHostname, vmHostname)
 
 	sshArgs := []string{

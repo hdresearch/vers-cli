@@ -84,7 +84,7 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	}
 
 	vmInfo := utils.CreateVMInfoFromVM(*info.VM)
-	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.vm.vers.sh)
+	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.{vmDomain})
 	sshHost := info.Host
 	sshPort := "443" // SSH-over-TLS uses port 443
 	view.LocalRoute = true
@@ -123,7 +123,7 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 	}
 
 	// Use native SSH client with automatic reconnection on dropped connections
-	client := sshutil.NewClient(sshHost, info.KeyPath)
+	client := sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain)
 
 	const maxReconnectAttempts = 5
 	const initialBackoff = 1 * time.Second

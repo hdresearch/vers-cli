@@ -86,7 +86,7 @@ func HandleCopy(ctx context.Context, a *app.App, r CopyReq) (presenters.CopyView
 	}
 
 	// Use native SFTP client
-	client := sshutil.NewClient(sshHost, info.KeyPath)
+	client := sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain)
 	if isUpload {
 		err = client.Upload(ctx, expandTilde(localPath), remotePath, r.Recursive)
 	} else {
