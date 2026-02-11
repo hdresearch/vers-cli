@@ -7,9 +7,9 @@ import (
 
 // TargetResult holds the result of resolving a VM target identifier.
 type TargetResult struct {
-	Ident   string // The resolved VM identifier (ID or alias)
+	Ident    string // The resolved VM identifier (ID or alias)
 	UsedHEAD bool   // Whether HEAD was used as fallback
-	HeadID  string // The HEAD VM ID (only set if UsedHEAD is true)
+	HeadID   string // The HEAD VM ID (only set if UsedHEAD is true)
 }
 
 // ResolveTarget resolves a VM target string. If target is empty, falls back
