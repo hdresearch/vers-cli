@@ -26,20 +26,16 @@ func registerTunnelTool(server *mcp.Server, application *app.App, opts Options) 
 		}
 		start := time.Now()
 
-		// Resolve target
+		// Resolve target (falls back to HEAD if empty)
 		v := presenters.TunnelView{}
-		ident := in.Target
-		if ident == "" {
-			head, err := utils.GetCurrentHeadVM()
-			if err != nil {
-				return nil, v, fmt.Errorf("no VM ID provided and %w", err)
-			}
-			v.UsedHEAD = true
-			v.HeadID = head
-			ident = head
+		resolved, err := utils.ResolveTarget(in.Target)
+		if err != nil {
+			return nil, v, err
 		}
+		v.UsedHEAD = resolved.UsedHEAD
+		v.HeadID = resolved.HeadID
 
-		info, err := vmSvc.GetConnectInfo(ctx, application.Client, ident)
+		info, err := vmSvc.GetConnectInfo(ctx, application.Client, resolved.Ident)
 		if err != nil {
 			return nil, v, mapMCPError(fmt.Errorf("failed to get VM information: %w", err))
 		}
@@ -57,7 +53,7 @@ func registerTunnelTool(server *mcp.Server, application *app.App, opts Options) 
 		}
 
 		duration := time.Since(start)
-		target := ident
+		target := resolved.Ident
 
 		v.VMName = info.VM.VmID
 		v.LocalPort = tunnel.LocalPort

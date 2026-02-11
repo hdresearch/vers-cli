@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -25,19 +24,13 @@ type TunnelReq struct {
 func HandleTunnel(ctx context.Context, a *app.App, r TunnelReq) (presenters.TunnelView, error) {
 	view := presenters.TunnelView{}
 
-	// Resolve VM target
-	var ident string
-	if strings.TrimSpace(r.Target) == "" {
-		headID, err := utils.GetCurrentHeadVM()
-		if err != nil {
-			return view, fmt.Errorf("no VM ID provided and %w", err)
-		}
-		view.UsedHEAD = true
-		view.HeadID = headID
-		ident = headID
-	} else {
-		ident = r.Target
+	// Resolve VM target (falls back to HEAD if empty)
+	resolved, err := utils.ResolveTarget(r.Target)
+	if err != nil {
+		return view, err
 	}
+	view.UsedHEAD = resolved.UsedHEAD
+	view.HeadID = resolved.HeadID
 
 	// Default remote host
 	if r.RemoteHost == "" {
@@ -45,7 +38,7 @@ func HandleTunnel(ctx context.Context, a *app.App, r TunnelReq) (presenters.Tunn
 	}
 
 	// Get connection info (resolves alias, checks VM exists, gets SSH key)
-	info, err := vmSvc.GetConnectInfo(ctx, a.Client, ident)
+	info, err := vmSvc.GetConnectInfo(ctx, a.Client, resolved.Ident)
 	if err != nil {
 		return view, fmt.Errorf("failed to get VM information: %w", err)
 	}
