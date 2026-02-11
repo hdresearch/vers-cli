@@ -94,6 +94,27 @@ func RunVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 	return string(out), err
 }
 
+// RunVersInDir executes the CLI in a specific working directory.
+func RunVersInDir(t TLike, dir string, timeout time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// Resolve BinPath to absolute so it works from any working directory
+	absBin, err := filepath.Abs(BinPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve binary path: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, absBin, args...)
+	cmd.Dir = dir
+	cmd.Env = os.Environ()
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return string(out), fmt.Errorf("command timed out: vers %s", strings.Join(args, " "))
+	}
+	return string(out), err
+}
+
 // RegisterVMCleanup ensures a VM is deleted at test end.
 func RegisterVMCleanup(t TLike, identifier string, recursive bool) {
 	t.Cleanup(func() {

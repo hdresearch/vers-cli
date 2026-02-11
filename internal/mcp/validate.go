@@ -31,6 +31,16 @@ func validateBranch(in BranchInput) error {
 	return nil
 }
 
+func validateTunnel(in TunnelInput) error {
+	if in.RemotePort < 1 || in.RemotePort > 65535 {
+		return Err(E_INVALID, fmt.Sprintf("remotePort %d out of range (1-65535)", in.RemotePort), nil)
+	}
+	if in.LocalPort < 0 || in.LocalPort > 65535 {
+		return Err(E_INVALID, fmt.Sprintf("localPort %d out of range (0-65535)", in.LocalPort), nil)
+	}
+	return nil
+}
+
 func validateKill(in KillInput) error {
 	if !in.SkipConfirmation {
 		return Err(E_CONFIRM_REQUIRED, "skipConfirmation=true required for destructive operations in MCP", map[string]any{"hint": "Set skipConfirmation to true to proceed non-interactively."})

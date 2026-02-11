@@ -42,6 +42,9 @@ func StartServer(ctx context.Context, application *app.App, opts Options) error 
 		if err := registerCapabilitiesTool(server, application, opts); err != nil {
 			return err
 		}
+		if err := registerTunnelTool(server, application, opts); err != nil {
+			return err
+		}
 		if err := registerResources(server, application); err != nil {
 			return err
 		}
@@ -80,6 +83,9 @@ func startStdio(ctx context.Context, application *app.App, opts Options) error {
 		return err
 	}
 	if err := registerCapabilitiesTool(server, application, opts); err != nil {
+		return err
+	}
+	if err := registerTunnelTool(server, application, opts); err != nil {
 		return err
 	}
 	if err := registerResources(server, application); err != nil {

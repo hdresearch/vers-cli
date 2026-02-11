@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -41,7 +40,7 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.{vmDomain})
 	sshHost := info.Host
 
-	cmdStr := strings.Join(r.Command, " ")
+	cmdStr := utils.ShellJoin(r.Command)
 
 	// Use native SSH client
 	client := sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain)

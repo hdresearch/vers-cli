@@ -3,6 +3,7 @@ package test
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -124,4 +125,61 @@ func TestRunWithNonExistentImage(t *testing.T) {
 		}
 	}
 	t.Log("TestRunWithNonExistentImage completed")
+}
+
+// TestRunSetsHEAD verifies that `vers run` persists HEAD so subsequent commands
+// (like `vers connect`) can resolve it. This is a regression test for the bug where
+// HandleRun printed "HEAD now points to: ..." but never wrote .vers/HEAD.
+func TestRunSetsHEAD(t *testing.T) {
+	t.Log("Starting TestRunSetsHEAD...")
+	testutil.TestEnv(t)
+	testutil.EnsureBuilt(t)
+
+	// Run vers in a clean temp directory so we start without any HEAD
+	tempDir, err := os.MkdirTemp("", "vers-run-head-test-")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Run `vers run` from the temp directory
+	t.Log("Running: vers run (in clean temp dir)")
+	out, err := testutil.RunVersInDir(t, tempDir, testutil.DefaultTimeout, "run")
+	if err != nil {
+		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
+	}
+	t.Logf("VM creation output:\n%s", out)
+
+	vmID, err := testutil.ParseVMID(out)
+	if err != nil {
+		t.Fatalf("failed to parse VM ID from output: %v\nOutput:\n%s", err, out)
+	}
+	t.Logf("Created VM: %s", vmID)
+	testutil.RegisterVMCleanup(t, vmID, false)
+
+	// Verify .vers/HEAD was written with the correct VM ID
+	headPath := filepath.Join(tempDir, ".vers", "HEAD")
+	headData, err := os.ReadFile(headPath)
+	if err != nil {
+		t.Fatalf("HEAD file not found at %s: %v — vers run did not persist HEAD", headPath, err)
+	}
+
+	headVM := strings.TrimSpace(string(headData))
+	if headVM != vmID {
+		t.Fatalf("HEAD contains %q, expected %q", headVM, vmID)
+	}
+
+	t.Log("✓ vers run correctly persists HEAD")
+
+	// Verify `vers head` also reads it back correctly from the same directory
+	headOut, err := testutil.RunVersInDir(t, tempDir, testutil.DefaultTimeout, "head")
+	if err != nil {
+		t.Fatalf("vers head failed: %v\nOutput:\n%s", err, headOut)
+	}
+	if !strings.Contains(headOut, vmID) {
+		t.Fatalf("vers head output doesn't contain VM ID %s:\n%s", vmID, headOut)
+	}
+
+	t.Log("✓ vers head reads back the correct VM ID")
+	t.Log("TestRunSetsHEAD completed")
 }
