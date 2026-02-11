@@ -38,13 +38,13 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.vm.vers.sh)
+	// Use VM ID as host for SSH-over-TLS (will be formatted as {vm-id}.{vmDomain})
 	sshHost := info.Host
 
 	cmdStr := strings.Join(r.Command, " ")
 
 	// Use native SSH client
-	client := sshutil.NewClient(sshHost, info.KeyPath)
+	client := sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain)
 	err = client.Execute(ctx, cmdStr, a.IO.Out, a.IO.Err)
 	if err != nil {
 		// Check for SSH exit error to get exit code

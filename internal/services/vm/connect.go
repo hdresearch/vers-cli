@@ -11,10 +11,11 @@ import (
 
 // Info contains details needed to establish an SSH connection to a VM.
 type Info struct {
-	VM      *vers.Vm
-	Host    string // preferred host (node IP or fallback base hostname)
-	KeyPath string // local path to SSH private key
-	BaseURL *url.URL
+	VM       *vers.Vm
+	Host     string // preferred host (node IP or fallback base hostname)
+	KeyPath  string // local path to SSH private key
+	BaseURL  *url.URL
+	VMDomain string // VM domain suffix (e.g. "vm.vers.sh", "vm.staging.vers.sh")
 }
 
 // GetConnectInfo resolves the VM and returns connection information, including Node IP and SSH key.
@@ -33,8 +34,9 @@ func GetConnectInfo(ctx context.Context, client *vers.Client, identifier string)
 	}
 	out.BaseURL = versURL
 
-	// For SSH-over-TLS, use VM ID as host (will be formatted as {vm-id}.vm.vers.sh)
+	// For SSH-over-TLS, use VM ID as host (will be formatted as {vm-id}.{vmDomain})
 	out.Host = vm.VmID
+	out.VMDomain = auth.GetVMDomain()
 
 	keyPath, err := auth.GetOrCreateSSHKey(vm.VmID, client, ctx)
 	if err != nil {

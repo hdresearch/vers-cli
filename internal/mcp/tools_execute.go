@@ -63,7 +63,7 @@ func registerExecuteTool(server *mcp.Server, application *app.App, opts Options)
 		errw := &sessionWriter{session: req.Session, level: "error"}
 
 		// Use native SSH client
-		client := sshutil.NewClient(sshHost, info.KeyPath)
+		client := sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain)
 		runErr := client.Execute(runCtx, joinCmd(in.Command), outw, errw)
 		duration := time.Since(start)
 		target := ident

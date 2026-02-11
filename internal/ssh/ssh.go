@@ -2,7 +2,7 @@
 //
 // This package implements SSH-over-TLS tunneling where SSH connections
 // are established through a TLS connection on port 443. VMs are accessed
-// via DNS hostnames in the format {vm-id}.vm.vers.sh.
+// via DNS hostnames in the format {vm-id}.{vmDomain} (e.g. {vm-id}.vm.vers.sh).
 package ssh
 
 import "strconv"

@@ -165,7 +165,7 @@ func doConnectCmd(m Model, vmID string) tea.Cmd {
 		// Use native SSH client via Bubble Tea Exec
 		// We wrap the SSH interactive session in an exec.Cmd-like interface
 		return tea.Exec(&sshExecCmd{
-			client: sshutil.NewClient(sshHost, info.KeyPath),
+			client: sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain),
 		}, func(err error) tea.Msg {
 			if err != nil {
 				return actionCompletedMsg{text: "SSH failed", err: err}
