@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
@@ -16,7 +17,16 @@ var executeCmd = &cobra.Command{
 If no VM is specified, the current HEAD VM is used.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
+		// Get timeout from flag, default to APIMedium (30s)
+		timeoutSec, _ := cmd.Flags().GetInt("timeout")
+		var timeout time.Duration
+		if timeoutSec > 0 {
+			timeout = time.Duration(timeoutSec) * time.Second
+		} else {
+			timeout = application.Timeouts.APIMedium
+		}
+
+		apiCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		// Determine if the first arg is a VM target or part of the command.
@@ -48,4 +58,5 @@ If no VM is specified, the current HEAD VM is used.`,
 func init() {
 	rootCmd.AddCommand(executeCmd)
 	executeCmd.Flags().String("host", "", "Specify the host IP to connect to (overrides default)")
+	executeCmd.Flags().IntP("timeout", "t", 0, "Timeout in seconds (default: 30s, use 0 for no limit)")
 }
