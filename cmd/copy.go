@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"context"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
+
+var copyTimeout int
 
 // copyCmd represents the copy command
 var copyCmd = &cobra.Command{
@@ -21,7 +24,12 @@ Examples:
   vers copy -r ./local-dir/ /remote/path/  (recursive directory copy)`,
 	Args: cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
+		// Use custom timeout if specified, otherwise use default APIMedium
+		timeout := application.Timeouts.APIMedium
+		if copyTimeout > 0 {
+			timeout = time.Duration(copyTimeout) * time.Second
+		}
+		apiCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		recursive, _ := cmd.Flags().GetBool("recursive")
 		var target, source, destination string
@@ -42,4 +50,5 @@ Examples:
 func init() {
 	rootCmd.AddCommand(copyCmd)
 	copyCmd.Flags().BoolP("recursive", "r", false, "Recursively copy directories")
+	copyCmd.Flags().IntVarP(&copyTimeout, "timeout", "t", 0, "Timeout in seconds (default: 30s, use 0 for no limit)")
 }
