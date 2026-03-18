@@ -73,13 +73,22 @@ Subcommands:
 	},
 }
 
-var commitListPublic bool
+var (
+	commitListPublic bool
+	commitListQuiet  bool
+	commitListFormat string
+)
 
 var commitListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List your commits",
-	Long:  `List all commits owned by your account. Use --public to list publicly shared commits instead.`,
-	Args:  cobra.NoArgs,
+	Long: `List all commits owned by your account. Use --public to list publicly shared commits instead.
+
+Use -q/--quiet to output just commit IDs (one per line), useful for scripting:
+  vers commit delete $(vers commit list -q)   # delete all commits
+
+Use --format json for machine-readable output.`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -90,28 +99,53 @@ var commitListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pres.RenderCommitsList(application, res)
+
+		format := pres.ParseFormat(commitListQuiet, commitListFormat)
+		switch format {
+		case pres.FormatQuiet:
+			ids := make([]string, len(res.Commits))
+			for i, c := range res.Commits {
+				ids[i] = c.CommitID
+			}
+			pres.PrintQuiet(ids)
+		case pres.FormatJSON:
+			pres.PrintJSON(res.Commits)
+		default:
+			pres.RenderCommitsList(application, res)
+		}
 		return nil
 	},
 }
 
 var commitDeleteCmd = &cobra.Command{
-	Use:   "delete <commit-id>",
-	Short: "Delete a commit",
-	Long:  `Permanently delete a commit. The commit must not have any active VMs running from it.`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "delete <commit-id>...",
+	Short: "Delete one or more commits",
+	Long: `Permanently delete one or more commits. Commits must not have any active VMs running from them.
+
+Examples:
+  vers commit delete abc-123
+  vers commit delete abc-123 def-456
+  vers commit delete $(vers commit list -q)   # delete all commits`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
 
-		err := handlers.HandleCommitDelete(apiCtx, application, handlers.CommitDeleteReq{
-			CommitID: args[0],
-		})
-		if err != nil {
-			return err
+		var firstErr error
+		for _, id := range args {
+			err := handlers.HandleCommitDelete(apiCtx, application, handlers.CommitDeleteReq{
+				CommitID: id,
+			})
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to delete commit %s: %v\n", id, err)
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
+			}
+			fmt.Printf("✓ Commit %s deleted\n", id)
 		}
-		fmt.Printf("✓ Commit %s deleted\n", args[0])
-		return nil
+		return firstErr
 	},
 }
 
@@ -181,6 +215,8 @@ func init() {
 	rootCmd.AddCommand(commitCmd)
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
+	commitListCmd.Flags().BoolVarP(&commitListQuiet, "quiet", "q", false, "Only display commit IDs")
+	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json)")
 	commitCmd.AddCommand(commitListCmd)
 	commitCmd.AddCommand(commitDeleteCmd)
 	commitCmd.AddCommand(commitHistoryCmd)
