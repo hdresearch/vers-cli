@@ -11,6 +11,7 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/auth"
+	"github.com/hdresearch/vers-cli/internal/errorsx"
 	"github.com/hdresearch/vers-cli/internal/prompts"
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	"github.com/hdresearch/vers-cli/internal/update"
@@ -244,19 +245,17 @@ interaction capabilities, and more.`,
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		// Check if the error is a 401 Unauthorized
-		if strings.Contains(err.Error(), "401") ||
-			strings.Contains(strings.ToLower(err.Error()), "unauthorized") {
-			fmt.Println("Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
-			os.Exit(1)
+		code := errorsx.ExitCodeFromError(err)
+		if code == errorsx.ExitAuth {
+			fmt.Fprintln(os.Stderr, "Authentication failed. Please run 'vers login' to re-authenticate with a valid API token.")
 		}
-		os.Exit(1)
+		os.Exit(code)
 	}
 }
 
 func init() {
 	// Add global persistent flags
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "V", false, "Enable verbose output")
 
 	// Add version flags
 	rootCmd.Flags().Bool("version", false, "Show version information")

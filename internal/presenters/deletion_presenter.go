@@ -39,7 +39,7 @@ func PrintDeletionSummary(results SummaryResults) {
 			fmt.Println()
 			fmt.Println("Error details:")
 			for _, e := range results.Errors {
-				fmt.Printf("  - %s\n", e)
+				fmt.Printf("- %s\n", e)
 			}
 		}
 	}

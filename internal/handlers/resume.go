@@ -10,7 +10,10 @@ import (
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-type ResumeReq struct{ Target string }
+type ResumeReq struct {
+	Target string
+	Wait   bool
+}
 
 func HandleResume(ctx context.Context, a *app.App, r ResumeReq) (presenters.ResumeView, error) {
 	var vmID string
@@ -38,5 +41,13 @@ func HandleResume(ctx context.Context, a *app.App, r ResumeReq) (presenters.Resu
 	if err != nil {
 		return presenters.ResumeView{}, fmt.Errorf("failed to resume VM '%s': %w", vmName, err)
 	}
+
+	if r.Wait {
+		fmt.Fprintf(a.IO.Err, "Waiting for VM %s to be running...\n", vmName)
+		if err := utils.WaitForRunning(ctx, a.Client, vmID); err != nil {
+			return presenters.ResumeView{}, err
+		}
+	}
+
 	return presenters.ResumeView{VMName: vmName, NewState: "Running"}, nil
 }

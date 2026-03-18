@@ -3,14 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	vers "github.com/hdresearch/vers-sdk-go"
 	"github.com/spf13/cobra"
 )
+
+var commitFormat string
 
 // commitCmd is the parent command for commit operations.
 // When invoked without a subcommand, it commits the current HEAD VM (backward compat).
@@ -20,6 +19,8 @@ var commitCmd = &cobra.Command{
 	Long: `Save the current state of the Vers environment as a commit.
 If no VM ID or alias is provided, commits the current HEAD VM.
 
+Use --format json for machine-readable output.
+
 Subcommands:
   list       List your commits
   delete     Delete a commit
@@ -28,47 +29,32 @@ Subcommands:
   unpublish  Make a commit private`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var vmID string
-		var vmInfo *utils.VMInfo
+		target := ""
+		if len(args) > 0 {
+			target = args[0]
+		}
 
-		baseCtx := context.Background()
-		apiCtx, cancel := context.WithTimeout(baseCtx, 60*time.Second)
+		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APILong)
 		defer cancel()
 
-		if len(args) > 0 {
-			vmInfo, err := utils.ResolveVMIdentifier(apiCtx, client, args[0])
-			if err != nil {
-				return fmt.Errorf("failed to find VM: %w", err)
-			}
-			vmID = vmInfo.ID
-			fmt.Printf("Using provided VM: %s\n", vmInfo.DisplayName)
-		} else {
-			var err error
-			vmID, err = utils.GetCurrentHeadVM()
-			if err != nil {
-				return fmt.Errorf("failed to get current VM: %w", err)
-			}
-			fmt.Printf("Using current HEAD VM: %s\n", vmID)
-		}
-
-		fmt.Printf("Creating commit for VM '%s'\n", vmID)
-
-		fmt.Println("Creating commit...")
-		if vmInfo == nil {
-			vmInfo = &utils.VMInfo{
-				ID:          vmID,
-				DisplayName: vmID,
-			}
-		}
-
-		response, err := client.Vm.Commit(apiCtx, vmInfo.ID, vers.VmCommitParams{})
+		res, err := handlers.HandleCommitCreate(apiCtx, application, handlers.CommitCreateReq{
+			Target: target,
+		})
 		if err != nil {
-			return fmt.Errorf("failed to commit VM '%s': %w", vmInfo.DisplayName, err)
+			return err
 		}
 
-		fmt.Printf("Successfully committed VM '%s'\n", vmInfo.DisplayName)
-		fmt.Printf("Commit ID: %s\n", response.CommitID)
-
+		format := pres.ParseFormat(false, commitFormat)
+		switch format {
+		case pres.FormatJSON:
+			pres.PrintJSON(res)
+		default:
+			if res.UsedHEAD {
+				fmt.Printf("Using current HEAD VM: %s\n", res.VmID)
+			}
+			fmt.Printf("✓ Committed VM '%s'\n", res.VmID)
+			fmt.Printf("Commit ID: %s\n", res.CommitID)
+		}
 		return nil
 	},
 }
@@ -213,6 +199,8 @@ var commitUnpublishCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
+
+	commitCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json)")
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
 	commitListCmd.Flags().BoolVarP(&commitListQuiet, "quiet", "q", false, "Only display commit IDs")

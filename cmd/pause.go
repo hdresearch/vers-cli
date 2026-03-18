@@ -8,12 +8,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// pauseCmd represents the pause command
+var pauseFormat string
+
 var pauseCmd = &cobra.Command{
 	Use:   "pause [vm-id|alias]",
 	Short: "Pause a running VM",
-	Long:  `Pause a running Vers VM. If no VM ID or alias is provided, uses the current HEAD.`,
-	Args:  cobra.MaximumNArgs(1),
+	Long: `Pause a running Vers VM. If no VM ID or alias is provided, uses the current HEAD.
+
+Use --format json for machine-readable output.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -25,11 +28,19 @@ var pauseCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pres.RenderPause(application, view)
+
+		format := pres.ParseFormat(false, pauseFormat)
+		switch format {
+		case pres.FormatJSON:
+			pres.PrintJSON(map[string]string{"vm_id": view.VMName, "state": view.NewState})
+		default:
+			pres.RenderPause(application, view)
+		}
 		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(pauseCmd)
+	pauseCmd.Flags().StringVar(&pauseFormat, "format", "", "Output format (json)")
 }

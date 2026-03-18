@@ -45,3 +45,12 @@ vers.toml
 .actrc
 # Added by goreleaser init:
 dist/
+
+# Agent artifacts
+.agent_*
+.conversations/
+.quine_*
+agent.sh*
+anti-quine.sh
+next.sh
+quine.sh*

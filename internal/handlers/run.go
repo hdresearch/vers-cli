@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -16,17 +17,14 @@ type RunReq struct {
 	KernelName  string
 	FsSizeVmMib int64
 	VMAlias     string
+	Wait        bool
 }
-
-type RunView struct{ RootVmID, VmAlias, HeadTarget string }
 
 func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, error) {
 	if err := validateAndNormalize(&r); err != nil {
 		return presenters.RunView{}, err
 	}
 
-	// Note: Cluster concept removed, creating a new root VM instead
-	// Aliases no longer supported in new SDK
 	vmConfig := vers.NewRootRequestVmConfigParam{
 		MemSizeMib: vers.F(r.MemSizeMib),
 		VcpuCount:  vers.F(r.VcpuCount),
@@ -50,24 +48,27 @@ func HandleRun(ctx context.Context, a *app.App, r RunReq) (presenters.RunView, e
 		return presenters.RunView{}, err
 	}
 
-	// SDK alpha.24 now returns the VM ID
 	vmID := resp.VmID
 
-	// Save alias locally if provided
 	if r.VMAlias != "" {
 		_ = utils.SetAlias(r.VMAlias, vmID)
 	}
 
-	// Set HEAD to the newly created VM
 	if err := utils.SetHead(vmID); err != nil {
 		return presenters.RunView{}, err
+	}
+
+	if r.Wait {
+		fmt.Fprintf(a.IO.Err, "Waiting for VM %s to be running...\n", vmID)
+		if err := utils.WaitForRunning(ctx, a.Client, vmID); err != nil {
+			return presenters.RunView{}, err
+		}
 	}
 
 	return presenters.RunView{RootVmID: vmID, VmAlias: r.VMAlias, HeadTarget: vmID}, nil
 }
 
 func validateAndNormalize(r *RunReq) error {
-	// Set default VM filesystem size if not specified
 	if r.FsSizeVmMib == 0 {
 		r.FsSizeVmMib = 1024
 	}

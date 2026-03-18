@@ -18,7 +18,7 @@ func RenderCommitsList(_ *app.App, v CommitsListView) {
 		return
 	}
 
-	fmt.Printf("  %d commit(s)\n\n", v.Total)
+	fmt.Printf("%d commit(s)\n\n", v.Total)
 
 	fmt.Printf("%-38s  %-20s  %-8s  %s\n", "COMMIT ID", "NAME", "PUBLIC", "CREATED")
 	for _, c := range v.Commits {
@@ -51,11 +51,11 @@ func RenderCommitParents(_ *app.App, v CommitParentsView) {
 		if name == "" {
 			name = p.ID
 		}
-		fmt.Printf("  %s %s\n", prefix, name)
-		fmt.Printf("       ID:      %s\n", p.ID)
-		fmt.Printf("       Created: %s\n", p.CreatedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("%s %s\n", prefix, name)
+		fmt.Printf("   ID:      %s\n", p.ID)
+		fmt.Printf("   Created: %s\n", p.CreatedAt.Format("2006-01-02 15:04:05"))
 		if p.Description != "" {
-			fmt.Printf("       Desc:    %s\n", p.Description)
+			fmt.Printf("   Desc:    %s\n", p.Description)
 		}
 	}
 }
