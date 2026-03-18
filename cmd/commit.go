@@ -135,11 +135,15 @@ Examples:
 	},
 }
 
+var commitHistoryFormat string
+
 var commitHistoryCmd = &cobra.Command{
 	Use:   "history <commit-id>",
 	Short: "Show the parent commit chain",
-	Long:  `Display the chain of parent commits leading up to a given commit.`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Display the chain of parent commits leading up to a given commit.
+
+Use --format json for machine-readable output.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -150,7 +154,14 @@ var commitHistoryCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pres.RenderCommitParents(application, res)
+
+		format := pres.ParseFormat(false, commitHistoryFormat)
+		switch format {
+		case pres.FormatJSON:
+			pres.PrintJSON(res.Parents)
+		default:
+			pres.RenderCommitParents(application, res)
+		}
 		return nil
 	},
 }
@@ -207,6 +218,8 @@ func init() {
 	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json)")
 	commitCmd.AddCommand(commitListCmd)
 	commitCmd.AddCommand(commitDeleteCmd)
+
+	commitHistoryCmd.Flags().StringVar(&commitHistoryFormat, "format", "", "Output format (json)")
 	commitCmd.AddCommand(commitHistoryCmd)
 	commitCmd.AddCommand(commitPublishCmd)
 	commitCmd.AddCommand(commitUnpublishCmd)

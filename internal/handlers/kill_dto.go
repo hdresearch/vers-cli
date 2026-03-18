@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
@@ -22,11 +21,11 @@ func HandleKillDTO(ctx context.Context, a *app.App, r KillReq) (KillDTO, error) 
 	dto := KillDTO{Targets: r.Targets, Scope: "vms"}
 	targets := r.Targets
 	if len(targets) == 0 {
-		head, err := utils.GetCurrentHeadVM()
+		t, err := utils.ResolveTarget("")
 		if err != nil {
-			return dto, fmt.Errorf("no arguments provided and %w", err)
+			return dto, err
 		}
-		targets = []string{head}
+		targets = []string{t.Ident}
 		dto.AffectedHead = true
 	}
 

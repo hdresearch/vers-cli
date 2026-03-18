@@ -33,27 +33,20 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 		}
 	}
 
-	// Resolve source VM id
-	vmID := r.Target
-	var vmInfo *utils.VMInfo
-	var err error
-	if r.Target == "" {
-		vmID, err = utils.GetCurrentHeadVM()
-		if err != nil {
-			return res, fmt.Errorf("no VM ID provided and %w", err)
-		}
-		res.UsedHEAD = true
-		res.FromID = vmID
-		res.FromName = vmID
-	} else {
-		vmInfo, err = utils.ResolveVMIdentifier(ctx, a.Client, r.Target)
-		// If VM cannot be resolved, this request may be targeting a commit ID instead
-		if err == nil {
-			vmID = vmInfo.ID
-			res.FromID = vmID
-			res.FromName = vmInfo.DisplayName
-		}
+	// Resolve source VM (falls back to HEAD if empty)
+	t, err := utils.ResolveTarget(r.Target)
+	if err != nil {
+		return res, err
 	}
+	res.UsedHEAD = t.UsedHEAD
+	vmID := t.Ident
+
+	// Try to verify the VM exists; if resolve fails, it may be a commit ID
+	if info, err := utils.ResolveVMIdentifier(ctx, a.Client, t.Ident); err == nil {
+		vmID = info.ID
+	}
+	res.FromID = vmID
+	res.FromName = vmID
 
 	// Note: Alias parameter no longer supported in new SDK
 	// SDK alpha.24 now returns the new VM ID

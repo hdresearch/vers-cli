@@ -9,12 +9,10 @@ import (
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-// CommitCreateReq is the request for creating a commit.
 type CommitCreateReq struct {
-	Target string // vm id or alias; if empty, use HEAD
+	Target string
 }
 
-// CommitCreateView is the result of creating a commit.
 type CommitCreateView struct {
 	CommitID string `json:"commit_id"`
 	VmID     string `json:"vm_id"`
@@ -22,32 +20,19 @@ type CommitCreateView struct {
 }
 
 func HandleCommitCreate(ctx context.Context, a *app.App, r CommitCreateReq) (CommitCreateView, error) {
-	var vmID string
-	var usedHead bool
-
-	if r.Target != "" {
-		info, err := utils.ResolveVMIdentifier(ctx, a.Client, r.Target)
-		if err != nil {
-			return CommitCreateView{}, fmt.Errorf("failed to find VM: %w", err)
-		}
-		vmID = info.ID
-	} else {
-		var err error
-		vmID, err = utils.GetCurrentHeadVM()
-		if err != nil {
-			return CommitCreateView{}, fmt.Errorf("failed to get current VM: %w", err)
-		}
-		usedHead = true
+	resolved, err := utils.ResolveTargetVM(ctx, a.Client, r.Target)
+	if err != nil {
+		return CommitCreateView{}, err
 	}
 
-	resp, err := a.Client.Vm.Commit(ctx, vmID, vers.VmCommitParams{})
+	resp, err := a.Client.Vm.Commit(ctx, resolved.ID, vers.VmCommitParams{})
 	if err != nil {
-		return CommitCreateView{}, fmt.Errorf("failed to commit VM '%s': %w", vmID, err)
+		return CommitCreateView{}, fmt.Errorf("failed to commit VM '%s': %w", resolved.ID, err)
 	}
 
 	return CommitCreateView{
 		CommitID: resp.CommitID,
-		VmID:     vmID,
-		UsedHEAD: usedHead,
+		VmID:     resolved.ID,
+		UsedHEAD: resolved.UsedHEAD,
 	}, nil
 }

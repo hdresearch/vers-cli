@@ -81,11 +81,15 @@ Use --format json for machine-readable output.`,
 	},
 }
 
+var tagGetFormat string
+
 var tagGetCmd = &cobra.Command{
 	Use:   "get <tag-name>",
 	Short: "Get details of a tag",
-	Long:  `Show detailed information about a specific tag.`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Show detailed information about a specific tag.
+
+Use --format json for machine-readable output.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -96,7 +100,14 @@ var tagGetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pres.RenderTagInfo(application, info)
+
+		format := pres.ParseFormat(false, tagGetFormat)
+		switch format {
+		case pres.FormatJSON:
+			pres.PrintJSON(info)
+		default:
+			pres.RenderTagInfo(application, info)
+		}
 		return nil
 	},
 }
@@ -173,6 +184,8 @@ func init() {
 	tagListCmd.Flags().BoolVarP(&tagListQuiet, "quiet", "q", false, "Only display tag names")
 	tagListCmd.Flags().StringVar(&tagListFormat, "format", "", "Output format (json)")
 	tagCmd.AddCommand(tagListCmd)
+
+	tagGetCmd.Flags().StringVar(&tagGetFormat, "format", "", "Output format (json)")
 	tagCmd.AddCommand(tagGetCmd)
 
 	tagUpdateCmd.Flags().StringVar(&tagUpdateCommit, "commit", "", "Move tag to this commit ID")

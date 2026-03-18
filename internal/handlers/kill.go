@@ -20,11 +20,11 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 
 	// Default to HEAD if no targets
 	if len(targets) == 0 {
-		headVMID, err := utils.GetCurrentHeadVM()
+		t, err := utils.ResolveTarget("")
 		if err != nil {
-			return fmt.Errorf("no arguments provided and %w", err)
+			return err
 		}
-		targets = []string{headVMID}
+		targets = []string{t.Ident}
 	}
 
 	// Confirm if needed
