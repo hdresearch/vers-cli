@@ -2,10 +2,15 @@ package presenters
 
 import (
 	"fmt"
+
 	"github.com/hdresearch/vers-cli/internal/app"
 )
 
-type RunCommitView struct{ RootVmID, HeadTarget, CommitKey string }
+type RunCommitView struct {
+	RootVmID   string `json:"vm_id"`
+	HeadTarget string `json:"head,omitempty"`
+	CommitKey  string `json:"commit_key"`
+}
 
 func RenderRunCommit(a *app.App, v RunCommitView) {
 	fmt.Printf("Sending request to start VM from commit %s...\n", v.CommitKey)

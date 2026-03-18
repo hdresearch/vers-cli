@@ -15,6 +15,7 @@ type BranchReq struct {
 	Alias    string // alias for new VM
 	Checkout bool   // whether to set HEAD to new VM
 	Count    int    // number of branches to create
+	Wait     bool   // block until new VMs are running
 }
 
 func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.BranchView, error) {
@@ -84,5 +85,15 @@ func HandleBranch(ctx context.Context, a *app.App, r BranchReq) (presenters.Bran
 			res.CheckoutDone = true
 		}
 	}
+
+	if r.Wait {
+		fmt.Fprintf(a.IO.Err, "Waiting for %d VM(s) to be running...\n", len(res.NewIDs))
+		for _, id := range res.NewIDs {
+			if err := utils.WaitForRunning(ctx, a.Client, id); err != nil {
+				return res, fmt.Errorf("wait failed for VM %s: %w", id, err)
+			}
+		}
+	}
+
 	return res, nil
 }

@@ -24,7 +24,7 @@ func TestExecuteRunsCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
 	}
-	testutil.RegisterVMCleanup(t, vmID, false)
+	testutil.RegisterVMCleanup(t, vmID)
 
 	// Wait for VM networking to be configured (WireGuard, DNAT rules)
 	t.Logf("Waiting for VM networking to be ready...")
@@ -38,57 +38,4 @@ func TestExecuteRunsCommand(t *testing.T) {
 	if !strings.Contains(out, "hello-from-vers") {
 		t.Fatalf("expected echoed output from execute, got:\n%s", out)
 	}
-}
-
-// TestKillNonRecursiveWithChildrenShowsHelpfulMessage ensures kill without -r fails with guidance.
-func TestKillNonRecursiveWithChildrenShowsHelpfulMessage(t *testing.T) {
-	testutil.TestEnv(t)
-	testutil.EnsureBuilt(t)
-
-	// Start a VM
-	out, err := testutil.RunVers(t, testutil.DefaultTimeout, "run")
-	if err != nil {
-		t.Fatalf("vers run failed: %v\nOutput:\n%s", err, out)
-	}
-
-	// Parse VM ID from output
-	vmID, err := testutil.ParseVMID(out)
-	if err != nil {
-		t.Fatalf("failed to parse VM ID: %v\nOutput:\n%s", err, out)
-	}
-	testutil.RegisterVMCleanup(t, vmID, true)
-
-	// Wait for VM networking to be configured
-	t.Logf("Waiting for VM networking to be ready...")
-	time.Sleep(15 * time.Second)
-
-	// Create a child VM (branch A)
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", vmID)
-	if err != nil {
-		t.Fatalf("vers branch failed: %v\nOutput:\n%s", err, out)
-	}
-	branchAID, err := testutil.ParseVMID(out)
-	if err != nil {
-		t.Fatalf("failed to parse branch A VM ID: %v\nOutput:\n%s", err, out)
-	}
-
-	// Create a grandchild VM (branch B from branch A) so branch A has children
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "branch", branchAID)
-	if err != nil {
-		t.Fatalf("vers branch (grandchild) failed: %v\nOutput:\n%s", err, out)
-	}
-
-	// Attempt to delete the parent VM without -r (skip confirmation)
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "kill", "-y", branchAID)
-	if err == nil {
-		// API allowed deletion of VM with children without -r flag
-		// This might be a backend behavior - skip the test rather than fail
-		t.Skipf("API allowed non-recursive delete of VM with children (backend may not enforce this check); output:\n%s", out)
-		return
-	}
-	// Deletion failed as expected - verify the error message has proper guidance
-	if !strings.Contains(out, "--recursive (-r)") && !strings.Contains(out, "HasChildren") {
-		t.Fatalf("expected friendly guidance for recursive delete, got:\n%s", out)
-	}
-	t.Logf("✓ Kill correctly prevented deletion of VM with children without -r flag")
 }

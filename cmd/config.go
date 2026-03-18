@@ -27,10 +27,6 @@ func applyFlagOverrides(cmd *cobra.Command, config *runconfig.Config) {
 		config.Kernel.Name = kernel
 	}
 
-	if dockerfile, _ := cmd.Flags().GetString("dockerfile"); dockerfile != "" {
-		config.Builder.Dockerfile = dockerfile
-	}
-
 	// Override filesystem size if flag is set
 	if fsVm, _ := cmd.Flags().GetInt64("fs-size-vm"); fsVm > 0 {
 		config.Machine.FsSizeVmMib = fsVm

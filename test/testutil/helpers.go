@@ -116,14 +116,9 @@ func RunVersInDir(t TLike, dir string, timeout time.Duration, args ...string) (s
 }
 
 // RegisterVMCleanup ensures a VM is deleted at test end.
-func RegisterVMCleanup(t TLike, identifier string, recursive bool) {
+func RegisterVMCleanup(t TLike, identifier string, _ ...bool) {
 	t.Cleanup(func() {
-		args := []string{"kill", "-y"}
-		if recursive {
-			args = append(args, "-r")
-		}
-		args = append(args, identifier)
-		_, _ = RunVers(t, DefaultTimeout, args...)
+		_, _ = RunVers(t, DefaultTimeout, "kill", "-y", identifier)
 	})
 }
 

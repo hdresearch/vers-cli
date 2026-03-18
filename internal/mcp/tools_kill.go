@@ -29,7 +29,7 @@ func registerKillTool(server *mcp.Server, application *app.App, opts Options) er
 		}
 		dto := dtoAny.(handlers.KillDTO)
 		scope := "vms"
-		summary := redact(fmt.Sprintf("deleted %s targets=%v recursive=%t", scope, in.Targets, in.Recursive))
+		summary := redact(fmt.Sprintf("deleted %s targets=%v", scope, in.Targets))
 		fmt.Fprintf(os.Stderr, "[mcp] tool=vers.kill ok dur=%s scope=%s count=%d\n", time.Since(started).Truncate(time.Millisecond), scope, len(in.Targets))
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: summary}}}, dto, nil
 	})

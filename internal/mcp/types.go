@@ -42,5 +42,4 @@ type TunnelInput struct {
 type KillInput struct {
 	Targets          []string `json:"targets,omitempty" jsonschema:"VM identifiers; empty means HEAD VM"`
 	SkipConfirmation bool     `json:"skipConfirmation,omitempty" jsonschema:"Required for destructive operations in MCP"`
-	Recursive        bool     `json:"recursive,omitempty" jsonschema:"Delete all descendants"`
 }

@@ -7,12 +7,10 @@ import (
 	"github.com/hdresearch/vers-cli/internal/handlers"
 )
 
-// StatusAdapter calls the existing status handler and returns the structured result.
 func StatusAdapter(ctx context.Context, a *app.App, in StatusInput) (any, error) {
 	return handlers.HandleStatus(ctx, a, handlers.StatusReq{Target: in.Target})
 }
 
-// RunAdapter starts a VM per inputs and returns a presenters.RunView.
 func RunAdapter(ctx context.Context, a *app.App, in RunInput) (any, error) {
 	req := handlers.RunReq{
 		MemSizeMib:  in.MemSizeMib,
@@ -25,28 +23,19 @@ func RunAdapter(ctx context.Context, a *app.App, in RunInput) (any, error) {
 	return handlers.HandleRun(ctx, a, req)
 }
 
-// ExecuteAdapter runs a command in a VM and returns presenters.ExecuteView.
 func ExecuteAdapter(ctx context.Context, a *app.App, in ExecuteInput) (any, error) {
-	req := handlers.ExecuteReq{Target: in.Target, Command: in.Command}
-	return handlers.HandleExecute(ctx, a, req)
+	return handlers.HandleExecute(ctx, a, handlers.ExecuteReq{Target: in.Target, Command: in.Command})
 }
 
-// BranchAdapter creates a VM branch and returns presenters.BranchView.
 func BranchAdapter(ctx context.Context, a *app.App, in BranchInput) (any, error) {
 	req := handlers.BranchReq{Target: in.Target, Alias: in.Alias, Checkout: in.Checkout, Count: in.Count}
 	return handlers.HandleBranch(ctx, a, req)
 }
 
-// KillAdapter deletes VMs per inputs. Returns nil output on success.
 func KillAdapter(ctx context.Context, a *app.App, in KillInput) (any, error) {
 	req := handlers.KillReq{
 		Targets:          in.Targets,
 		SkipConfirmation: in.SkipConfirmation,
-		Recursive:        in.Recursive,
 	}
-	dto, err := handlers.HandleKillDTO(ctx, a, req)
-	if err != nil {
-		return nil, err
-	}
-	return dto, nil
+	return handlers.HandleKillDTO(ctx, a, req)
 }

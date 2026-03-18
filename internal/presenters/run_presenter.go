@@ -6,7 +6,11 @@ import (
 	"github.com/hdresearch/vers-cli/internal/app"
 )
 
-type RunView struct{ RootVmID, VmAlias, HeadTarget string }
+type RunView struct {
+	RootVmID   string `json:"vm_id"`
+	VmAlias    string `json:"alias,omitempty"`
+	HeadTarget string `json:"head,omitempty"`
+}
 
 func RenderRun(a *app.App, v RunView) {
 	fmt.Println("Sending request to start VM...")
