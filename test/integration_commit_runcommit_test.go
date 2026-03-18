@@ -38,7 +38,7 @@ func TestCommitAndRunCommit(t *testing.T) {
 		}
 		t.Fatalf("vers commit failed: %v\nOutput:\n%s", err, out)
 	}
-	re := regexp.MustCompile(`(?m)^Commit ID:\s*([\w-]+)\s*$`)
+	re := regexp.MustCompile(`(?m)^\s*Commit ID:\s*([\w-]+)\s*$`)
 	m := re.FindStringSubmatch(out)
 	if len(m) != 2 {
 		t.Fatalf("failed to extract commit ID from output:\n%s", out)

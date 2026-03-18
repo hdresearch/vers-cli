@@ -4,14 +4,14 @@ import "strings"
 
 // Exit codes for structured error handling in scripts and agents.
 const (
-	ExitOK             = 0
-	ExitGeneral        = 1 // generic / unknown error
-	ExitAuth           = 2 // authentication failure (401/403)
-	ExitNotFound       = 3 // resource not found (404)
-	ExitConflict       = 4 // conflict (409)
-	ExitBadRequest     = 5 // invalid input / bad request (400)
-	ExitTimeout        = 6 // operation timed out
-	ExitCancelled      = 7 // user cancelled (e.g. declined confirmation)
+	ExitOK         = 0
+	ExitGeneral    = 1 // generic / unknown error
+	ExitAuth       = 2 // authentication failure (401/403)
+	ExitNotFound   = 3 // resource not found (404)
+	ExitConflict   = 4 // conflict (409)
+	ExitBadRequest = 5 // invalid input / bad request (400)
+	ExitTimeout    = 6 // operation timed out
+	ExitCancelled  = 7 // user cancelled (e.g. declined confirmation)
 )
 
 // ExitCodeFromError returns an appropriate exit code for the given error.
