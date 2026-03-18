@@ -28,7 +28,7 @@ func TestStatusForVMByAlias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vers status <vmID> failed: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "VM details:") {
-		t.Fatalf("expected 'VM details:' in output, got:\n%s", out)
+	if !strings.Contains(out, "VM ID") {
+		t.Fatalf("expected 'VM ID' in output, got:\n%s", out)
 	}
 }
