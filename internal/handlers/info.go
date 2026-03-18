@@ -10,30 +10,18 @@ import (
 )
 
 type InfoReq struct {
-	Target string // vm id or alias; if empty, use HEAD
+	Target string
 }
 
 func HandleInfo(ctx context.Context, a *app.App, r InfoReq) (presenters.InfoView, error) {
-	vmID := r.Target
-	if vmID == "" {
-		var err error
-		vmID, err = utils.GetCurrentHeadVM()
-		if err != nil {
-			return presenters.InfoView{}, fmt.Errorf("no VM specified and %w", err)
-		}
-		return handleInfoByID(ctx, a, vmID, true)
-	}
-
-	// Try to resolve as alias first
-	vmInfo, err := utils.ResolveVMIdentifier(ctx, a.Client, r.Target)
+	t, err := utils.ResolveTarget(r.Target)
 	if err != nil {
-		// Could be a raw VM ID that just isn't in the list — try metadata directly
-		return handleInfoByID(ctx, a, r.Target, false)
+		return presenters.InfoView{}, err
 	}
-	return handleInfoByID(ctx, a, vmInfo.ID, false)
-}
 
-func handleInfoByID(ctx context.Context, a *app.App, vmID string, usedHead bool) (presenters.InfoView, error) {
+	// Resolve alias if needed, but don't fail if it's a raw ID
+	vmID := utils.ResolveAlias(t.Ident)
+
 	meta, err := a.Client.Vm.GetMetadata(ctx, vmID)
 	if err != nil {
 		return presenters.InfoView{}, fmt.Errorf("failed to get metadata for VM '%s': %w", vmID, err)
@@ -41,6 +29,6 @@ func handleInfoByID(ctx context.Context, a *app.App, vmID string, usedHead bool)
 
 	return presenters.InfoView{
 		Metadata: meta,
-		UsedHEAD: usedHead,
+		UsedHEAD: t.UsedHEAD,
 	}, nil
 }

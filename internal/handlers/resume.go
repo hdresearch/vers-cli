@@ -16,38 +16,26 @@ type ResumeReq struct {
 }
 
 func HandleResume(ctx context.Context, a *app.App, r ResumeReq) (presenters.ResumeView, error) {
-	var vmID string
-	var vmName string
-	if r.Target == "" {
-		head, err := utils.GetCurrentHeadVM()
-		if err != nil {
-			return presenters.ResumeView{}, fmt.Errorf("no VM ID provided and %w", err)
-		}
-		vmID, vmName = head, head
-	} else {
-		info, err := utils.ResolveVMIdentifier(ctx, a.Client, r.Target)
-		if err != nil {
-			return presenters.ResumeView{}, fmt.Errorf("failed to find VM: %w", err)
-		}
-		vmID, vmName = info.ID, info.DisplayName
+	resolved, err := utils.ResolveTargetVM(ctx, a.Client, r.Target)
+	if err != nil {
+		return presenters.ResumeView{}, err
 	}
 
-	updateParams := vers.VmUpdateStateParams{
+	err = a.Client.Vm.UpdateState(ctx, resolved.ID, vers.VmUpdateStateParams{
 		VmUpdateStateRequest: vers.VmUpdateStateRequestParam{
 			State: vers.F(vers.VmUpdateStateRequestStateRunning),
 		},
-	}
-	err := a.Client.Vm.UpdateState(ctx, vmID, updateParams)
+	})
 	if err != nil {
-		return presenters.ResumeView{}, fmt.Errorf("failed to resume VM '%s': %w", vmName, err)
+		return presenters.ResumeView{}, fmt.Errorf("failed to resume VM '%s': %w", resolved.ID, err)
 	}
 
 	if r.Wait {
-		fmt.Fprintf(a.IO.Err, "Waiting for VM %s to be running...\n", vmName)
-		if err := utils.WaitForRunning(ctx, a.Client, vmID); err != nil {
+		fmt.Fprintf(a.IO.Err, "Waiting for VM %s to be running...\n", resolved.ID)
+		if err := utils.WaitForRunning(ctx, a.Client, resolved.ID); err != nil {
 			return presenters.ResumeView{}, err
 		}
 	}
 
-	return presenters.ResumeView{VMName: vmName, NewState: "Running"}, nil
+	return presenters.ResumeView{VMName: resolved.ID, NewState: "Running"}, nil
 }

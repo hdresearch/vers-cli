@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 // TargetResult holds the result of resolving a VM target identifier.
@@ -28,5 +31,30 @@ func ResolveTarget(target string) (TargetResult, error) {
 		Ident:    headID,
 		UsedHEAD: true,
 		HeadID:   headID,
+	}, nil
+}
+
+// ResolvedVM holds a verified VM identity.
+type ResolvedVM struct {
+	ID       string // Verified VM ID
+	UsedHEAD bool   // Whether HEAD was used as fallback
+}
+
+// ResolveTargetVM resolves a target string to a verified VM ID.
+// If target is empty, uses HEAD. Then verifies the VM exists via the API.
+func ResolveTargetVM(ctx context.Context, client *vers.Client, target string) (ResolvedVM, error) {
+	t, err := ResolveTarget(target)
+	if err != nil {
+		return ResolvedVM{}, err
+	}
+
+	info, err := ResolveVMIdentifier(ctx, client, t.Ident)
+	if err != nil {
+		return ResolvedVM{}, err
+	}
+
+	return ResolvedVM{
+		ID:       info.ID,
+		UsedHEAD: t.UsedHEAD,
 	}, nil
 }

@@ -23,18 +23,15 @@ type CopyReq struct {
 
 func HandleCopy(ctx context.Context, a *app.App, r CopyReq) (presenters.CopyView, error) {
 	v := presenters.CopyView{}
-	ident := r.Target
-	if ident == "" {
-		head, err := utils.GetCurrentHeadVM()
-		if err != nil {
-			return v, fmt.Errorf("no VM ID provided and %w", err)
-		}
-		ident = head
-		v.UsedHEAD = true
-		v.HeadID = head
-	}
 
-	info, err := vmSvc.GetConnectInfo(ctx, a.Client, ident)
+	t, err := utils.ResolveTarget(r.Target)
+	if err != nil {
+		return v, err
+	}
+	v.UsedHEAD = t.UsedHEAD
+	v.HeadID = t.HeadID
+
+	info, err := vmSvc.GetConnectInfo(ctx, a.Client, t.Ident)
 	if err != nil {
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}

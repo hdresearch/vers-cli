@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/app"
@@ -21,21 +20,16 @@ import (
 type ConnectReq struct{ Target string }
 
 func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.ConnectView, error) {
-	var ident string
 	view := presenters.ConnectView{}
-	if strings.TrimSpace(r.Target) == "" {
-		headID, err := utils.GetCurrentHeadVM()
-		if err != nil {
-			return view, fmt.Errorf("no VM ID provided and %w", err)
-		}
-		view.UsedHEAD = true
-		view.HeadID = headID
-		ident = headID
-	} else {
-		ident = r.Target
-	}
 
-	info, err := vmSvc.GetConnectInfo(ctx, a.Client, ident)
+	t, err := utils.ResolveTarget(r.Target)
+	if err != nil {
+		return view, err
+	}
+	view.UsedHEAD = t.UsedHEAD
+	view.HeadID = t.HeadID
+
+	info, err := vmSvc.GetConnectInfo(ctx, a.Client, t.Ident)
 	if err != nil {
 		return view, fmt.Errorf("failed to get VM information: %w", err)
 	}
@@ -70,7 +64,7 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 				break
 			}
 			if refreshed.State == vers.VmStatePaused {
-				return view, fmt.Errorf("VM entered paused state while booting — try 'vers resume %s' first", ident)
+				return view, fmt.Errorf("VM entered paused state while booting — try 'vers resume %s' first", t.Ident)
 			}
 			if i == 29 {
 				return view, fmt.Errorf("timed out waiting for VM to finish booting")
