@@ -3,34 +3,9 @@
 A command-line interface for managing virtual machine/container-based development environments.
 
 
-## Development
-
-### Thin Command Architecture
-
-Commands under `cmd/` are intentionally thin: they parse flags/args and delegate to handlers in `internal/handlers/`, which coordinate services in `internal/services/` and render results via `internal/presenters/`. A shared `App` container (in `internal/app/`) wires common deps (SDK client, IO, prompter, exec runner, timeouts) in `cmd/root.go`.
-
-When adding a new command:
-- Add a handler `internal/handlers/<command>.go` with `Handle(ctx, app, Req) (View, error)`.
-- Add a presenter `internal/presenters/<command>_presenter.go` to render `View`.
-- Keep the Cobra file minimal: parse → build `Req` → call handler → render.
-
-### SDK Requests
-
-If a request field needs a `param.Field[T]`, wrap with `vers.F(value)`. See the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) and existing handlers (e.g., run/run-commit/rename) for examples.
-
-
-## Features
-
-- **Environment Management**: Start environments with `run` command
-- **State Inspection**: Check environment status
-- **Command Execution**: Run commands within environments
-- **Branching**: Create branches from existing environments
-
 ## Installation
 
 ### Quick Install (Recommended)
-
-Install the latest version using our installation script:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hdresearch/vers-cli/main/install.sh | sh
@@ -55,8 +30,6 @@ VERS_VERSION=v0.5.0 curl -fsSL https://raw.githubusercontent.com/hdresearch/vers
 
 ### Install from Source
 
-If you have Go installed, you can build from source:
-
 ```bash
 go install github.com/hdresearch/vers-cli/cmd/vers@latest
 ```
@@ -68,31 +41,128 @@ Download prebuilt binaries from the [releases page](https://github.com/hdresearc
 
 ## Usage
 
-### Available Commands
+### VMs
 
 ```bash
-# Check the status of all VMs
+# Start a new VM
+vers run
+
+# List all VMs
 vers status
 
-# Check the status of a specific VM
-vers status <vm-id>
+# List just VM IDs (for scripting)
+vers status -q
 
-# Start a development environment (creates a new VM)
-vers run
+# Full JSON output
+vers status --format json
+
+# Detailed metadata for a VM (IP, lineage, timestamps)
+vers info <vm-id>
+vers info --format json
 
 # Execute a command on a VM
 vers execute <vm-id> <command> [args...]
 
-# Create one or more new branches from a VM (HEAD switches to the first when --checkout is used)
+# Create a branch from a VM
 vers branch <vm-id> [--count N] [--checkout]
+
+# Pause / resume a VM
+vers pause <vm-id>
+vers resume <vm-id>
+
+# Resize a VM's disk
+vers resize <vm-id> --size <mib>
+
+# Delete VMs
+vers kill <vm-id>
+vers kill <vm-1> <vm-2> <vm-3>
+vers kill -r <vm-id>              # recursive (include children)
 ```
+
+### Commits
+
+```bash
+# Commit the current HEAD VM
+vers commit
+
+# Commit a specific VM
+vers commit <vm-id>
+
+# List your commits
+vers commit list
+vers commit list -q               # just IDs
+vers commit list --format json
+vers commit list --public         # public commits
+
+# View commit history (parent chain)
+vers commit history <commit-id>
+
+# Make a commit public/private
+vers commit publish <commit-id>
+vers commit unpublish <commit-id>
+
+# Delete commits
+vers commit delete <commit-id>
+vers commit delete <id-1> <id-2>
+```
+
+### Tags
+
+Named pointers to commits — like git tags.
+
+```bash
+# Create a tag
+vers tag create <name> <commit-id>
+vers tag create production abc-123 -d "stable release"
+
+# List all tags
+vers tag list
+vers tag list -q                  # just names
+vers tag list --format json
+
+# Get tag details
+vers tag get <name>
+
+# Move a tag to a different commit
+vers tag update <name> --commit <new-id>
+vers tag update <name> --description "updated desc"
+
+# Delete tags
+vers tag delete <name>
+vers tag delete <name-1> <name-2>
+```
+
+### Shell Composition
+
+Commands with `-q` output are designed to compose with standard Unix tools:
+
+```bash
+# Kill all VMs
+vers kill $(vers status -q)
+
+# Delete all commits
+vers commit delete $(vers commit list -q)
+
+# Delete all tags
+vers tag delete $(vers tag list -q)
+
+# Get info on the first VM
+vers info $(vers status -q | head -1)
+
+# JSON piped to jq
+vers status --format json | jq '.[].vm_id'
+vers info <vm-id> --format json | jq '.ip'
+```
+
+`ps` is an alias for `status`:
+```bash
+vers ps -q
+```
+
 
 ## Configuration
 
-Vers CLI uses a `vers.toml` configuration file to define your environment. 
-The file should be created manually and can be customized for your specific needs.
-
-Example:
+Vers CLI uses a `vers.toml` configuration file to define your environment.
 
 ```toml
 [meta]
@@ -110,66 +180,60 @@ command = "python main.py"
 DATABASE_URL = "postgres://localhost:5432/mydb"
 ```
 
-### UI (experimental)
-
-The `vers ui` command launches an interactive TUI that is currently EXPERIMENTAL. It may change or break; not recommended for production use. Expect rough edges and please report issues.
-
 
 ## Development
 
-To build the binary locally, run:
+### Architecture
+
+Commands under `cmd/` are intentionally thin: they parse flags/args and delegate to handlers in `internal/handlers/`, which coordinate services in `internal/services/` and render results via `internal/presenters/`. A shared `App` container (in `internal/app/`) wires common deps (SDK client, IO, prompter, exec runner, timeouts) in `cmd/root.go`.
+
+When adding a new command:
+- Add a handler `internal/handlers/<command>.go` with `Handle(ctx, app, Req) (View, error)`.
+- Add a presenter `internal/presenters/<command>_presenter.go` to render `View`.
+- Keep the Cobra file minimal: parse → build `Req` → call handler → render.
+
+### SDK Requests
+
+If a request field needs a `param.Field[T]`, wrap with `vers.F(value)`. See the [Go SDK Readme](https://github.com/hdresearch/vers-sdk-go) and existing handlers for examples.
+
+### Building
+
 ```bash
 go build -o bin/vers ./cmd/vers
 ```
 
-This repository uses [Air](https://github.com/air-verse/air?tab=readme-ov-file) for development with hot reloading. You can run 
-```
-air
-```
-which will take the place of running the binary. So to develop on e.g. `vers status` you would run
-
-```
+This repository uses [Air](https://github.com/air-verse/air) for hot reloading during development:
+```bash
 air status
 ```
 
 ### Testing
 
-- Unit tests (includes MCP tests):
-  ```bash
-  make test        # or: make test-unit
-  ```
-- Integration tests (require env: VERS_URL, VERS_API_KEY):
-  ```bash
-  VERS_URL=https://... VERS_API_KEY=... make test-integration
-  # Optional args passthrough
-  VERS_URL=... VERS_API_KEY=... make test-integration ARGS='-run Copy -v'
-  ```
-### MCP Server (built-in, experimental)
+Unit tests:
+```bash
+make test        # or: make test-unit
+```
 
-This repo includes an MCP server to expose Vers operations as tools and resources for agent clients (Claude Desktop/Code, etc.).
+Integration tests (require `VERS_URL` and `VERS_API_KEY`):
+```bash
+VERS_URL=https://... VERS_API_KEY=... make test-integration
 
-- Build:
-  - `make build` (MCP server is included in the binary)
-- Run (stdio transport for local agents):
-  - `VERS_URL=https://<vers-url> VERS_API_KEY=<token> ./bin/vers mcp serve --transport stdio`
-- Run over HTTP/SSE (for MCP connector):
-  - `export VERS_MCP_HTTP_TOKEN=<secret>` (optional but recommended)
-  - `VERS_URL=... VERS_API_KEY=... ./bin/vers mcp serve --transport http --addr :3920`
-  - `curl http://localhost:3920/healthz` → `ok`
+# Run a specific test
+VERS_URL=... VERS_API_KEY=... make test-integration ARGS='-run TagLifecycle -v'
+```
 
-Tools exposed
-- `vers.status` — snapshot of VMs (inputs: target?)
-- `vers.run` — start a VM (inputs: memSizeMib?, vcpuCount?, rootfsName?, kernelName?, fsSizeVmMib?, vmAlias?)
-- `vers.execute` — run a command in a VM (inputs: target?, command [required], timeoutSeconds?)
-- `vers.branch` — create a VM from existing/HEAD (inputs: target?, alias?, checkout?)
-- `vers.kill` — delete VMs (inputs: targets?, skipConfirmation [required], recursive?)
-- `vers.version` — server info (no backend calls)
-- `vers.capabilities` — server settings/tool list
+### MCP Server (experimental)
 
-Resources
-- `vers://status` — global status as JSON
+Built-in MCP server to expose Vers operations as tools for agent clients (Claude Desktop/Code, etc.).
 
-Notes
-- Execute streams stdout/stderr via MCP logging messages; final summary + structured output returned.
-- Destructive tools require `skipConfirmation=true` in MCP mode.
-- Basic rate limits per minute are enforced per tool; hitting limits returns a coded MCP error.
+```bash
+# stdio transport (local agents)
+VERS_URL=https://<url> VERS_API_KEY=<token> vers mcp serve --transport stdio
+
+# HTTP/SSE transport
+VERS_MCP_HTTP_TOKEN=<secret> VERS_URL=... VERS_API_KEY=... vers mcp serve --transport http --addr :3920
+```
+
+Tools: `vers.status`, `vers.run`, `vers.execute`, `vers.branch`, `vers.kill`, `vers.version`, `vers.capabilities`
+
+Resources: `vers://status`

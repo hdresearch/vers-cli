@@ -10,7 +10,6 @@ import (
 	"github.com/hdresearch/vers-cli/internal/presenters"
 	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
 	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
 )
 
 type KillReq struct {
@@ -19,30 +18,26 @@ type KillReq struct {
 	Recursive        bool
 }
 
-// HandleKill orchestrates deletion flows. It currently prints via existing presenters/styles
-// to minimize changes in Phase 1; a later phase can return DTOs for presenters to render.
 func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
-	s := styles.NewKillStyles()
-
 	if len(r.Targets) == 0 {
 		headVMID, err := utils.GetCurrentHeadVM()
 		if err != nil {
-			return fmt.Errorf(s.NoData.Render("no arguments provided and %w"), err)
+			return fmt.Errorf("no arguments provided and %w", err)
 		}
-		fmt.Printf("%s", s.Progress.Render(fmt.Sprintf("Using current HEAD VM: %s\n", headVMID)))
+		fmt.Printf("Using current HEAD VM: %s\n", headVMID)
 
 		if !r.SkipConfirmation {
-			fmt.Println(s.Warning.Render("Warning: You are about to delete VM '" + headVMID + "'"))
+			fmt.Printf("Warning: You are about to delete VM '%s'\n", headVMID)
 			ok, _ := a.Prompter.YesNo("Proceed")
 			if !ok {
-				presenters.OperationCancelled(&s)
+				presenters.OperationCancelled()
 				return fmt.Errorf("operation cancelled by user")
 			}
 			if utils.CheckVMImpactsHead(headVMID) {
-				fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
+				fmt.Println("Warning: This will affect the current HEAD")
 				ok, _ = a.Prompter.YesNo("Proceed")
 				if !ok {
-					presenters.OperationCancelled(&s)
+					presenters.OperationCancelled()
 					return fmt.Errorf("operation cancelled by user")
 				}
 			}
@@ -51,9 +46,9 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 		if _, err := delsvc.DeleteVM(ctx, a.Client, headVMID, r.Recursive); err != nil {
 			switch e := err.(type) {
 			case *errorsx.HasChildrenError:
-				fmt.Println(presenters.HasChildrenGuidance(e.VMID, &s))
+				fmt.Println(presenters.HasChildrenGuidance(e.VMID))
 			case *errorsx.IsRootError:
-				fmt.Println(presenters.RootDeleteGuidance(e.VMID, &s))
+				fmt.Println(presenters.RootDeleteGuidance(e.VMID))
 			default:
 				return err
 			}
@@ -65,20 +60,20 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 	if len(r.Targets) == 1 {
 		vmInfo, err := utils.ResolveVMIdentifier(ctx, a.Client, r.Targets[0])
 		if err != nil {
-			return fmt.Errorf(s.NoData.Render("failed to find VM: %w"), err)
+			return fmt.Errorf("failed to find VM: %w", err)
 		}
 		if !r.SkipConfirmation {
-			fmt.Println(s.Warning.Render("Warning: You are about to delete VM '" + vmInfo.DisplayName + "'"))
+			fmt.Printf("Warning: You are about to delete VM '%s'\n", vmInfo.DisplayName)
 			ok, _ := a.Prompter.YesNo("Proceed")
 			if !ok {
-				presenters.OperationCancelled(&s)
+				presenters.OperationCancelled()
 				return fmt.Errorf("operation cancelled by user")
 			}
 			if utils.CheckVMImpactsHead(vmInfo.ID) {
-				fmt.Println(s.Warning.Render("Warning: This will affect the current HEAD"))
+				fmt.Println("Warning: This will affect the current HEAD")
 				ok, _ = a.Prompter.YesNo("Proceed")
 				if !ok {
-					presenters.OperationCancelled(&s)
+					presenters.OperationCancelled()
 					return fmt.Errorf("operation cancelled by user")
 				}
 			}
@@ -86,9 +81,9 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 		if _, err := delsvc.DeleteVM(ctx, a.Client, vmInfo.ID, r.Recursive); err != nil {
 			switch e := err.(type) {
 			case *errorsx.HasChildrenError:
-				fmt.Println(presenters.HasChildrenGuidance(e.VMID, &s))
+				fmt.Println(presenters.HasChildrenGuidance(e.VMID))
 			case *errorsx.IsRootError:
-				fmt.Println(presenters.RootDeleteGuidance(e.VMID, &s))
+				fmt.Println(presenters.RootDeleteGuidance(e.VMID))
 			default:
 				return err
 			}
@@ -97,6 +92,6 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 		return nil
 	}
 
-	processor := deletion.NewVMDeletionProcessor(a.Client, &s, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
+	processor := deletion.NewVMDeletionProcessor(a.Client, ctx, r.SkipConfirmation, r.Recursive, a.Prompter)
 	return processor.DeleteMultipleVMs(r.Targets)
 }

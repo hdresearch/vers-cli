@@ -4,59 +4,41 @@ import (
 	"fmt"
 
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/styles"
 )
 
 func RenderCommitsList(_ *app.App, v CommitsListView) {
-	s := styles.NewStatusStyles()
-
 	if v.Public {
-		fmt.Println(s.VMListHeader.Render("Public Commits"))
+		fmt.Println("Public Commits")
 	} else {
-		fmt.Println(s.VMListHeader.Render("Your Commits"))
+		fmt.Println("Your Commits")
 	}
 
 	if len(v.Commits) == 0 {
-		fmt.Println(s.NoData.Render("No commits found"))
+		fmt.Println("No commits found")
 		return
 	}
 
 	fmt.Printf("  %d commit(s)\n\n", v.Total)
 
+	fmt.Printf("%-38s  %-20s  %-8s  %s\n", "COMMIT ID", "NAME", "PUBLIC", "CREATED")
 	for _, c := range v.Commits {
 		name := c.Name
 		if name == "" {
-			name = c.CommitID
+			name = "-"
 		}
-		header := s.VMName.Render(name)
-		fmt.Println(header)
-
-		fmt.Println(s.VMData.Render(fmt.Sprintf("ID:         %s", s.VMID.Render(c.CommitID))))
-		fmt.Println(s.VMData.Render(fmt.Sprintf("Created:    %s", c.CreatedAt)))
-
+		public := "no"
 		if c.IsPublic {
-			fmt.Println(s.VMData.Render("Visibility: public"))
-		} else {
-			fmt.Println(s.VMData.Render("Visibility: private"))
+			public = "yes"
 		}
-
-		if c.Description != "" {
-			fmt.Println(s.VMData.Render(fmt.Sprintf("Desc:       %s", c.Description)))
-		}
-		if c.ParentVmID != "" {
-			fmt.Println(s.VMData.Render(fmt.Sprintf("Parent VM:  %s", c.ParentVmID)))
-		}
-		fmt.Println()
+		fmt.Printf("%-38s  %-20s  %-8s  %s\n", c.CommitID, name, public, c.CreatedAt)
 	}
 }
 
 func RenderCommitParents(_ *app.App, v CommitParentsView) {
-	s := styles.NewStatusStyles()
-
-	fmt.Println(s.VMListHeader.Render(fmt.Sprintf("Commit History for %s", s.VMID.Render(v.CommitID))))
+	fmt.Printf("Commit History for %s\n", v.CommitID)
 
 	if len(v.Parents) == 0 {
-		fmt.Println(s.NoData.Render("No parent commits found"))
+		fmt.Println("No parent commits found")
 		return
 	}
 
@@ -69,11 +51,11 @@ func RenderCommitParents(_ *app.App, v CommitParentsView) {
 		if name == "" {
 			name = p.ID
 		}
-		fmt.Printf("  %s %s\n", prefix, s.VMName.Render(name))
-		fmt.Println(s.VMData.Render(fmt.Sprintf("     ID:      %s", s.VMID.Render(p.ID))))
-		fmt.Println(s.VMData.Render(fmt.Sprintf("     Created: %s", p.CreatedAt.Format("2006-01-02 15:04:05"))))
+		fmt.Printf("  %s %s\n", prefix, name)
+		fmt.Printf("       ID:      %s\n", p.ID)
+		fmt.Printf("       Created: %s\n", p.CreatedAt.Format("2006-01-02 15:04:05"))
 		if p.Description != "" {
-			fmt.Println(s.VMData.Render(fmt.Sprintf("     Desc:    %s", p.Description)))
+			fmt.Printf("       Desc:    %s\n", p.Description)
 		}
 	}
 }

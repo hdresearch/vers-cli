@@ -13,7 +13,6 @@ import (
 	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
 	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
 	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
@@ -41,14 +40,12 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 		return view, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	s := styles.NewStatusStyles()
-
 	// Check VM state before attempting to connect
 	switch info.VM.State {
 	case vers.VmStateRunning:
 		// Good to go
 	case vers.VmStatePaused:
-		fmt.Fprintln(a.IO.Out, s.HeadStatus.Render("VM is paused. Resuming..."))
+		fmt.Fprintln(a.IO.Out, "VM is paused. Resuming...")
 		updateParams := vers.VmUpdateStateParams{
 			VmUpdateStateRequest: vers.VmUpdateStateRequestParam{
 				State: vers.F(vers.VmUpdateStateRequestStateRunning),
@@ -60,7 +57,7 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 		// Wait briefly for the VM to become ready
 		time.Sleep(2 * time.Second)
 	case vers.VmStateBooting:
-		fmt.Fprintln(a.IO.Out, s.HeadStatus.Render("VM is still booting. Waiting..."))
+		fmt.Fprintln(a.IO.Out, "VM is still booting. Waiting...")
 		// Poll until the VM is running
 		for i := 0; i < 30; i++ {
 			time.Sleep(2 * time.Second)
@@ -162,9 +159,7 @@ func HandleConnect(ctx context.Context, a *app.App, r ConnectReq) (presenters.Co
 			backoff = maxBackoff
 		}
 
-		fmt.Fprintf(a.IO.Out, "\r\n%s\r\n", s.HeadStatus.Render(
-			fmt.Sprintf("Connection lost. Reconnecting (attempt %d/%d)...", attempt+1, maxReconnectAttempts),
-		))
+		fmt.Fprintf(a.IO.Out, "\r\nConnection lost. Reconnecting (attempt %d/%d)...\r\n", attempt+1, maxReconnectAttempts)
 		if f, ok := a.IO.Out.(*os.File); ok {
 			f.Sync()
 		}

@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	presenters "github.com/hdresearch/vers-cli/internal/presenters"
-	"github.com/hdresearch/vers-cli/styles"
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
@@ -27,15 +26,11 @@ func capOut(t *testing.T, fn func()) string {
 }
 
 func TestRenderVMStatus_PrintsDetails(t *testing.T) {
-	s := styles.NewStatusStyles()
 	vm := &vers.Vm{
 		VmID: "vm1",
 	}
-	out := capOut(t, func() { presenters.RenderVMStatus(&s, vm) })
-	if !strings.Contains(out, "Getting status for VM: vm1") {
-		t.Fatalf("missing VM header: %s", out)
-	}
-	if !strings.Contains(out, "VM: vm1") {
-		t.Fatalf("missing VM details: %s", out)
+	out := capOut(t, func() { presenters.RenderVMStatus(vm) })
+	if !strings.Contains(out, "vm1") {
+		t.Fatalf("missing VM ID in output: %s", out)
 	}
 }

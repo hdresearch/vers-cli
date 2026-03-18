@@ -10,7 +10,6 @@ import (
 	"github.com/hdresearch/vers-cli/internal/assets"
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/runconfig"
-	"github.com/hdresearch/vers-cli/styles"
 	"github.com/spf13/cobra"
 )
 
@@ -125,20 +124,12 @@ var initCmd = &cobra.Command{
 			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
 				return fmt.Errorf("error creating vers.toml file: %w", err)
 			}
-			fmt.Print(styles.MutedTextStyle.Render("Created vers.toml with default configuration\n"))
+			fmt.Println("Created vers.toml with default configuration")
 		} else {
-			fmt.Print(styles.MutedTextStyle.Render("vers.toml already exists, skipping\n"))
+			fmt.Println("vers.toml already exists, skipping")
 		}
 
-		logoStyle := styles.AppStyle.Foreground(styles.TerminalMagenta)
-		fmt.Println(logoStyle.Render(`	
-		▗▖  ▗▖▗▄▄▄▖▗▄▄▖  ▗▄▄▖
-		▐▌  ▐▌▐▌   ▐▌ ▐▌▐▌   
-		▐▌  ▐▌▐▛▀▀▘▐▛▀▚▖ ▝▀▚▖
-		 ▝▚▞▘ ▐▙▄▄▖▐▌ ▐▌▗▄▄▞▘						 
-   `))
-
-		fmt.Printf("%s", styles.MutedTextStyle.Render(fmt.Sprintf("Initialized vers repository in %s directory\n", versDir)))
+		fmt.Println("Initialized vers repository in " + versDir + " directory")
 
 		return nil
 	},

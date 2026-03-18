@@ -2,15 +2,13 @@ package presenters
 
 import (
 	"fmt"
+
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/styles"
 )
 
 type PauseView struct{ VMName, NewState string }
 
 func RenderPause(a *app.App, v PauseView) {
-	s := styles.NewKillStyles()
-	utilsSuccess := s.Success // keep styling consistent with kill/pause
-	fmt.Println(utilsSuccess.Render("SUCCESS: VM '" + v.VMName + "' paused successfully"))
-	fmt.Printf("%s", s.HeadStatus.Render(fmt.Sprintf("VM state: %s\n", v.NewState)))
+	fmt.Printf("✓ VM '%s' paused successfully\n", v.VMName)
+	fmt.Printf("  State: %s\n", v.NewState)
 }

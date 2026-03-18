@@ -40,11 +40,21 @@ var tagCreateCmd = &cobra.Command{
 	},
 }
 
+var (
+	tagListQuiet  bool
+	tagListFormat string
+)
+
 var tagListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all tags",
-	Long:  `List all commit tags in your organization.`,
-	Args:  cobra.NoArgs,
+	Long: `List all commit tags in your organization.
+
+Use -q/--quiet to output just tag names (one per line), useful for scripting:
+  vers tag delete $(vers tag list -q)   # delete all tags
+
+Use --format json for machine-readable output.`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -53,7 +63,20 @@ var tagListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		pres.RenderTagList(application, res)
+
+		format := pres.ParseFormat(tagListQuiet, tagListFormat)
+		switch format {
+		case pres.FormatQuiet:
+			names := make([]string, len(res.Tags))
+			for i, t := range res.Tags {
+				names[i] = t.TagName
+			}
+			pres.PrintQuiet(names)
+		case pres.FormatJSON:
+			pres.PrintJSON(res.Tags)
+		default:
+			pres.RenderTagList(application, res)
+		}
 		return nil
 	},
 }
@@ -110,22 +133,34 @@ var tagUpdateCmd = &cobra.Command{
 }
 
 var tagDeleteCmd = &cobra.Command{
-	Use:   "delete <tag-name>",
-	Short: "Delete a tag",
-	Long:  `Delete a named tag. This does not delete the commit it points to.`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "delete <tag-name>...",
+	Short: "Delete one or more tags",
+	Long: `Delete one or more named tags. This does not delete the commits they point to.
+
+Examples:
+  vers tag delete staging
+  vers tag delete staging production
+  vers tag delete $(vers tag list -q)   # delete all tags`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
 
-		err := handlers.HandleTagDelete(apiCtx, application, handlers.TagDeleteReq{
-			TagName: args[0],
-		})
-		if err != nil {
-			return err
+		var firstErr error
+		for _, name := range args {
+			err := handlers.HandleTagDelete(apiCtx, application, handlers.TagDeleteReq{
+				TagName: name,
+			})
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to delete tag '%s': %v\n", name, err)
+				if firstErr == nil {
+					firstErr = err
+				}
+				continue
+			}
+			fmt.Printf("✓ Tag '%s' deleted\n", name)
 		}
-		fmt.Printf("✓ Tag '%s' deleted\n", args[0])
-		return nil
+		return firstErr
 	},
 }
 
@@ -135,6 +170,8 @@ func init() {
 	tagCreateCmd.Flags().StringVarP(&tagCreateDescription, "description", "d", "", "Description for the tag")
 	tagCmd.AddCommand(tagCreateCmd)
 
+	tagListCmd.Flags().BoolVarP(&tagListQuiet, "quiet", "q", false, "Only display tag names")
+	tagListCmd.Flags().StringVar(&tagListFormat, "format", "", "Output format (json)")
 	tagCmd.AddCommand(tagListCmd)
 	tagCmd.AddCommand(tagGetCmd)
 
