@@ -16,16 +16,11 @@ func ListVMs(ctx context.Context, client *vers.Client) ([]vers.Vm, error) {
 	return *resp, nil
 }
 
-// GetVM retrieves a single VM by ID
+// GetVM retrieves a single VM by ID using the status endpoint.
 func GetVM(ctx context.Context, client *vers.Client, vmID string) (*vers.Vm, error) {
-	vms, err := ListVMs(ctx, client)
+	resp, err := client.Vm.Status(ctx, vmID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("VM with ID %s not found: %w", vmID, err)
 	}
-	for _, vm := range vms {
-		if vm.VmID == vmID {
-			return &vm, nil
-		}
-	}
-	return nil, fmt.Errorf("VM with ID %s not found", vmID)
+	return resp, nil
 }
