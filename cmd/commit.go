@@ -12,21 +12,37 @@ import (
 var commitFormat string
 
 // commitCmd is the parent command for commit operations.
-// When invoked without a subcommand, it commits the current HEAD VM (backward compat).
+// Bare `vers commit` (no args, no subcommand) creates a commit of HEAD for backward compat.
 var commitCmd = &cobra.Command{
-	Use:   "commit [vm-id|alias]",
-	Short: "Commit the current state of the environment",
-	Long: `Save the current state of the Vers environment as a commit.
-If no VM ID or alias is provided, commits the current HEAD VM.
+	Use:   "commit",
+	Short: "Manage commits",
+	Long: `Manage commits — create, list, delete, and inspect commit history.
 
-Use --format json for machine-readable output.
+Create a commit (saves current VM state):
+  vers commit                        # commit HEAD VM
+  vers commit create [vm-id]         # commit a specific VM
 
 Subcommands:
+  create     Create a commit (default when no subcommand given)
   list       List your commits
   delete     Delete a commit
   history    Show the parent commit chain
   publish    Make a commit public
   unpublish  Make a commit private`,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Bare `vers commit` with no args → create commit of HEAD
+		return commitCreateCmd.RunE(cmd, args)
+	},
+}
+
+var commitCreateCmd = &cobra.Command{
+	Use:   "create [vm-id|alias]",
+	Short: "Create a commit from a VM",
+	Long: `Save the current state of a VM as a commit.
+If no VM ID or alias is provided, commits the current HEAD VM.
+
+Use --format json for machine-readable output.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -211,7 +227,8 @@ var commitUnpublishCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(commitCmd)
 
-	commitCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json)")
+	commitCreateCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json)")
+	commitCmd.AddCommand(commitCreateCmd)
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
 	commitListCmd.Flags().BoolVarP(&commitListQuiet, "quiet", "q", false, "Only display commit IDs")
