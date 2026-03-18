@@ -1,0 +1,265 @@
+#!/bin/bash
+set -euo pipefail
+
+AGENT_FILE="$(realpath "$0")"
+AGENT_DIR="$(dirname "$AGENT_FILE")"
+MODEL="${VERS_MODEL:-claude-opus-4-6}"
+VERSION="0.2.0"
+MEMORY_FILE="$AGENT_DIR/.quine_memory"
+LOG_FILE="$AGENT_DIR/.quine_log"
+CONV_DIR="$AGENT_DIR/.quine_conversations"
+MAX_OUTPUT=800
+MAX_RETRIES=3
+
+# Colors
+C_GREEN='\033[1;32m'
+C_CYAN='\033[1;36m'
+C_YELLOW='\033[1;33m'
+C_RED='\033[1;31m'
+C_DIM='\033[2m'
+C_BOLD='\033[1m'
+C_RESET='\033[0m'
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"; }
+die() { echo -e "${C_RED}Error: $*${C_RESET}" >&2; exit 1; }
+
+for cmd in curl jq; do
+  command -v "$cmd" >/dev/null 2>&1 || die "$cmd required"
+done
+[[ -z "${ANTHROPIC_API_KEY:-}" ]] && die "ANTHROPIC_API_KEY not set"
+
+mkdir -p "$CONV_DIR"
+touch "$MEMORY_FILE" "$LOG_FILE"
+
+log "quine.sh v$VERSION started"
+
+# Memory functions
+remember() { echo "$1=$2" >> "$MEMORY_FILE"; log "Remembered: $1=$2"; }
+recall() {
+  if [[ -f "$MEMORY_FILE" ]]; then
+    if [[ -n "${1:-}" ]]; then
+      grep "^$1=" "$MEMORY_FILE" | tail -1 | cut -d= -f2-
+    else
+      cat "$MEMORY_FILE"
+    fi
+  fi
+}
+
+SYSTEM_PROMPT="You are an autonomous CLI agent running in bash. You have tools: shell, read_file, write_file, self_modify.
+Use shell to run commands. Use self_modify to upgrade yourself (you rewrite your own script and restart).
+Working directory: $(pwd). Your script: $AGENT_FILE. Be concise. Act, don't narrate.
+
+When making function calls using tools that accept array or object parameters ensure those are structured using JSON. For example:
+<tool_call>
+{\"name\": \"example_complex_tool\", \"parameter\": [{\"color\": \"orange\", \"options\": {\"option_key_1\": true, \"option_key_2\": \"value\"}}, {\"color\": \"purple\", \"options\": {\"option_key_1\": true, \"option_key_2\": \"value\"}}]}
+</tool_call>
+
+Answer the user's request using the relevant tool(s), if they are available. Check that all the required parameters for each tool call are provided or can reasonably be inferred from context. IF there are no relevant tools or there are missing values for required parameters, ask the user to supply these values; otherwise proceed with the tool calls. If the user provides a specific value for a parameter (for example provided in quotes), make sure to use that value EXACTLY. DO NOT make up values for or ask about optional parameters.
+
+If you intend to call multiple tools and there are no dependencies between the calls, make all of the independent calls in the same block, otherwise you MUST wait for previous calls to finish first to determine the dependent values (do NOT use placeholders or guess missing parameters).
+
+Your version: $VERSION
+Your memory: $(recall 2>/dev/null || echo 'empty')
+Previous versions evolved from a simple API loop. You can self-modify to add capabilities."
+
+TOOLS='[
+  {"name":"shell","description":"Run a shell command","input_schema":{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}},
+  {"name":"read_file","description":"Read a file","input_schema":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}},
+  {"name":"write_file","description":"Write to a file","input_schema":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}},
+  {"name":"self_modify","description":"Rewrite this agent script and restart","input_schema":{"type":"object","properties":{"new_code":{"type":"string"}},"required":["new_code"]}}
+]'
+
+MESSAGES="[]"
+
+# Restore conversation if restarting from self_modify
+CONV_RESTORE="$AGENT_DIR/.quine_conv_restore"
+if [[ -f "$CONV_RESTORE" ]]; then
+  MESSAGES=$(cat "$CONV_RESTORE")
+  rm -f "$CONV_RESTORE"
+  log "Restored conversation after self_modify"
+  echo -e "${C_CYAN}↻ Restarted after self-modify (v$VERSION)${C_RESET}" >&2
+fi
+
+call_api() {
+  local attempt=0 response
+  local payload
+  payload=$(jq -n \
+    --arg model "$MODEL" \
+    --arg system "$SYSTEM_PROMPT" \
+    --argjson tools "$TOOLS" \
+    --argjson messages "$MESSAGES" \
+    '{model:$model,max_tokens:16384,system:$system,tools:$tools,messages:$messages}')
+
+  while (( attempt < MAX_RETRIES )); do
+    response=$(curl -s --max-time 120 https://api.anthropic.com/v1/messages \
+      -H "x-api-key: $ANTHROPIC_API_KEY" \
+      -H "content-type: application/json" \
+      -H "anthropic-version: 2023-06-01" \
+      -d "$payload")
+
+    # Check for overload/rate limit
+    if echo "$response" | jq -e '.error.type == "overloaded_error" or .error.type == "rate_limit_error"' >/dev/null 2>&1; then
+      attempt=$((attempt + 1))
+      local wait=$((attempt * 5))
+      echo -e "${C_YELLOW}⏳ API busy, retry $attempt/$MAX_RETRIES in ${wait}s...${C_RESET}" >&2
+      sleep "$wait"
+      continue
+    fi
+    echo "$response"
+    return 0
+  done
+  echo "$response"
+}
+
+execute_tool() {
+  local name="$1" input="$2"
+  case "$name" in
+    shell)
+      local cmd
+      cmd=$(echo "$input" | jq -r '.command')
+      echo -e "  ${C_DIM}→ shell:${C_RESET} ${C_YELLOW}$cmd${C_RESET}" >&2
+      log "Tool: shell: $cmd"
+      local output
+      output=$(eval "$cmd" 2>&1) || true
+      # Smart truncation: keep first and last lines if too long
+      local lines
+      lines=$(echo "$output" | wc -l)
+      if (( lines > MAX_OUTPUT )); then
+        local head_lines=$((MAX_OUTPUT / 2))
+        local tail_lines=$((MAX_OUTPUT / 2))
+        output="$(echo "$output" | head -$head_lines)
+... [truncated $((lines - MAX_OUTPUT)) lines] ...
+$(echo "$output" | tail -$tail_lines)"
+      fi
+      echo "$output"
+      ;;
+    read_file)
+      local path
+      path=$(echo "$input" | jq -r '.path')
+      echo -e "  ${C_DIM}→ read_file:${C_RESET} ${C_CYAN}$path${C_RESET}" >&2
+      log "Tool: read_file: $path"
+      cat "$path" 2>&1 | head -$MAX_OUTPUT
+      ;;
+    write_file)
+      local path content
+      path=$(echo "$input" | jq -r '.path')
+      content=$(echo "$input" | jq -r '.content')
+      echo -e "  ${C_DIM}→ write_file:${C_RESET} ${C_CYAN}$path${C_RESET}" >&2
+      log "Tool: write_file: $path"
+      mkdir -p "$(dirname "$path")"
+      printf '%s' "$content" > "$path"
+      echo "OK: wrote $path ($(wc -c < "$path") bytes)"
+      ;;
+    self_modify)
+      local new_code
+      new_code=$(echo "$input" | jq -r '.new_code')
+      echo -e "  ${C_BOLD}${C_CYAN}→ self_modify: rewriting and restarting...${C_RESET}" >&2
+
+      # Backup current version
+      local backup="$AGENT_FILE.bak.$(date +%s)"
+      cp "$AGENT_FILE" "$backup"
+      log "Backup: $backup"
+
+      # Save conversation for restoration
+      echo "$MESSAGES" > "$CONV_RESTORE"
+      log "Saved conversation for restore"
+
+      # Write new code
+      printf '%s' "$new_code" > "$AGENT_FILE"
+      chmod +x "$AGENT_FILE"
+      log "Self-modified, restarting..."
+
+      exec bash "$AGENT_FILE"
+      ;;
+    *)
+      echo "Unknown tool: $name"
+      ;;
+  esac
+}
+
+process_response() {
+  local response="$1"
+
+  if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+    local errmsg
+    errmsg=$(echo "$response" | jq -r '.error.message // .error // "Unknown API error"')
+    echo -e "${C_RED}API Error: $errmsg${C_RESET}" >&2
+    log "API Error: $errmsg"
+    return 1
+  fi
+
+  local content stop_reason
+  content=$(echo "$response" | jq -c '.content')
+  stop_reason=$(echo "$response" | jq -r '.stop_reason')
+
+  MESSAGES=$(echo "$MESSAGES" | jq --argjson c "$content" '. + [{role:"assistant",content:$c}]')
+
+  # Display text blocks
+  echo "$content" | jq -r '.[] | select(.type=="text") | .text' 2>/dev/null | while IFS= read -r line; do
+    [[ -n "$line" ]] && echo "$line" >&2
+  done
+
+  if [[ "$stop_reason" == "tool_use" ]]; then
+    local tool_results="[]"
+    local tool_blocks
+    tool_blocks=$(echo "$content" | jq -c '[.[] | select(.type=="tool_use")]')
+    local count
+    count=$(echo "$tool_blocks" | jq 'length')
+
+    for ((i=0; i<count; i++)); do
+      local block tool_name tool_input tool_id output
+      block=$(echo "$tool_blocks" | jq -c ".[$i]")
+      tool_name=$(echo "$block" | jq -r '.name')
+      tool_input=$(echo "$block" | jq -c '.input')
+      tool_id=$(echo "$block" | jq -r '.id')
+
+      output=$(execute_tool "$tool_name" "$tool_input" || true)
+
+      tool_results=$(echo "$tool_results" | jq \
+        --arg id "$tool_id" \
+        --arg out "$output" \
+        '. + [{"type":"tool_result","tool_use_id":$id,"content":$out}]')
+    done
+
+    MESSAGES=$(echo "$MESSAGES" | jq --argjson tr "$tool_results" '. + [{role:"user",content:$tr}]')
+
+    local next_response
+    next_response=$(call_api)
+    process_response "$next_response"
+  fi
+}
+
+# Header
+echo -e "${C_BOLD}${C_CYAN}╔═══════════════════════════════════════╗${C_RESET}" >&2
+echo -e "${C_BOLD}${C_CYAN}║  quine.sh v${VERSION} — self-evolving agent  ║${C_RESET}" >&2
+echo -e "${C_BOLD}${C_CYAN}╚═══════════════════════════════════════╝${C_RESET}" >&2
+echo -e "${C_DIM}Model: $MODEL | Memory: $(wc -l < "$MEMORY_FILE") entries | Type 'exit' to quit${C_RESET}" >&2
+
+while true; do
+  printf "\n${C_GREEN}you>${C_RESET} " >&2
+  read -r user_input </dev/tty || break
+  [[ "$user_input" == "exit" || "$user_input" == "quit" ]] && { echo -e "${C_DIM}Goodbye.${C_RESET}" >&2; break; }
+  [[ -z "$user_input" ]] && continue
+
+  # Special commands
+  case "$user_input" in
+    /memory) recall >&2; continue ;;
+    /version) echo "quine.sh v$VERSION" >&2; continue ;;
+    /reset) MESSAGES="[]"; echo -e "${C_YELLOW}Conversation reset.${C_RESET}" >&2; continue ;;
+    /save)
+      local ts=$(date +%s)
+      echo "$MESSAGES" > "$CONV_DIR/conv_$ts.json"
+      echo -e "${C_GREEN}Saved to conv_$ts.json${C_RESET}" >&2
+      continue
+      ;;
+    /help)
+      echo -e "${C_CYAN}Commands: /memory /version /reset /save /help${C_RESET}" >&2
+      continue
+      ;;
+  esac
+
+  MESSAGES=$(echo "$MESSAGES" | jq --arg u "$user_input" '. + [{role:"user",content:$u}]')
+
+  response=$(call_api)
+  process_response "$response"
+done

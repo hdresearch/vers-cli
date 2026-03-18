@@ -13,10 +13,10 @@ func TestHandleInfo(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
-		case r.URL.Path == "/api/v1/vms" && r.Method == http.MethodGet:
-			// ResolveVMIdentifier calls List first
+		case r.URL.Path == "/api/v1/vm/vm-123/status" && r.Method == http.MethodGet:
+			// ResolveVMIdentifier calls Status
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[{"vm_id": "vm-123", "owner_id": "owner-1", "created_at": "2026-03-17T00:00:00Z", "state": "Running"}]`))
+			w.Write([]byte(`{"vm_id": "vm-123", "owner_id": "owner-1", "created_at": "2026-03-17T00:00:00Z", "state": "Running"}`))
 		case r.URL.Path == "/api/v1/vm/vm-123/metadata" && r.Method == http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{
