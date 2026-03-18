@@ -26,7 +26,7 @@ func TestCommitAndRunCommit(t *testing.T) {
 	testutil.RegisterVMCleanup(t, vmID, true)
 
 	// Commit the VM; capture Commit ID from output
-	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "commit", vmID)
+	out, err = testutil.RunVers(t, testutil.DefaultTimeout, "commit", "create", vmID)
 	if err != nil {
 		if regexp.MustCompile(`(?i)Error uploading commit to S3|AWS CLI|S3 bucket`).FindString(out) != "" {
 			t.Skipf("skipping commit test due to backend storage configuration: %v\nOutput:\n%s", err, out)
