@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hdresearch/vers-cli/styles"
 	"github.com/hdresearch/vers-sdk-go/option"
 )
 
@@ -121,7 +120,7 @@ func HasAPIKey() (bool, error) {
 
 // PromptForLogin creates a helper function that checks for API key and prompts for login if not found
 func PromptForLogin() error {
-	errorMsg := styles.ErrorTextStyle.Render("No API key found. Please run 'vers login' to authenticate.")
+	errorMsg := "No API key found. Please run 'vers login' to authenticate."
 	fmt.Println(errorMsg)
 	return nil
 }

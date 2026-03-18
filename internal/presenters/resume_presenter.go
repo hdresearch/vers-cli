@@ -2,14 +2,13 @@ package presenters
 
 import (
 	"fmt"
+
 	"github.com/hdresearch/vers-cli/internal/app"
-	"github.com/hdresearch/vers-cli/styles"
 )
 
 type ResumeView struct{ VMName, NewState string }
 
 func RenderResume(a *app.App, v ResumeView) {
-	s := styles.NewKillStyles()
-	fmt.Println(s.Success.Render("SUCCESS: VM '" + v.VMName + "' resumed successfully"))
-	fmt.Printf("%s", s.HeadStatus.Render(fmt.Sprintf("VM state: %s\n", v.NewState)))
+	fmt.Printf("✓ VM '%s' resumed successfully\n", v.VMName)
+	fmt.Printf("  State: %s\n", v.NewState)
 }

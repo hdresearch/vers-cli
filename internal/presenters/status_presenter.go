@@ -2,33 +2,27 @@ package presenters
 
 import (
 	"fmt"
-	"github.com/charmbracelet/lipgloss/list"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	"github.com/hdresearch/vers-cli/styles"
+
 	vers "github.com/hdresearch/vers-sdk-go"
 )
 
-func RenderVMStatus(s *styles.StatusStyles, vm *vers.Vm) {
-	vmInfo := utils.CreateVMInfoFromVM(*vm)
-	fmt.Println(s.HeadStatus.Render("Getting status for VM: " + vmInfo.DisplayName))
-	fmt.Println(s.VMListHeader.Render("VM details:"))
-	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
-	vmInfoDisplay := s.VMName.Render("VM: " + s.VMID.Render(vmInfo.DisplayName))
-	vmList.Items(vmInfoDisplay)
-	fmt.Println(vmList)
-	fmt.Println(s.Tip.Render("\nTip: To view all VMs, run: vers status"))
+func RenderVMStatus(vm *vers.Vm) {
+	fmt.Printf("Getting status for VM: %s\n\n", vm.VmID)
+	fmt.Printf("  VM ID:    %s\n", vm.VmID)
+	fmt.Printf("  State:    %s\n", vm.State)
+	fmt.Printf("  Owner:    %s\n", vm.OwnerID)
+	fmt.Printf("  Created:  %s\n", vm.CreatedAt.Format("2006-01-02 15:04:05"))
+	fmt.Println()
+	fmt.Println("Tip: To view all VMs, run: vers status")
 }
 
-// RenderVMList renders a list of all VMs
-func RenderVMList(s *styles.StatusStyles, vms []vers.Vm) {
-	fmt.Println(s.VMListHeader.Render("Available VMs:"))
-	vmList := list.New().Enumerator(emptyEnumerator).ItemStyle(s.VMListItem)
+func RenderVMList(vms []vers.Vm) {
+	fmt.Printf("%-38s  %-10s  %s\n", "VM ID", "STATE", "CREATED")
 	for _, vm := range vms {
-		vmInfo := s.VMName.Render("VM: " + vm.VmID)
-		vmList.Items(vmInfo)
+		fmt.Printf("%-38s  %-10s  %s\n",
+			vm.VmID,
+			vm.State,
+			vm.CreatedAt.Format("2006-01-02 15:04:05"),
+		)
 	}
-	fmt.Println(vmList)
 }
-
-// emptyEnumerator mirrors the local helper used in commands.
-func emptyEnumerator(_ list.Items, _ int) string { return "" }
