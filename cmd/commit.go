@@ -53,7 +53,7 @@ Subcommands:
 				fmt.Printf("Using current HEAD VM: %s\n", res.VmID)
 			}
 			fmt.Printf("✓ Committed VM '%s'\n", res.VmID)
-			fmt.Printf("  Commit ID: %s\n", res.CommitID)
+			fmt.Printf("Commit ID: %s\n", res.CommitID)
 		}
 		return nil
 	},

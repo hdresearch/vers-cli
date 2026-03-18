@@ -29,17 +29,16 @@ func RenderBranch(a *app.App, res BranchView) {
 
 	if numNew == 1 {
 		fmt.Println("✓ New VM created successfully!")
-		fmt.Printf("  VM ID: %s\n", newIDs[0])
+		fmt.Printf("VM ID: %s\n", newIDs[0])
 		if res.NewAlias != "" {
-			fmt.Printf("  Alias: %s\n", res.NewAlias)
+			fmt.Printf("Alias: %s\n", res.NewAlias)
 		}
 	} else {
 		fmt.Printf("✓ %d new VMs created successfully!\n", numNew)
 		for _, id := range newIDs {
-			fmt.Printf("  - %s\n", id)
+			fmt.Println(id)
 		}
 	}
-	fmt.Println()
 
 	if res.CheckoutDone {
 		display := res.NewAlias

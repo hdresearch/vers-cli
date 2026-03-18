@@ -7,13 +7,10 @@ import (
 )
 
 func RenderVMStatus(vm *vers.Vm) {
-	fmt.Printf("Getting status for VM: %s\n\n", vm.VmID)
-	fmt.Printf("  VM ID:    %s\n", vm.VmID)
-	fmt.Printf("  State:    %s\n", vm.State)
-	fmt.Printf("  Owner:    %s\n", vm.OwnerID)
-	fmt.Printf("  Created:  %s\n", vm.CreatedAt.Format("2006-01-02 15:04:05"))
-	fmt.Println()
-	fmt.Println("Tip: To view all VMs, run: vers status")
+	fmt.Printf("VM ID:    %s\n", vm.VmID)
+	fmt.Printf("State:    %s\n", vm.State)
+	fmt.Printf("Owner:    %s\n", vm.OwnerID)
+	fmt.Printf("Created:  %s\n", vm.CreatedAt.Format("2006-01-02 15:04:05"))
 }
 
 func RenderVMList(vms []vers.Vm) {
