@@ -15,15 +15,15 @@ func TestIsValidEnvKey(t *testing.T) {
 		{"a", true},
 		{"_", true},
 		{"A1_B2", true},
-		
+
 		// Invalid keys
-		{"", false},                    // empty
-		{"1BAD", false},               // starts with digit
-		{"BAD KEY", false},            // contains space
-		{"BAD-KEY", false},            // contains dash
-		{"BAD.KEY", false},            // contains dot
-		{"BAD;KEY", false},            // contains semicolon
-		{"café", false},               // non-ASCII characters
+		{"", false},                        // empty
+		{"1BAD", false},                    // starts with digit
+		{"BAD KEY", false},                 // contains space
+		{"BAD-KEY", false},                 // contains dash
+		{"BAD.KEY", false},                 // contains dot
+		{"BAD;KEY", false},                 // contains semicolon
+		{"café", false},                    // non-ASCII characters
 		{string(make([]byte, 257)), false}, // too long
 	}
 

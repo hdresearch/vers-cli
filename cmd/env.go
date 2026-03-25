@@ -181,7 +181,7 @@ func isValidEnvKey(key string) bool {
 
 func init() {
 	rootCmd.AddCommand(envCmd)
-	
+
 	// Add subcommands
 	envCmd.AddCommand(envListCmd)
 	envCmd.AddCommand(envSetCmd)
