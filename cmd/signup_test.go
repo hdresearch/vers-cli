@@ -73,3 +73,35 @@ func TestSignupNoUnexpectedFlags(t *testing.T) {
 		t.Error("signup should not have a --token flag (that's login's job)")
 	}
 }
+
+// TestSignupEmailFlag verifies --email flag exists with empty default.
+func TestSignupEmailFlag(t *testing.T) {
+	cmd, _, err := rootCmd.Find([]string{"signup"})
+	if err != nil {
+		t.Fatalf("Find(signup) returned error: %v", err)
+	}
+
+	flag := cmd.Flags().Lookup("email")
+	if flag == nil {
+		t.Fatal("signup command has no --email flag")
+	}
+	if flag.DefValue != "" {
+		t.Errorf("expected --email default value %q, got %q", "", flag.DefValue)
+	}
+}
+
+// TestSignupSSHKeyFlag verifies --ssh-key flag exists with empty default.
+func TestSignupSSHKeyFlag(t *testing.T) {
+	cmd, _, err := rootCmd.Find([]string{"signup"})
+	if err != nil {
+		t.Fatalf("Find(signup) returned error: %v", err)
+	}
+
+	flag := cmd.Flags().Lookup("ssh-key")
+	if flag == nil {
+		t.Fatal("signup command has no --ssh-key flag")
+	}
+	if flag.DefValue != "" {
+		t.Errorf("expected --ssh-key default value %q, got %q", "", flag.DefValue)
+	}
+}

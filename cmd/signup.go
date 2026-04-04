@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/mail"
 	"os"
 	"strings"
 	"time"
@@ -11,27 +12,51 @@ import (
 )
 
 var (
-	signupGit bool
-	signupOrg string
+	signupGit    bool
+	signupOrg    string
+	signupEmail  string
+	signupSSHKey string
 )
 
 // signupWithGit authenticates using the Shell Auth flow with git email + SSH key.
 func signupWithGit() error {
-	// Step 1: Get git email
-	fmt.Print("Looking up git email... ")
-	email, err := auth.GetGitEmail()
-	if err != nil {
-		fmt.Println("✗")
-		return err
+	// Step 1: Get email
+	var email string
+	if signupEmail != "" {
+		// Validate the provided email
+		if _, err := mail.ParseAddress(signupEmail); err != nil {
+			return fmt.Errorf("invalid email address %q: %w", signupEmail, err)
+		}
+		email = signupEmail
+		fmt.Printf("Using email: %s\n", email)
+	} else {
+		fmt.Print("Looking up git email... ")
+		var err error
+		email, err = auth.GetGitEmail()
+		if err != nil {
+			fmt.Println("✗")
+			return err
+		}
+		fmt.Println(email)
 	}
-	fmt.Println(email)
 
-	// Step 2: Find SSH public key
-	fmt.Print("Looking up SSH public key... ")
-	sshPubKey, err := auth.FindSSHPublicKey()
-	if err != nil {
-		fmt.Println("✗")
-		return err
+	// Step 2: Get SSH public key
+	var sshPubKey string
+	if signupSSHKey != "" {
+		// Read and validate the provided SSH key file
+		pubKey, err := auth.ReadAndValidateSSHPublicKey(signupSSHKey)
+		if err != nil {
+			return err
+		}
+		sshPubKey = pubKey
+	} else {
+		fmt.Print("Looking up SSH public key... ")
+		var err error
+		sshPubKey, err = auth.FindSSHPublicKey()
+		if err != nil {
+			fmt.Println("✗")
+			return err
+		}
 	}
 	// Show truncated key for confirmation
 	keyParts := strings.Fields(sshPubKey)
@@ -40,7 +65,7 @@ func signupWithGit() error {
 	if len(keyPreview) > 16 {
 		keyPreview = keyPreview[:8] + "..." + keyPreview[len(keyPreview)-8:]
 	}
-	fmt.Printf("%s %s\n", keyType, keyPreview)
+	fmt.Printf("SSH key: %s %s\n", keyType, keyPreview)
 
 	// Step 3: Initiate shell auth
 	fmt.Println("\nInitiating authentication...")
@@ -147,9 +172,11 @@ var signupCmd = &cobra.Command{
 By default, signup uses your git email and SSH public key to create
 an account. A verification email is sent — click the link and you're in.
 
-  vers signup             Sign up with git email + SSH key (default)
-  vers signup --org myorg Pick org non-interactively (for scripts/agents)
-  vers signup --git=false Prompt for an API key instead
+  vers signup                              Auto-detect git email + SSH key
+  vers signup --email me@co.com            Use a specific email
+  vers signup --ssh-key ~/.ssh/id_rsa.pub  Use a specific SSH public key
+  vers signup --org myorg                  Pick org non-interactively
+  vers signup --git=false                  Prompt for an API key instead
 
 If you already have an account, this will log you in.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -183,4 +210,6 @@ func init() {
 	rootCmd.AddCommand(signupCmd)
 	signupCmd.Flags().BoolVar(&signupGit, "git", true, "Authenticate using your git email and SSH key (default: true)")
 	signupCmd.Flags().StringVar(&signupOrg, "org", "", "Organization name (skips interactive selection)")
+	signupCmd.Flags().StringVar(&signupEmail, "email", "", "Email address (default: git config user.email)")
+	signupCmd.Flags().StringVar(&signupSSHKey, "ssh-key", "", "Path to SSH public key file (default: auto-detect)")
 }

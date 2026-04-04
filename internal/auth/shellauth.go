@@ -119,6 +119,54 @@ func FindSSHPublicKey() (string, error) {
 	return "", fmt.Errorf("no SSH public key found — checked: %s\nGenerate one with: ssh-keygen -t ed25519", strings.Join(candidates, ", "))
 }
 
+// validSSHKeyTypes are the accepted SSH public key type prefixes.
+var validSSHKeyTypes = map[string]bool{
+	"ssh-ed25519":                  true,
+	"ssh-rsa":                      true,
+	"ecdsa-sha2-nistp256":          true,
+	"ecdsa-sha2-nistp384":          true,
+	"ecdsa-sha2-nistp521":          true,
+	"sk-ssh-ed25519@openssh.com":   true,
+	"sk-ecdsa-sha2-nistp256@openssh.com": true,
+}
+
+// ReadAndValidateSSHPublicKey reads an SSH public key from a file path and validates it.
+// Returns the key contents on success.
+func ReadAndValidateSSHPublicKey(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("SSH key file not found: %s", path)
+	}
+	if info.IsDir() {
+		return "", fmt.Errorf("SSH key path is a directory, not a file: %s", path)
+	}
+	if info.Size() > 16*1024 {
+		return "", fmt.Errorf("SSH key file too large (%d bytes) — expected a public key", info.Size())
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read SSH key file: %w", err)
+	}
+
+	key := strings.TrimSpace(string(data))
+	if key == "" {
+		return "", fmt.Errorf("SSH key file is empty: %s", path)
+	}
+
+	// Validate format: should be "<type> <base64-data> [comment]"
+	parts := strings.Fields(key)
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid SSH public key format in %s — expected \"<type> <base64-data> [comment]\"", path)
+	}
+
+	if !validSSHKeyTypes[parts[0]] {
+		return "", fmt.Errorf("unrecognized SSH key type %q in %s — expected one of: ssh-ed25519, ssh-rsa, ecdsa-sha2-*", parts[0], path)
+	}
+
+	return key, nil
+}
+
 // shellAuthBaseURL returns the base URL for shell auth endpoints.
 func shellAuthBaseURL() (string, error) {
 	versURL, err := GetVersUrl()
