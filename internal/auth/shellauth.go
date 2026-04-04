@@ -121,12 +121,12 @@ func FindSSHPublicKey() (string, error) {
 
 // validSSHKeyTypes are the accepted SSH public key type prefixes.
 var validSSHKeyTypes = map[string]bool{
-	"ssh-ed25519":                  true,
-	"ssh-rsa":                      true,
-	"ecdsa-sha2-nistp256":          true,
-	"ecdsa-sha2-nistp384":          true,
-	"ecdsa-sha2-nistp521":          true,
-	"sk-ssh-ed25519@openssh.com":   true,
+	"ssh-ed25519":                        true,
+	"ssh-rsa":                            true,
+	"ecdsa-sha2-nistp256":                true,
+	"ecdsa-sha2-nistp384":                true,
+	"ecdsa-sha2-nistp521":                true,
+	"sk-ssh-ed25519@openssh.com":         true,
 	"sk-ecdsa-sha2-nistp256@openssh.com": true,
 }
 
