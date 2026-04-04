@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -103,22 +102,11 @@ func signupWithGit() error {
 		orgName = verifyResp.Orgs[0].Name
 		fmt.Printf("\nOrganization: %s\n", orgName)
 	} else {
-		fmt.Println("\nSelect an organization:")
+		names := make([]string, len(verifyResp.Orgs))
 		for i, org := range verifyResp.Orgs {
-			fmt.Printf("  [%d] %s (%s)\n", i+1, org.Name, org.Role)
+			names[i] = org.Name
 		}
-		fmt.Print("Enter number: ")
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("failed to read input: %w", err)
-		}
-		input = strings.TrimSpace(input)
-		var choice int
-		if _, err := fmt.Sscanf(input, "%d", &choice); err != nil || choice < 1 || choice > len(verifyResp.Orgs) {
-			return fmt.Errorf("invalid selection")
-		}
-		orgName = verifyResp.Orgs[choice-1].Name
+		return fmt.Errorf("multiple organizations found. Use --org to specify one: %s", strings.Join(names, ", "))
 	}
 
 	// Step 6: Create API key
