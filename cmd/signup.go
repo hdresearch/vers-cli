@@ -2,84 +2,22 @@ package cmd
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/hdresearch/vers-cli/internal/auth"
-	vers "github.com/hdresearch/vers-sdk-go"
-	"github.com/hdresearch/vers-sdk-go/option"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var (
-	token    string
-	loginGit bool
+	signupGit bool
+	signupOrg string
 )
 
-// validateAPIKey validates the API key by attempting to list VMs
-func validateAPIKey(apiKey string) error {
-	// Get client options
-	clientOptions, err := auth.GetClientOptions()
-	if err != nil {
-		return fmt.Errorf("error getting client options: %w", err)
-	}
-
-	// Add the API key to the options
-	clientOptions = append(clientOptions, option.WithAPIKey(apiKey))
-
-	// Create a client with the provided API key
-	client := vers.NewClient(clientOptions...)
-
-	// Try to list VMs as a validation check
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, err = client.Vm.List(ctx)
-	if err != nil {
-		// Check if it's an authentication/authorization error
-		errStr := err.Error()
-		errStrLower := strings.ToLower(errStr)
-		if strings.Contains(errStr, "401") || strings.Contains(errStr, "403") ||
-			strings.Contains(errStrLower, "unauthorized") || strings.Contains(errStrLower, "forbidden") {
-			return fmt.Errorf("invalid API key - please check your key and try again")
-		}
-		// Other errors might be network issues, etc.
-		return fmt.Errorf("could not validate API key: %w", err)
-	}
-
-	// Key validated successfully
-	fmt.Println("API key validated successfully")
-	return nil
-}
-
-// secureReadAPIKey reads the API key from stdin without echoing it to the terminal
-func secureReadAPIKey() (string, error) {
-	fmt.Print("Enter your API key (input will be hidden): ")
-
-	// Read password without echoing
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return "", fmt.Errorf("error reading API key: %w", err)
-	}
-
-	// Print a newline since ReadPassword doesn't echo one
-	fmt.Println()
-
-	apiKey := strings.TrimSpace(string(bytePassword))
-	if apiKey == "" {
-		return "", fmt.Errorf("API key cannot be empty")
-	}
-
-	return apiKey, nil
-}
-
-// loginWithGit authenticates using the Shell Auth flow with git email + SSH key.
-func loginWithGit() error {
+// signupWithGit authenticates using the Shell Auth flow with git email + SSH key.
+func signupWithGit() error {
 	// Step 1: Get git email
 	fmt.Print("Looking up git email... ")
 	email, err := auth.GetGitEmail()
@@ -143,6 +81,24 @@ func loginWithGit() error {
 	orgName := ""
 	if len(verifyResp.Orgs) == 0 {
 		return fmt.Errorf("no organizations found for this account")
+	} else if signupOrg != "" {
+		// --org flag provided, match by name
+		found := false
+		for _, org := range verifyResp.Orgs {
+			if strings.EqualFold(org.Name, signupOrg) {
+				orgName = org.Name
+				found = true
+				break
+			}
+		}
+		if !found {
+			names := make([]string, len(verifyResp.Orgs))
+			for i, org := range verifyResp.Orgs {
+				names[i] = org.Name
+			}
+			return fmt.Errorf("organization %q not found. Available: %s", signupOrg, strings.Join(names, ", "))
+		}
+		fmt.Printf("\nOrganization: %s\n", orgName)
 	} else if len(verifyResp.Orgs) == 1 {
 		orgName = verifyResp.Orgs[0].Name
 		fmt.Printf("\nOrganization: %s\n", orgName)
@@ -168,7 +124,6 @@ func loginWithGit() error {
 	// Step 6: Create API key
 	hostname, _ := os.Hostname()
 	label := fmt.Sprintf("vers-cli-%s", hostname)
-	// Ensure label is at least 5 characters
 	if len(label) < 5 {
 		label = "vers-cli-key"
 	}
@@ -196,54 +151,48 @@ func loginWithGit() error {
 	return nil
 }
 
-// loginCmd represents the login command
-var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Authenticate with the Vers platform",
-	Long: `Login to the Vers platform.
+var signupCmd = &cobra.Command{
+	Use:   "signup",
+	Short: "Create a Vers account and authenticate",
+	Long: `Sign up for the Vers platform using your git email and SSH key.
 
-There are three ways to authenticate:
+By default, signup uses your git email and SSH public key to create
+an account. A verification email is sent — click the link and you're in.
 
-  vers login --git      Use your git email and SSH key (recommended)
-  vers login --token    Provide an existing API key
-  vers login            Prompt for an API key
+  vers signup             Sign up with git email + SSH key (default)
+  vers signup --org myorg Pick org non-interactively (for scripts/agents)
+  vers signup --git=false Prompt for an API key instead
 
-The --git flag uses Shell Auth to create an API key automatically.
-It reads your email from git config and finds your SSH public key,
-then sends a verification email. Click the link and you're in.`,
+If you already have an account, this will log you in.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if loginGit {
-			return loginWithGit()
+		if signupGit {
+			return signupWithGit()
 		}
 
-		if token == "" {
-			var err error
-			token, err = secureReadAPIKey()
-			if err != nil {
-				return err
-			}
-		}
-
-		// Validate the API key - validation must succeed to continue
-		fmt.Println("Validating API key...")
-		err := validateAPIKey(token)
+		// Fallback: prompt for API key (same as `vers login`)
+		apiKey, err := secureReadAPIKey()
 		if err != nil {
-			return err // Stop here if validation fails
+			return err
 		}
 
-		// Save the API key only if validation succeeded
-		err = auth.SaveAPIKey(token)
-		if err != nil {
+		fmt.Print("Validating API key... ")
+		if err := validateAPIKey(apiKey); err != nil {
+			fmt.Println("✗")
+			return err
+		}
+		fmt.Println("✓")
+
+		if err := auth.SaveAPIKey(apiKey); err != nil {
 			return fmt.Errorf("error saving API key: %w", err)
 		}
 
-		fmt.Println("Successfully authenticated with Vers")
+		fmt.Println("\n✓ Successfully authenticated with Vers")
 		return nil
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(loginCmd)
-	loginCmd.Flags().StringVarP(&token, "token", "t", "", "API token for authentication")
-	loginCmd.Flags().BoolVar(&loginGit, "git", false, "Authenticate using your git email and SSH key")
+	rootCmd.AddCommand(signupCmd)
+	signupCmd.Flags().BoolVar(&signupGit, "git", true, "Authenticate using your git email and SSH key (default: true)")
+	signupCmd.Flags().StringVar(&signupOrg, "org", "", "Organization name (skips interactive selection)")
 }

@@ -120,7 +120,7 @@ func HasAPIKey() (bool, error) {
 
 // PromptForLogin creates a helper function that checks for API key and prompts for login if not found
 func PromptForLogin() error {
-	errorMsg := "No API key found. Please run 'vers login' to authenticate."
+	errorMsg := "No API key found. Please run 'vers signup' or 'vers login' to authenticate."
 	fmt.Println(errorMsg)
 	return nil
 }

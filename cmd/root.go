@@ -174,6 +174,7 @@ interaction capabilities, and more.`,
 
 		// Skip update check for certain commands
 		skipUpdateCheck := cmd.Name() == "login" ||
+			cmd.Name() == "signup" ||
 			cmd.Name() == "help" ||
 			cmd.CalledAs() == "help" ||
 			cmd.Name() == "upgrade"
@@ -191,7 +192,7 @@ interaction capabilities, and more.`,
 			}()
 		}
 
-		if cmd.Name() == "login" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
+		if cmd.Name() == "login" || cmd.Name() == "signup" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
 			return nil
 		}
 
