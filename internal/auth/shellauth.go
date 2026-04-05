@@ -91,11 +91,11 @@ func GetGitEmail() (string, error) {
 }
 
 // FindSSHPublicKey finds the user's SSH public key, checking common locations.
-// Returns the key contents (not the path).
-func FindSSHPublicKey() (string, error) {
+// Returns the key contents and the path where it was found.
+func FindSSHPublicKey() (key string, keyPath string, err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("could not find home directory: %w", err)
+		return "", "", fmt.Errorf("could not find home directory: %w", err)
 	}
 
 	// Check common SSH key paths in preference order
@@ -110,13 +110,26 @@ func FindSSHPublicKey() (string, error) {
 		if err != nil {
 			continue
 		}
-		key := strings.TrimSpace(string(data))
-		if key != "" {
-			return key, nil
+		k := strings.TrimSpace(string(data))
+		if k != "" {
+			return k, path, nil
 		}
 	}
 
-	return "", fmt.Errorf("no SSH public key found — checked: %s\nGenerate one with: ssh-keygen -t ed25519", strings.Join(candidates, ", "))
+	return "", "", fmt.Errorf("no SSH public key found — checked: %s\nGenerate one with: ssh-keygen -t ed25519", strings.Join(candidates, ", "))
+}
+
+// ReadSSHPublicKey reads an SSH public key from a specific path.
+func ReadSSHPublicKey(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("could not read SSH public key at %s: %w", path, err)
+	}
+	key := strings.TrimSpace(string(data))
+	if key == "" {
+		return "", fmt.Errorf("SSH public key at %s is empty", path)
+	}
+	return key, nil
 }
 
 // shellAuthBaseURL returns the base URL for shell auth endpoints.
