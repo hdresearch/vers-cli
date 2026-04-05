@@ -11,24 +11,32 @@ import (
 )
 
 var (
-	signupGit bool
-	signupOrg string
+	signupGit   bool
+	signupOrg   string
+	signupEmail string
 )
 
 // signupWithGit authenticates using the Shell Auth flow with git email + SSH key.
 func signupWithGit() error {
-	// Step 1: Get git email
-	fmt.Print("Looking up git email... ")
-	email, err := auth.GetGitEmail()
-	if err != nil {
-		fmt.Println("✗")
-		return err
+	// Step 1: Get email
+	var email string
+	if signupEmail != "" {
+		email = signupEmail
+		fmt.Printf("Using email: %s\n", email)
+	} else {
+		fmt.Print("Looking up git email... ")
+		var err error
+		email, err = auth.GetGitEmail()
+		if err != nil {
+			fmt.Println("✗")
+			return err
+		}
+		fmt.Println(email)
 	}
-	fmt.Println(email)
 
 	// Step 2: Find SSH public key
 	fmt.Print("Looking up SSH public key... ")
-	sshPubKey, err := auth.FindSSHPublicKey()
+	sshPubKey, sshKeyPath, err := auth.FindSSHPublicKey()
 	if err != nil {
 		fmt.Println("✗")
 		return err
@@ -131,8 +139,15 @@ func signupWithGit() error {
 		return err
 	}
 
-	if err := auth.SaveAPIKey(keyResp.APIKey); err != nil {
-		return fmt.Errorf("error saving API key: %w", err)
+	config, err := auth.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("error loading config: %w", err)
+	}
+	config.APIKey = keyResp.APIKey
+	config.Email = email
+	config.SSHKeyPath = sshKeyPath
+	if err := auth.SaveConfig(config); err != nil {
+		return fmt.Errorf("error saving config: %w", err)
 	}
 
 	fmt.Printf("\n✓ Successfully authenticated with Vers (org: %s)\n", keyResp.OrgName)
@@ -142,14 +157,15 @@ func signupWithGit() error {
 var signupCmd = &cobra.Command{
 	Use:   "signup",
 	Short: "Create a Vers account and authenticate",
-	Long: `Sign up for the Vers platform using your git email and SSH key.
+	Long: `Sign up for the Vers platform using your email and SSH key.
 
 By default, signup uses your git email and SSH public key to create
 an account. A verification email is sent — click the link and you're in.
 
-  vers signup             Sign up with git email + SSH key (default)
-  vers signup --org myorg Pick org non-interactively (for scripts/agents)
-  vers signup --git=false Prompt for an API key instead
+  vers signup                        Sign up with git email + SSH key (default)
+  vers signup --email you@example.com  Use a specific email instead of git config
+  vers signup --org myorg            Pick org non-interactively (for scripts/agents)
+  vers signup --git=false            Prompt for an API key instead
 
 If you already have an account, this will log you in.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -183,4 +199,5 @@ func init() {
 	rootCmd.AddCommand(signupCmd)
 	signupCmd.Flags().BoolVar(&signupGit, "git", true, "Authenticate using your git email and SSH key (default: true)")
 	signupCmd.Flags().StringVar(&signupOrg, "org", "", "Organization name (skips interactive selection)")
+	signupCmd.Flags().StringVar(&signupEmail, "email", "", "Email address (overrides git config user.email)")
 }

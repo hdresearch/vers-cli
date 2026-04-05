@@ -15,7 +15,9 @@ const DEFAULT_VERS_URL_STR = "https://api.vers.sh"
 
 // Config represents the structure of the .versrc file
 type Config struct {
-	APIKey string `json:"apiKey"`
+	APIKey     string `json:"apiKey"`
+	Email      string `json:"email,omitempty"`
+	SSHKeyPath string `json:"sshKeyPath,omitempty"`
 }
 
 // GetConfigPath returns the path to the .versrc file in the user's home directory

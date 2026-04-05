@@ -91,7 +91,7 @@ func loginWithGit() error {
 
 	// Step 2: Find SSH public key
 	fmt.Print("Looking up SSH public key... ")
-	sshPubKey, err := auth.FindSSHPublicKey()
+	sshPubKey, _, err := auth.FindSSHPublicKey()
 	if err != nil {
 		fmt.Println("✗")
 		return err
