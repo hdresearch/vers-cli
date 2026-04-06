@@ -21,7 +21,7 @@ type listReposResponse struct {
 }
 
 type listRepoTagsResponse struct {
-	Repository string            `json:"repository"`
+	Repository string             `json:"repository"`
 	Tags       []pres.RepoTagInfo `json:"tags"`
 }
 
