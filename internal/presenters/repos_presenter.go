@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hdresearch/vers-cli/internal/app"
+	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 func RenderRepoList(_ *app.App, v RepoListView) {
@@ -32,7 +33,7 @@ func RenderRepoList(_ *app.App, v RepoListView) {
 	}
 }
 
-func RenderRepoInfo(_ *app.App, r *RepoInfo) {
+func RenderRepoInfo(_ *app.App, r *vers.RepositoryInfo) {
 	vis := "private"
 	if r.IsPublic {
 		vis = "public"
@@ -69,7 +70,7 @@ func RenderRepoTagList(_ *app.App, v RepoTagListView) {
 	}
 }
 
-func RenderRepoTagInfo(_ *app.App, t *RepoTagInfo) {
+func RenderRepoTagInfo(_ *app.App, t *vers.RepoTagInfo) {
 	fmt.Printf("Tag:         %s\n", t.TagName)
 	fmt.Printf("Tag ID:      %s\n", t.TagID)
 	fmt.Printf("Reference:   %s\n", t.Reference)
