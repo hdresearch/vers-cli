@@ -83,6 +83,6 @@ func init() {
 	rootCmd.AddCommand(executeCmd)
 	executeCmd.Flags().SetInterspersed(false) // stop flag parsing after first positional arg
 	executeCmd.Flags().IntVarP(&executeTimeout, "timeout", "t", 0, "Timeout in seconds (default: 30s, use 0 for no limit)")
-	executeCmd.Flags().BoolVar(&executeSSH, "ssh", false, "Use direct SSH instead of the orchestrator API")
+	executeCmd.Flags().BoolVar(&executeSSH, "ssh", false, "Use direct SSH instead of the VERS API")
 	executeCmd.Flags().StringVarP(&executeWorkDir, "workdir", "w", "", "Working directory for the command")
 }
