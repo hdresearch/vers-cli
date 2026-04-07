@@ -18,7 +18,7 @@ var executeWorkDir string
 var executeCmd = &cobra.Command{
 	Use:     "execute [vm-id|alias] <command> [args...]",
 	Aliases: []string{"exec"},
-	Short: "Run a command on a specific VM",
+	Short:   "Run a command on a specific VM",
 	Long: `Execute a command on the specified VM via the orchestrator API.
 
 The command runs through the in-VM agent, which means it automatically
