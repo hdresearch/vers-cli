@@ -32,13 +32,13 @@ type ExecuteReq struct {
 //	{"type":"exit","exit_code":0,"cursor":N,"exec_id":"..."}
 //	{"type":"error","code":"...","message":"..."}
 type streamResponse struct {
-	Type    string `json:"type"`
-	Stream  string `json:"stream,omitempty"`
-	DataB64 string `json:"data_b64,omitempty"`
-	ExitCode *int  `json:"exit_code,omitempty"`
-	Cursor  uint64 `json:"cursor,omitempty"`
-	Code    string `json:"code,omitempty"`
-	Message string `json:"message,omitempty"`
+	Type     string `json:"type"`
+	Stream   string `json:"stream,omitempty"`
+	DataB64  string `json:"data_b64,omitempty"`
+	ExitCode *int   `json:"exit_code,omitempty"`
+	Cursor   uint64 `json:"cursor,omitempty"`
+	Code     string `json:"code,omitempty"`
+	Message  string `json:"message,omitempty"`
 }
 
 func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.ExecuteView, error) {
@@ -154,5 +154,3 @@ func streamExecOutput(body io.Reader, stdout, stderr io.Writer) (int, error) {
 
 	return exitCode, nil
 }
-
-

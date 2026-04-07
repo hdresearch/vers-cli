@@ -29,7 +29,7 @@ type ExecResponse struct {
 
 // ExecStreamChunk is a single line from the NDJSON exec stream.
 type ExecStreamChunk struct {
-	Type     string `json:"type"`               // "chunk" or "exit"
+	Type     string `json:"type"`                // "chunk" or "exit"
 	Stream   string `json:"stream,omitempty"`    // "stdout" or "stderr"
 	Data     string `json:"data,omitempty"`      // base64-encoded bytes
 	ExitCode *int   `json:"exit_code,omitempty"` // only on type=="exit"
