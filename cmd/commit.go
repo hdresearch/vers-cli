@@ -9,7 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var commitFormat string
+var (
+	commitFormat      string
+	commitName        string
+	commitDescription string
+)
 
 // commitCmd is the parent command for commit operations.
 // Bare `vers commit` (no args, no subcommand) creates a commit of HEAD for backward compat.
@@ -42,7 +46,14 @@ var commitCreateCmd = &cobra.Command{
 	Long: `Save the current state of a VM as a commit.
 If no VM ID or alias is provided, commits the current HEAD VM.
 
-Use --format json for machine-readable output.`,
+Use --name to give the commit a human-readable name.
+Use --description to add additional context.
+Use --format json for machine-readable output.
+
+Examples:
+  vers commit create --name "golden-image-v3"
+  vers commit create --name "pre-deploy" --description "Before deploying auth changes"
+  vers commit create vm-123 --name "checkpoint"`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -54,7 +65,9 @@ Use --format json for machine-readable output.`,
 		defer cancel()
 
 		res, err := handlers.HandleCommitCreate(apiCtx, application, handlers.CommitCreateReq{
-			Target: target,
+			Target:      target,
+			Name:        commitName,
+			Description: commitDescription,
 		})
 		if err != nil {
 			return err
@@ -70,6 +83,12 @@ Use --format json for machine-readable output.`,
 			}
 			fmt.Printf("✓ Committed VM '%s'\n", res.VmID)
 			fmt.Printf("Commit ID: %s\n", res.CommitID)
+			if res.Name != "" {
+				fmt.Printf("Name: %s\n", res.Name)
+			}
+			if res.Description != "" {
+				fmt.Printf("Description: %s\n", res.Description)
+			}
 		}
 		return nil
 	},
@@ -228,6 +247,8 @@ func init() {
 	rootCmd.AddCommand(commitCmd)
 
 	commitCreateCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json)")
+	commitCreateCmd.Flags().StringVarP(&commitName, "name", "n", "", "Human-readable name for the commit")
+	commitCreateCmd.Flags().StringVarP(&commitDescription, "description", "d", "", "Description for the commit")
 	commitCmd.AddCommand(commitCreateCmd)
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
