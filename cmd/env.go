@@ -23,10 +23,7 @@ var envCmd = &cobra.Command{
 Environment variables are written to /etc/environment in newly created VMs,
 where they are available for SSH sessions and exec'd processes.
 
-Use subcommands to list, set, or delete environment variables.
-
-For sensitive values (API keys, tokens, passwords), consider using
-"vers secret" instead — it masks values in output and supports hidden input.`,
+Use subcommands to list, set, or delete environment variables.`,
 }
 
 // envListCmd represents the env list command
