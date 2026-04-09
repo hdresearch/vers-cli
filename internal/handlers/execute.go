@@ -1,8 +1,12 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -13,8 +17,28 @@ import (
 )
 
 type ExecuteReq struct {
-	Target  string
-	Command []string
+	Target     string
+	Command    []string
+	WorkingDir string
+	Env        map[string]string
+	TimeoutSec uint64
+	UseSSH     bool
+}
+
+// streamResponse represents a single NDJSON line from the exec stream.
+// The orchestrator flattens the agent protocol into:
+//
+//	{"type":"chunk","stream":"stdout","data_b64":"...","cursor":N,"exec_id":"..."}
+//	{"type":"exit","exit_code":0,"cursor":N,"exec_id":"..."}
+//	{"type":"error","code":"...","message":"..."}
+type streamResponse struct {
+	Type     string `json:"type"`
+	Stream   string `json:"stream,omitempty"`
+	DataB64  string `json:"data_b64,omitempty"`
+	ExitCode *int   `json:"exit_code,omitempty"`
+	Cursor   uint64 `json:"cursor,omitempty"`
+	Code     string `json:"code,omitempty"`
+	Message  string `json:"message,omitempty"`
 }
 
 func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.ExecuteView, error) {
@@ -27,21 +51,106 @@ func HandleExecute(ctx context.Context, a *app.App, r ExecuteReq) (presenters.Ex
 	v.UsedHEAD = t.UsedHEAD
 	v.HeadID = t.HeadID
 
+	if r.UseSSH {
+		return handleExecuteSSH(ctx, a, r, t, v)
+	}
+
+	return handleExecuteAPI(ctx, a, r, t, v)
+}
+
+// handleExecuteAPI runs the command via the orchestrator exec/stream API.
+func handleExecuteAPI(ctx context.Context, a *app.App, r ExecuteReq, t utils.TargetResult, v presenters.ExecuteView) (presenters.ExecuteView, error) {
+	// Wrap the command in bash -c so shell features work
+	command := []string{"bash", "-c", utils.ShellJoin(r.Command)}
+
+	body, err := vmSvc.ExecStream(ctx, t.Ident, vmSvc.ExecRequest{
+		Command:    command,
+		Env:        r.Env,
+		WorkingDir: r.WorkingDir,
+		TimeoutSec: r.TimeoutSec,
+	})
+	if err != nil {
+		return v, fmt.Errorf("exec: %w", err)
+	}
+	defer body.Close()
+
+	exitCode, err := streamExecOutput(body, a.IO.Out, a.IO.Err)
+	if err != nil {
+		return v, fmt.Errorf("exec stream: %w", err)
+	}
+
+	v.ExitCode = exitCode
+	return v, nil
+}
+
+// handleExecuteSSH runs the command via direct SSH (legacy fallback).
+func handleExecuteSSH(ctx context.Context, a *app.App, r ExecuteReq, t utils.TargetResult, v presenters.ExecuteView) (presenters.ExecuteView, error) {
 	info, err := vmSvc.GetConnectInfo(ctx, a.Client, t.Ident)
 	if err != nil {
 		return v, fmt.Errorf("failed to get VM information: %w", err)
 	}
 
-	sshHost := info.Host
 	cmdStr := utils.ShellJoin(r.Command)
-
-	client := sshutil.NewClient(sshHost, info.KeyPath, info.VMDomain)
+	client := sshutil.NewClient(info.Host, info.KeyPath, info.VMDomain)
 	err = client.Execute(ctx, cmdStr, a.IO.Out, a.IO.Err)
 	if err != nil {
 		if exitErr, ok := err.(*ssh.ExitError); ok {
-			return v, fmt.Errorf("command exited with code %d", exitErr.ExitStatus())
+			v.ExitCode = exitErr.ExitStatus()
+			return v, nil
 		}
 		return v, fmt.Errorf("failed to execute command: %w", err)
 	}
 	return v, nil
+}
+
+// streamExecOutput reads NDJSON from the exec stream, writes stdout/stderr
+// to the provided writers, and returns the exit code.
+func streamExecOutput(body io.Reader, stdout, stderr io.Writer) (int, error) {
+	scanner := bufio.NewScanner(body)
+	// Allow large lines (agent can send up to 10MB of output)
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+
+	exitCode := 0
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+
+		var resp streamResponse
+		if err := json.Unmarshal(line, &resp); err != nil {
+			// Skip unparseable lines
+			continue
+		}
+
+		switch resp.Type {
+		case "chunk":
+			data, err := base64.StdEncoding.DecodeString(resp.DataB64)
+			if err != nil {
+				continue
+			}
+			switch resp.Stream {
+			case "stdout":
+				stdout.Write(data)
+			case "stderr":
+				stderr.Write(data)
+			}
+
+		case "exit":
+			if resp.ExitCode != nil {
+				exitCode = *resp.ExitCode
+			}
+			return exitCode, nil
+
+		case "error":
+			return 1, fmt.Errorf("exec error [%s]: %s", resp.Code, resp.Message)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 1, fmt.Errorf("stream read error: %w", err)
+	}
+
+	return exitCode, nil
 }
