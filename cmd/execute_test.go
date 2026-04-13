@@ -8,7 +8,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TestExecuteCommandArgumentParsing tests the argument parsing logic for execute
+// TestExecuteCommandArgumentParsing tests the argument parsing logic for execute.
+// The logic uses LooksLikeVMTarget to decide if the first arg is a VM or a command:
+//   - UUID → treated as VM target
+//   - Known alias → treated as VM target
+//   - Anything else → treated as command, uses HEAD
 func TestExecuteCommandArgumentParsing(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -19,25 +23,46 @@ func TestExecuteCommandArgumentParsing(t *testing.T) {
 		errorMessage    string
 	}{
 		{
-			name:            "2+ args: first is target, rest is command",
-			args:            []string{"my-vm", "echo", "hello"},
+			name:            "UUID target + command args",
+			args:            []string{"3bfea344-6bf2-4655-be27-64be7b5eb332", "echo", "hello"},
 			expectError:     false,
-			expectedTarget:  "my-vm",
+			expectedTarget:  "3bfea344-6bf2-4655-be27-64be7b5eb332",
 			expectedCommand: []string{"echo", "hello"},
 		},
 		{
-			name:            "2 args: target and single command",
-			args:            []string{"my-vm", "ls"},
+			name:            "UUID target + single command",
+			args:            []string{"3bfea344-6bf2-4655-be27-64be7b5eb332", "ls"},
 			expectError:     false,
-			expectedTarget:  "my-vm",
+			expectedTarget:  "3bfea344-6bf2-4655-be27-64be7b5eb332",
 			expectedCommand: []string{"ls"},
 		},
 		{
-			name:            "1 arg: command only, uses HEAD",
+			name:            "command only (not a UUID), uses HEAD",
+			args:            []string{"echo", "hello"},
+			expectError:     false,
+			expectedTarget:  "",
+			expectedCommand: []string{"echo", "hello"},
+		},
+		{
+			name:            "single command, uses HEAD",
 			args:            []string{"echo hello"},
 			expectError:     false,
 			expectedTarget:  "",
 			expectedCommand: []string{"echo hello"},
+		},
+		{
+			name:            "command with path, not a UUID",
+			args:            []string{"jq", ".foo"},
+			expectError:     false,
+			expectedTarget:  "",
+			expectedCommand: []string{"jq", ".foo"},
+		},
+		{
+			name:            "python command, not a UUID",
+			args:            []string{"python3", "-c", "print('hi')"},
+			expectError:     false,
+			expectedTarget:  "",
+			expectedCommand: []string{"python3", "-c", "print('hi')"},
 		},
 		{
 			name:         "0 args: error",
@@ -59,14 +84,18 @@ func TestExecuteCommandArgumentParsing(t *testing.T) {
 					if len(args) == 1 {
 						capturedTarget = ""
 						capturedCommand = args
-					} else {
+					} else if utils.LooksLikeVMTarget(args[0]) {
 						capturedTarget = args[0]
 						capturedCommand = args[1:]
+					} else {
+						capturedTarget = ""
+						capturedCommand = args
 					}
 					return nil
 				},
 			}
 
+			cmd.Flags().SetInterspersed(false)
 			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
 
@@ -139,9 +168,12 @@ func TestExecuteCommandWithHEAD(t *testing.T) {
 	if len(args) == 1 {
 		target = ""
 		command = args
-	} else {
+	} else if utils.LooksLikeVMTarget(args[0]) {
 		target = args[0]
 		command = args[1:]
+	} else {
+		target = ""
+		command = args
 	}
 
 	// When target is empty, HEAD should be used
