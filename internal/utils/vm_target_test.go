@@ -38,11 +38,17 @@ func TestLooksLikeVMTarget_UUID(t *testing.T) {
 }
 
 func TestLooksLikeVMTarget_Alias(t *testing.T) {
-	// Set up a temp home dir with aliases
-	origHome := os.Getenv("HOME")
+	// Set up a temp home dir with aliases.
+	// Must set both HOME (Unix) and USERPROFILE (Windows) since
+	// os.UserHomeDir() checks USERPROFILE on Windows.
 	tmpHome := t.TempDir()
+
+	origHome := os.Getenv("HOME")
+	origUserProfile := os.Getenv("USERPROFILE")
 	os.Setenv("HOME", tmpHome)
+	os.Setenv("USERPROFILE", tmpHome)
 	defer os.Setenv("HOME", origHome)
+	defer os.Setenv("USERPROFILE", origUserProfile)
 
 	aliasDir := filepath.Join(tmpHome, ".vers")
 	os.MkdirAll(aliasDir, 0755)
