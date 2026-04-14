@@ -23,6 +23,7 @@ type ExecuteReq struct {
 	Env        map[string]string
 	TimeoutSec uint64
 	UseSSH     bool
+	Stdin      string
 }
 
 // streamResponse represents a single NDJSON line from the exec stream.
@@ -67,6 +68,7 @@ func handleExecuteAPI(ctx context.Context, a *app.App, r ExecuteReq, t utils.Tar
 		Command:    command,
 		Env:        r.Env,
 		WorkingDir: r.WorkingDir,
+		Stdin:      r.Stdin,
 		TimeoutSec: r.TimeoutSec,
 	})
 	if err != nil {
@@ -92,6 +94,11 @@ func handleExecuteSSH(ctx context.Context, a *app.App, r ExecuteReq, t utils.Tar
 
 	cmdStr := utils.ShellJoin(r.Command)
 	client := sshutil.NewClient(info.Host, info.KeyPath, info.VMDomain)
+
+	if r.Stdin != "" {
+		return handleExecuteSSHWithStdin(ctx, client, cmdStr, r.Stdin, a, v)
+	}
+
 	err = client.Execute(ctx, cmdStr, a.IO.Out, a.IO.Err)
 	if err != nil {
 		if exitErr, ok := err.(*ssh.ExitError); ok {
@@ -99,6 +106,39 @@ func handleExecuteSSH(ctx context.Context, a *app.App, r ExecuteReq, t utils.Tar
 			return v, nil
 		}
 		return v, fmt.Errorf("failed to execute command: %w", err)
+	}
+	return v, nil
+}
+
+// handleExecuteSSHWithStdin runs a command via SSH, piping stdin data to the remote process.
+func handleExecuteSSHWithStdin(ctx context.Context, client *sshutil.Client, cmd, stdinData string, a *app.App, v presenters.ExecuteView) (presenters.ExecuteView, error) {
+	sess, err := client.StartSession(ctx)
+	if err != nil {
+		return v, fmt.Errorf("failed to start SSH session: %w", err)
+	}
+	defer sess.Close()
+
+	// Copy stdout/stderr in background
+	go io.Copy(a.IO.Out, sess.Stdout())
+	go io.Copy(a.IO.Err, sess.Stderr())
+
+	if err := sess.Start(cmd); err != nil {
+		return v, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Write stdin data and close to signal EOF
+	if _, err := io.WriteString(sess.Stdin(), stdinData); err != nil {
+		return v, fmt.Errorf("failed to write stdin: %w", err)
+	}
+	sess.Stdin().Close()
+
+	err = sess.Wait()
+	if err != nil {
+		if exitErr, ok := err.(*ssh.ExitError); ok {
+			v.ExitCode = exitErr.ExitStatus()
+			return v, nil
+		}
+		return v, fmt.Errorf("command failed: %w", err)
 	}
 	return v, nil
 }
