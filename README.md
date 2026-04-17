@@ -79,6 +79,33 @@ vers kill <vm-1> <vm-2> <vm-3>
 vers kill -r <vm-id>              # recursive (include children)
 ```
 
+### Build from a Dockerfile
+
+`vers build` turns a literal Dockerfile into a sequence of actions on a
+throwaway VM, committing a "layer" after each step and caching them in
+`.vers/buildcache.json`.
+
+```bash
+# FROM scratch — sizing is explicit
+vers build --mem-size 2048 --vcpu-count 2 --fs-size-vm-mib 4096 .
+
+# FROM <tag-or-commit-id> — no sizing flags needed
+vers build -t myapp:prod .
+vers build -f build.Dockerfile --build-arg VERSION=1.2.3 .
+
+# Scripting: print just the final commit id
+COMMIT=$(vers build -q .)
+vers run-commit "$COMMIT"
+```
+
+Supported instructions: `FROM`, `RUN`, `COPY`, `ADD` (local only), `ENV`,
+`ARG`, `WORKDIR`, `USER`, `LABEL`, `CMD`, `ENTRYPOINT`, `EXPOSE`.
+Multi-stage builds and `COPY --from=` are not yet supported.
+
+`FROM` resolves as follows:
+- `FROM scratch` — fresh VM; requires `--mem-size`, `--vcpu-count`, `--fs-size-vm-mib`
+- `FROM <name>` — looked up as a vers tag first, falling back to a commit id
+
 ### Commits
 
 ```bash
