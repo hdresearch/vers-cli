@@ -2,19 +2,23 @@
 //
 // Strategy:
 //
-//  1. FROM creates the initial VM (either fresh via vm.NewRoot, or restored
-//     from a commit/tag via vm.RestoreFromCommit).
+//  1. FROM creates the initial VM (either fresh via Executor.NewVM, or
+//     restored from a commit/tag via Executor.RestoreFromCommit).
 //  2. Each subsequent instruction is executed against that VM. After the
-//     step succeeds we `vm.Commit` to produce a "layer" commit id which is
-//     both the cache value and the parent for the next step's cache key.
+//     step succeeds we Executor.Commit to produce a "layer" commit id
+//     which is both the cache value and the parent for the next step's
+//     cache key.
 //  3. Per-step cache keys combine (parent commit, normalized instruction,
-//     optional content hash). If a key hits, we skip execution and branch
-//     from the cached commit instead.
+//     optional content hash). If a key hits, we skip execution and
+//     branch from the cached commit instead.
 //  4. The final commit id is the build output.
 //
-// The executor is deliberately stateless across runs aside from the on-disk
-// .vers/buildcache.json map. It owns a single VM for the life of the build
-// and tears it down at the end (unless --keep).
+// All remote work flows through the Executor interface. The production
+// Executor is returned by NewRealExecutor; tests inject a fake.
+//
+// The build is stateful only on disk via .vers/buildcache.json. It owns a
+// single VM for the life of the build and tears it down at the end
+// (unless Options.Keep is set).
 package builder
 
 import (
@@ -28,11 +32,6 @@ import (
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/dockerfile"
-	delsvc "github.com/hdresearch/vers-cli/internal/services/deletion"
-	vmSvc "github.com/hdresearch/vers-cli/internal/services/vm"
-	sshutil "github.com/hdresearch/vers-cli/internal/ssh"
-	"github.com/hdresearch/vers-cli/internal/utils"
-	vers "github.com/hdresearch/vers-sdk-go"
 )
 
 // Options controls a build.
@@ -45,21 +44,26 @@ type Options struct {
 	MemSizeMib  int64
 	VcpuCount   int64
 	FsSizeVmMib int64
-	RootfsName  string // optional; defaults to "default" server-side
+	RootfsName  string
 	KernelName  string
 
 	NoCache bool
 	Keep    bool // if true, the builder VM is not deleted at the end
 	Tag     string // optional vers tag to create on the final commit
+
+	// Injected dependencies. If Exec is nil, Build uses the App-backed
+	// real executor. If Stderr is nil, a.IO.Err is used.
+	Exec   Executor
+	Stderr io.Writer
 }
 
 // Result is the outcome of a successful build.
 type Result struct {
 	FinalCommitID string
-	BuilderVmID   string // set if Keep=true
+	BuilderVmID   string
 	StepCount     int
 	CachedCount   int
-	Tag           string // populated if Tag was requested and created
+	Tag           string
 	Cmd           []string
 	Entrypoint    []string
 	ExposedPorts  []string
@@ -68,29 +72,47 @@ type Result struct {
 
 // state carries builder state across instructions.
 type state struct {
-	env     map[string]string
-	argVals map[string]string // values for declared ARGs
-	declaredArgs map[string]bool
-	workdir string
-	user    string
-	labels  map[string]string
-	cmd     []string
-	cmdShell string
-	entrypoint []string
+	env             map[string]string
+	argVals         map[string]string
+	declaredArgs    map[string]bool
+	workdir         string
+	user            string
+	labels          map[string]string
+	cmd             []string
+	cmdShell        string
+	entrypoint      []string
 	entrypointShell string
-	exposed []string
+	exposed         []string
 }
 
 // Build runs the instructions and returns the final commit id.
 //
-// Progress messages are written to a.IO.Err so JSON output on stdout stays
-// clean. The caller is expected to surface the returned error.
+// Progress messages go to opts.Stderr (or a.IO.Err if nil). RUN output goes
+// to a.IO.Out / a.IO.Err so users see their build output as it streams.
 func Build(ctx context.Context, a *app.App, opts Options) (*Result, error) {
+	// Wire injectable deps. In production both come from App; in tests a
+	// fake Executor and any Stderr is supplied directly, so `a` may be nil.
+	exec := opts.Exec
+	if exec == nil {
+		exec = NewRealExecutor(a)
+	}
+	progress := opts.Stderr
+	if progress == nil && a != nil {
+		progress = a.IO.Err
+	}
+	if progress == nil {
+		progress = io.Discard
+	}
+	runStdout, runStderr := io.Discard, io.Discard
+	if a != nil {
+		runStdout, runStderr = a.IO.Out, a.IO.Err
+	}
+
 	if len(opts.Instructions) == 0 {
 		return nil, fmt.Errorf("empty Dockerfile: no instructions")
 	}
 
-	// v1: reject multi-stage
+	// v1: reject multi-stage.
 	stages := 0
 	for _, ins := range opts.Instructions {
 		if ins.Kind == dockerfile.KindFrom {
@@ -121,106 +143,91 @@ func Build(ctx context.Context, a *app.App, opts Options) (*Result, error) {
 		st.argVals[k] = v
 	}
 
-	// ---- FROM ----------------------------------------------------------------
+	// ---- FROM --------------------------------------------------------------
 	var vmID, baseCommit string
 	var err error
-	vmID, baseCommit, err = runFrom(ctx, a, first.From, opts)
+	vmID, baseCommit, err = doFrom(ctx, exec, first.From, opts)
 	if err != nil {
 		return nil, err
 	}
-	// Ensure cleanup if we fail mid-build and --keep wasn't set
-	cleanup := func() {
-		if opts.Keep || vmID == "" {
-			return
-		}
-		ctx2, cancel := context.WithTimeout(context.Background(), a.Timeouts.APIShort)
-		defer cancel()
-		_, _ = delsvc.DeleteVM(ctx2, a.Client, vmID)
-	}
+	// Ensure teardown on mid-build failure.
 	defer func() {
-		if err != nil {
-			cleanup()
+		if err != nil && !opts.Keep && vmID != "" {
+			// Best-effort. Use a fresh background ctx so a cancelled parent
+			// doesn't prevent cleanup.
+			_ = exec.DeleteVM(context.Background(), vmID)
 		}
 	}()
 
-	fmt.Fprintf(a.IO.Err, "Step 1/%d : %s\n", len(opts.Instructions), first.Raw)
+	fmt.Fprintf(progress, "Step 1/%d : %s\n", len(opts.Instructions), first.Raw)
 	if baseCommit != "" {
-		fmt.Fprintf(a.IO.Err, " ---> using base commit %s\n", short(baseCommit))
+		fmt.Fprintf(progress, " ---> using base commit %s\n", short(baseCommit))
 	} else {
-		fmt.Fprintf(a.IO.Err, " ---> built fresh VM %s\n", short(vmID))
+		fmt.Fprintf(progress, " ---> built fresh VM %s\n", short(vmID))
 	}
 
 	parentCommit := baseCommit
 	res := &Result{StepCount: len(opts.Instructions)}
 
-	// ---- Loop over remaining instructions -----------------------------------
+	// ---- Loop over remaining instructions ---------------------------------
 	for i := 1; i < len(opts.Instructions); i++ {
 		ins := opts.Instructions[i]
-		fmt.Fprintf(a.IO.Err, "Step %d/%d : %s\n", i+1, len(opts.Instructions), ins.Raw)
+		fmt.Fprintf(progress, "Step %d/%d : %s\n", i+1, len(opts.Instructions), ins.Raw)
 
-		// Pure-metadata instructions: apply to state, do not commit a new layer.
-		// These still affect *future* layers' cache keys via applyMetaExtras.
 		if handled, metaErr := applyMeta(st, ins); handled {
 			if metaErr != nil {
 				err = metaErr
 				return nil, err
 			}
-			fmt.Fprintf(a.IO.Err, " ---> metadata\n")
+			fmt.Fprintf(progress, " ---> metadata\n")
 			continue
 		}
 
-		// Build cache key.
-		key, extras, kerr := cacheKeyFor(ins, st, opts.Context, parentCommit)
+		key, _, kerr := cacheKeyFor(ins, st, opts.Context, parentCommit)
 		if kerr != nil {
 			err = kerr
 			return nil, err
 		}
-		_ = extras
 
 		if !opts.NoCache {
 			if cached := cache.Get(key); cached != "" {
-				// Fast-forward: tear down current VM, branch from the cached commit.
-				newVM, switchErr := switchToCommit(ctx, a, vmID, cached)
+				newVM, switchErr := switchToCommit(ctx, exec, vmID, cached)
 				if switchErr != nil {
-					// Cache hit but commit missing: fall through to real execution.
-					fmt.Fprintf(a.IO.Err, " ---> cache entry stale (%v), rebuilding\n", switchErr)
+					fmt.Fprintf(progress, " ---> cache entry stale (%v), rebuilding\n", switchErr)
 				} else {
 					vmID = newVM
 					parentCommit = cached
 					res.CachedCount++
-					fmt.Fprintf(a.IO.Err, " ---> using cached layer %s\n", short(cached))
+					fmt.Fprintf(progress, " ---> using cached layer %s\n", short(cached))
 					continue
 				}
 			}
 		}
 
-		// Execute.
-		execErr := runStep(ctx, a, vmID, st, ins, opts.Context)
-		if execErr != nil {
+		if execErr := runStep(ctx, exec, vmID, st, ins, opts.Context, runStdout, runStderr); execErr != nil {
 			err = fmt.Errorf("step %d (%s): %w", i+1, ins.Kind, execErr)
 			return nil, err
 		}
 
-		// Commit the layer.
-		commitResp, cerr := a.Client.Vm.Commit(ctx, vmID, vers.VmCommitParams{})
+		commitID, cerr := exec.Commit(ctx, vmID)
 		if cerr != nil {
 			err = fmt.Errorf("commit after step %d: %w", i+1, cerr)
 			return nil, err
 		}
-		parentCommit = commitResp.CommitID
+		parentCommit = commitID
 		cache.Put(key, parentCommit)
 		cache.Save()
-		fmt.Fprintf(a.IO.Err, " ---> %s\n", short(parentCommit))
+		fmt.Fprintf(progress, " ---> %s\n", short(parentCommit))
 	}
 
 	if parentCommit == "" {
-		// Only a FROM — no further commits. Commit once so we have a result.
-		commitResp, cerr := a.Client.Vm.Commit(ctx, vmID, vers.VmCommitParams{})
+		// Only FROM was present — still produce a commit so the build has an output.
+		commitID, cerr := exec.Commit(ctx, vmID)
 		if cerr != nil {
 			err = fmt.Errorf("commit initial state: %w", cerr)
 			return nil, err
 		}
-		parentCommit = commitResp.CommitID
+		parentCommit = commitID
 	}
 
 	res.FinalCommitID = parentCommit
@@ -235,110 +242,74 @@ func Build(ctx context.Context, a *app.App, opts Options) (*Result, error) {
 	res.Labels = st.labels
 	res.ExposedPorts = st.exposed
 
-	// Optional tag.
 	if opts.Tag != "" {
-		_, terr := a.Client.CommitTags.New(ctx, vers.CommitTagNewParams{
-			CreateTagRequest: vers.CreateTagRequestParam{
-				TagName:  vers.F(opts.Tag),
-				CommitID: vers.F(parentCommit),
-			},
-		})
-		if terr != nil {
-			// Tagging failure shouldn't kill the build; surface as warning.
-			fmt.Fprintf(a.IO.Err, "warning: failed to create tag %q: %v\n", opts.Tag, terr)
+		if terr := exec.CreateTag(ctx, opts.Tag, parentCommit); terr != nil {
+			fmt.Fprintf(progress, "warning: failed to create tag %q: %v\n", opts.Tag, terr)
 		} else {
 			res.Tag = opts.Tag
 		}
 	}
 
-	// Teardown unless --keep.
 	if opts.Keep {
 		res.BuilderVmID = vmID
 	} else {
-		ctx2, cancel := context.WithTimeout(context.Background(), a.Timeouts.APIShort)
-		defer cancel()
-		if _, derr := delsvc.DeleteVM(ctx2, a.Client, vmID); derr != nil {
-			fmt.Fprintf(a.IO.Err, "warning: failed to delete builder VM %s: %v\n", vmID, derr)
+		if derr := exec.DeleteVM(context.Background(), vmID); derr != nil {
+			fmt.Fprintf(progress, "warning: failed to delete builder VM %s: %v\n", vmID, derr)
 		}
 	}
 
 	return res, nil
 }
 
-// runFrom materializes the base VM. Returns (vmID, baseCommitID).
+// doFrom materializes the base VM. Returns (vmID, baseCommitID).
 // baseCommitID is "" when starting from scratch.
-func runFrom(ctx context.Context, a *app.App, f *dockerfile.FromInstr, opts Options) (string, string, error) {
+func doFrom(ctx context.Context, exec Executor, f *dockerfile.FromInstr, opts Options) (string, string, error) {
 	if f.As != "" {
-		// Parse accepted it but executor doesn't support named stages yet.
 		return "", "", fmt.Errorf("FROM ... AS is not supported in single-stage v1")
 	}
 	if strings.EqualFold(f.Ref, "scratch") {
 		if opts.MemSizeMib == 0 || opts.VcpuCount == 0 || opts.FsSizeVmMib == 0 {
 			return "", "", fmt.Errorf("FROM scratch requires --mem-size, --vcpu-count, and --fs-size-vm-mib")
 		}
-		cfg := vers.NewRootRequestVmConfigParam{
-			MemSizeMib: vers.F(opts.MemSizeMib),
-			VcpuCount:  vers.F(opts.VcpuCount),
-			FsSizeMib:  vers.F(opts.FsSizeVmMib),
-		}
-		if opts.RootfsName != "" {
-			cfg.ImageName = vers.F(opts.RootfsName)
-		}
-		if opts.KernelName != "" {
-			cfg.KernelName = vers.F(opts.KernelName)
-		}
-		resp, err := a.Client.Vm.NewRoot(ctx, vers.VmNewRootParams{
-			NewRootRequest: vers.NewRootRequestParam{VmConfig: vers.F(cfg)},
+		vmID, err := exec.NewVM(ctx, VMSpec{
+			MemSizeMib:  opts.MemSizeMib,
+			VcpuCount:   opts.VcpuCount,
+			FsSizeVmMib: opts.FsSizeVmMib,
+			RootfsName:  opts.RootfsName,
+			KernelName:  opts.KernelName,
 		})
 		if err != nil {
 			return "", "", fmt.Errorf("FROM scratch: %w", err)
 		}
-		if err := utils.WaitForRunning(ctx, a.Client, resp.VmID); err != nil {
-			return "", "", fmt.Errorf("FROM scratch: wait: %w", err)
-		}
-		return resp.VmID, "", nil
+		return vmID, "", nil
 	}
 
-	// Otherwise: try as tag first, then as commit id.
 	commitID := f.Ref
-	if tag, terr := a.Client.CommitTags.Get(ctx, f.Ref); terr == nil && tag != nil && tag.CommitID != "" {
-		commitID = tag.CommitID
+	if resolved, ok := exec.ResolveTag(ctx, f.Ref); ok {
+		commitID = resolved
 	}
-	resp, err := a.Client.Vm.RestoreFromCommit(ctx, vers.VmRestoreFromCommitParams{
-		VmFromCommitRequest: vers.VmFromCommitRequestParam{CommitID: vers.F(commitID)},
-	})
+	vmID, err := exec.RestoreFromCommit(ctx, commitID)
 	if err != nil {
 		return "", "", fmt.Errorf("FROM %s: %w", f.Ref, err)
 	}
-	if err := utils.WaitForRunning(ctx, a.Client, resp.VmID); err != nil {
-		return "", "", fmt.Errorf("FROM %s: wait: %w", f.Ref, err)
-	}
-	return resp.VmID, commitID, nil
+	return vmID, commitID, nil
 }
 
-// switchToCommit tears down the current VM and restores a fresh one from
-// the given cached commit. Returns the new VM id.
-func switchToCommit(ctx context.Context, a *app.App, oldVM, commitID string) (string, error) {
-	resp, err := a.Client.Vm.RestoreFromCommit(ctx, vers.VmRestoreFromCommitParams{
-		VmFromCommitRequest: vers.VmFromCommitRequestParam{CommitID: vers.F(commitID)},
-	})
+// switchToCommit restores a fresh VM from the cached commit and deletes
+// the old one. Returns the new VM id.
+func switchToCommit(ctx context.Context, exec Executor, oldVM, commitID string) (string, error) {
+	newVM, err := exec.RestoreFromCommit(ctx, commitID)
 	if err != nil {
 		return "", err
 	}
-	if err := utils.WaitForRunning(ctx, a.Client, resp.VmID); err != nil {
-		_, _ = delsvc.DeleteVM(ctx, a.Client, resp.VmID)
-		return "", err
-	}
-	// Delete the old VM in the background-ish (still inside ctx).
 	if oldVM != "" {
-		_, _ = delsvc.DeleteVM(ctx, a.Client, oldVM)
+		_ = exec.DeleteVM(ctx, oldVM)
 	}
-	return resp.VmID, nil
+	return newVM, nil
 }
 
 // applyMeta handles instructions that only update builder state, with no
-// corresponding VM mutation. Returns handled=true if it took care of the
-// instruction.
+// corresponding VM mutation.
 func applyMeta(st *state, ins dockerfile.Instruction) (handled bool, err error) {
 	switch ins.Kind {
 	case dockerfile.KindArg:
@@ -383,13 +354,12 @@ func applyMeta(st *state, ins dockerfile.Instruction) (handled bool, err error) 
 	return false, nil
 }
 
-// cacheKeyFor produces a cache key for a *materializing* instruction
+// cacheKeyFor produces a cache key for a materializing instruction
 // (RUN / COPY / ADD). Metadata instructions don't create layers.
 func cacheKeyFor(ins dockerfile.Instruction, st *state, bc *BuildContext, parentCommit string) (string, []string, error) {
 	extras := metaExtras(st)
 	switch ins.Kind {
 	case dockerfile.KindRun:
-		// The expanded shell form bakes current ENV/WORKDIR/USER into the key.
 		cmd := runCommandLine(ins.Run, st)
 		return CacheKey(parentCommit, "RUN "+cmd, extras...), extras, nil
 	case dockerfile.KindCopy, dockerfile.KindAdd:
@@ -407,8 +377,8 @@ func cacheKeyFor(ins dockerfile.Instruction, st *state, bc *BuildContext, parent
 	}
 }
 
-// metaExtras returns a sorted, deterministic slice encoding the environment
-// captured in the builder state. Any future RUN or COPY depends on this.
+// metaExtras produces a deterministic slice encoding the builder's env /
+// workdir / user so future layer keys depend on them.
 func metaExtras(st *state) []string {
 	var out []string
 	if st.workdir != "" {
@@ -428,29 +398,20 @@ func metaExtras(st *state) []string {
 	return out
 }
 
-// runStep executes RUN or COPY against the live VM.
-func runStep(ctx context.Context, a *app.App, vmID string, st *state, ins dockerfile.Instruction, bc *BuildContext) error {
+// runStep dispatches RUN and COPY/ADD execution against the live VM.
+func runStep(ctx context.Context, exec Executor, vmID string, st *state, ins dockerfile.Instruction, bc *BuildContext, stdout, stderr io.Writer) error {
 	switch ins.Kind {
 	case dockerfile.KindRun:
-		return runRun(ctx, a, vmID, st, ins.Run)
+		return doRun(ctx, exec, vmID, st, ins.Run, stdout, stderr)
 	case dockerfile.KindCopy, dockerfile.KindAdd:
-		return runCopy(ctx, a, vmID, st, ins.Copy, bc)
+		return doCopy(ctx, exec, vmID, st, ins.Copy, bc, stdout, stderr)
 	}
 	return fmt.Errorf("runStep: unhandled instruction %s", ins.Kind)
 }
 
-func runRun(ctx context.Context, a *app.App, vmID string, st *state, r *dockerfile.RunInstr) error {
+func doRun(ctx context.Context, exec Executor, vmID string, st *state, r *dockerfile.RunInstr, stdout, stderr io.Writer) error {
 	cmd := runCommand(r, st)
-	body, err := vmSvc.ExecStream(ctx, vmID, vmSvc.ExecRequest{
-		Command:    cmd,
-		Env:        copyMap(st.env),
-		WorkingDir: st.workdir,
-	})
-	if err != nil {
-		return err
-	}
-	defer body.Close()
-	code, err := streamOutput(body, a.IO.Out, a.IO.Err)
+	code, err := exec.Run(ctx, vmID, cmd, copyMap(st.env), st.workdir, stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -468,8 +429,8 @@ func runCommand(r *dockerfile.RunInstr, st *state) []string {
 	return maybeWrapUser([]string{"bash", "-c", r.Shell}, st)
 }
 
-// runCommandLine is a flat, stable text representation of the command for
-// cache-key purposes only.
+// runCommandLine is a flat, stable representation of the command for cache
+// keys only.
 func runCommandLine(r *dockerfile.RunInstr, st *state) string {
 	cmd := runCommand(r, st)
 	return strings.Join(cmd, "\x00")
@@ -483,36 +444,26 @@ func maybeWrapUser(cmd []string, st *state) []string {
 	return []string{"sudo", "-u", st.user, "bash", "-c", joined}
 }
 
-func runCopy(ctx context.Context, a *app.App, vmID string, st *state, c *dockerfile.CopyInstr, bc *BuildContext) error {
+func doCopy(ctx context.Context, exec Executor, vmID string, st *state, c *dockerfile.CopyInstr, bc *BuildContext, stdout, stderr io.Writer) error {
 	if c.From != "" {
 		return fmt.Errorf("COPY --from is not supported in v1")
 	}
-	info, err := vmSvc.GetConnectInfo(ctx, a.Client, vmID)
-	if err != nil {
-		return fmt.Errorf("connect info: %w", err)
-	}
-	client := sshutil.NewClient(info.Host, info.KeyPath, info.VMDomain)
-
 	dest := c.Dest
 	if !filepath.IsAbs(dest) {
-		// Relative dest is resolved against WORKDIR (or / if unset).
 		base := st.workdir
 		if base == "" {
 			base = "/"
 		}
 		dest = filepath.Join(base, dest)
 	}
-
-	// If multiple sources, destination must be a directory (docker rule).
 	destIsDir := strings.HasSuffix(c.Dest, "/") || len(c.Sources) > 1
 
-	// Ensure destination exists.
 	mkdirTarget := dest
 	if !destIsDir {
 		mkdirTarget = filepath.Dir(dest)
 	}
 	if mkdirTarget != "" && mkdirTarget != "/" {
-		if err := execSimple(ctx, vmID, []string{"mkdir", "-p", mkdirTarget}); err != nil {
+		if err := execSimple(ctx, exec, vmID, []string{"mkdir", "-p", mkdirTarget}, stdout, stderr); err != nil {
 			return fmt.Errorf("mkdir %s: %w", mkdirTarget, err)
 		}
 	}
@@ -525,7 +476,6 @@ func runCopy(ctx context.Context, a *app.App, vmID string, st *state, c *dockerf
 		if len(entries) == 0 {
 			return fmt.Errorf("no files matched source %q (all ignored?)", srcSpec)
 		}
-		// Compute the single filesystem path we hand to sftp.Upload.
 		srcAbs := filepath.Join(bc.Root, filepath.FromSlash(strings.TrimPrefix(srcSpec, "./")))
 		st2, serr := os.Stat(srcAbs)
 		if serr != nil {
@@ -537,30 +487,23 @@ func runCopy(ctx context.Context, a *app.App, vmID string, st *state, c *dockerf
 		} else {
 			remoteTarget = dest
 		}
-		recursive := st2.IsDir()
-		if err := client.Upload(ctx, srcAbs, remoteTarget, recursive); err != nil {
+		if err := exec.Upload(ctx, vmID, srcAbs, remoteTarget, st2.IsDir()); err != nil {
 			return fmt.Errorf("upload %s: %w", srcSpec, err)
 		}
 	}
 
-	// Optional --chown
 	if c.Chown != "" {
-		if err := execSimple(ctx, vmID, []string{"chown", "-R", c.Chown, dest}); err != nil {
+		if err := execSimple(ctx, exec, vmID, []string{"chown", "-R", c.Chown, dest}, stdout, stderr); err != nil {
 			return fmt.Errorf("chown: %w", err)
 		}
 	}
 	return nil
 }
 
-// execSimple runs a command on the VM and errors if it exits non-zero,
-// discarding output. Used for internal plumbing (mkdir, chown).
-func execSimple(ctx context.Context, vmID string, cmd []string) error {
-	body, err := vmSvc.ExecStream(ctx, vmID, vmSvc.ExecRequest{Command: cmd})
-	if err != nil {
-		return err
-	}
-	defer body.Close()
-	code, err := streamOutput(body, io.Discard, io.Discard)
+// execSimple runs a management command, discarding output but respecting
+// exit code. Used for mkdir / chown inside COPY.
+func execSimple(ctx context.Context, exec Executor, vmID string, cmd []string, stdout, stderr io.Writer) error {
+	code, err := exec.Run(ctx, vmID, cmd, nil, "", io.Discard, io.Discard)
 	if err != nil {
 		return err
 	}
@@ -581,8 +524,7 @@ func copyMap(m map[string]string) map[string]string {
 	return out
 }
 
-// expand performs lightweight $VAR / ${VAR} substitution across ENV +
-// build args, matching Docker's semantics for ENV/LABEL/WORKDIR/USER.
+// expand performs lightweight $VAR / ${VAR} substitution across ENV + build args.
 func expand(s string, st *state) string {
 	if !strings.ContainsAny(s, "$") {
 		return s
@@ -604,7 +546,6 @@ func expand(s string, st *state) string {
 			i++
 			continue
 		}
-		// ${NAME}
 		if i+1 < len(s) && s[i+1] == '{' {
 			end := strings.IndexByte(s[i+2:], '}')
 			if end < 0 {
@@ -618,7 +559,6 @@ func expand(s string, st *state) string {
 			i += 2 + end + 1
 			continue
 		}
-		// $NAME
 		j := i + 1
 		for j < len(s) && (isAlnum(s[j]) || s[j] == '_') {
 			j++
@@ -647,8 +587,8 @@ func short(id string) string {
 	return id[:12]
 }
 
-// utilsShellJoin is intentionally here (not using utils.ShellJoin) so the
-// package can be tested standalone without dragging the whole utils tree.
+// utilsShellJoin locally quotes argv elements (so we don't pull in utils
+// just for shell joining inside this package).
 func utilsShellJoin(args []string) string {
 	var b strings.Builder
 	for i, a := range args {
