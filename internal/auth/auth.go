@@ -12,6 +12,7 @@ import (
 )
 
 const DEFAULT_VERS_URL_STR = "https://api.vers.sh"
+const DEFAULT_VERS_LANDING_URL_STR = "https://vers.sh"
 
 // Config represents the structure of the .versrc file
 type Config struct {
@@ -190,6 +191,28 @@ func GetVMDomain() string {
 	}
 	// Fallback: assume production domain
 	return "vm.vers.sh"
+}
+
+// GetVersLandingURL returns the base URL for the vers-landing web app
+// (dashboard, GitHub App install, signin). Defaults to
+// DEFAULT_VERS_LANDING_URL_STR; override with VERS_LANDING_URL.
+//
+// The landing app is a separate deployment from the api (VERS_URL).
+// Callers should not derive one from the other by host-munging.
+func GetVersLandingURL() (*url.URL, error) {
+	raw := strings.TrimSpace(os.Getenv("VERS_LANDING_URL"))
+	if raw == "" {
+		raw = DEFAULT_VERS_LANDING_URL_STR
+	}
+
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid VERS_LANDING_URL %q: %w", raw, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("invalid VERS_LANDING_URL %s; URL must include scheme http:// or https://", u)
+	}
+	return u, nil
 }
 
 // Backward-compatibility checks removed; the CLI only targets DEFAULT_VERS_URL (or VERS_URL override).

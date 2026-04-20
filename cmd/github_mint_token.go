@@ -125,10 +125,10 @@ Examples:
 }
 
 // doMintToken calls the vers-landing installation-token endpoint directly.
-// This endpoint lives on vers.sh (the landing/dashboard app), NOT on api.vers.sh.
-// We derive the landing URL from the configured API base URL:
-//   api.vers.sh -> vers.sh
-//   api.staging.vers.sh -> staging.vers.sh
+// This endpoint lives on the landing/dashboard app (vers.sh by default),
+// NOT on api.vers.sh. The landing base URL is resolved via
+// auth.GetVersLandingURL() (VERS_LANDING_URL env override, otherwise
+// DEFAULT_VERS_LANDING_URL_STR).
 func doMintToken(ctx context.Context, req mintTokenRequest) (*mintTokenResponse, error) {
 	// Get the API key (same key works for both api.vers.sh and vers.sh).
 	apiKey, err := auth.GetAPIKey()
@@ -136,10 +136,13 @@ func doMintToken(ctx context.Context, req mintTokenRequest) (*mintTokenResponse,
 		return nil, fmt.Errorf("authentication required: run vers login first")
 	}
 
-	// Derive the vers-landing base URL from the API base URL.
-	landingURL := deriveLandingURL()
+	// Resolve the vers-landing base URL (VERS_LANDING_URL or default).
+	landingURL, err := auth.GetVersLandingURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve landing URL: %w", err)
+	}
 
-	endpoint := landingURL + "/api/github/installation-token"
+	endpoint := strings.TrimRight(landingURL.String(), "/") + "/api/github/installation-token"
 
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -185,33 +188,6 @@ func doMintToken(ctx context.Context, req mintTokenRequest) (*mintTokenResponse,
 	}
 
 	return &tokenResp, nil
-}
-
-// deriveLandingURL converts the API base URL to the vers-landing URL.
-// Examples:
-//   https://api.vers.sh       -> https://vers.sh
-//   https://api.staging.vers.sh -> https://staging.vers.sh
-//   VERS_LANDING_URL env override takes priority.
-func deriveLandingURL() string {
-	if override := os.Getenv("VERS_LANDING_URL"); override != "" {
-		return strings.TrimRight(override, "/")
-	}
-
-	if application != nil && application.BaseURL != nil {
-		host := application.BaseURL.Hostname()
-		scheme := application.BaseURL.Scheme
-
-		// Strip "api." prefix to get landing domain.
-		if strings.HasPrefix(host, "api.") {
-			landingHost := strings.TrimPrefix(host, "api.")
-			return fmt.Sprintf("%s://%s", scheme, landingHost)
-		}
-		// If no "api." prefix, use as-is (probably a dev setup).
-		return strings.TrimRight(application.BaseURL.String(), "/")
-	}
-
-	// Final fallback.
-	return "https://vers.sh"
 }
 
 func init() {

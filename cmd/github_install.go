@@ -4,10 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/auth"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -19,18 +24,52 @@ var (
 	ghInstallTimeout int
 )
 
-// installURLResponse is the response from the install-url endpoint.
+// installURLResponse is the response from the install-url endpoint on vers-landing.
 // TODO: verify exact response shape against vers-landing once endpoint is confirmed.
 type installURLResponse struct {
 	URL string `json:"url"`
 }
 
-// githubStatusResponse is the response from the github-status endpoint.
+// githubStatusResponse is the response from the github-status endpoint on vers-landing.
 // TODO: verify exact response shape against vers-landing once endpoint is confirmed.
 type githubStatusResponse struct {
 	Installed      bool   `json:"installed"`
 	InstallationID int64  `json:"installation_id,omitempty"`
 	Org            string `json:"org,omitempty"`
+}
+
+// landingGetJSON performs a GET against the vers-landing app with Bearer auth
+// and decodes the JSON response. Returns the HTTP status code and any decode error.
+func landingGetJSON(ctx context.Context, landing *url.URL, path string, out interface{}) (int, error) {
+	apiKey, err := auth.GetAPIKey()
+	if err != nil || apiKey == "" {
+		return 0, fmt.Errorf("authentication required: run vers login first")
+	}
+
+	endpoint := strings.TrimRight(landing.String(), "/") + path
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return resp.StatusCode, fmt.Errorf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	if out != nil && len(body) > 0 {
+		if err := json.Unmarshal(body, out); err != nil {
+			return resp.StatusCode, fmt.Errorf("decode response: %w", err)
+		}
+	}
+	return resp.StatusCode, nil
 }
 
 var githubInstallCmd = &cobra.Command{
@@ -61,27 +100,30 @@ Examples:
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
-		// Step 1: Get the install URL.
-		// TODO: The exact endpoint is unverified. This assumes:
-		//   GET /api/v1/github/install-url[?org=<name>]
-		// If the endpoint does not exist, we fall back to a static dashboard URL.
-		path := "api/v1/github/install-url"
+		// Resolve the vers-landing base URL (VERS_LANDING_URL or default).
+		// The GitHub App install flow lives on vers-landing, NOT on api.vers.sh.
+		landingURL, err := auth.GetVersLandingURL()
+		if err != nil {
+			return fmt.Errorf("failed to resolve landing URL: %w", err)
+		}
+
+		// Step 1: Get the install URL from vers-landing.
+		urlPath := "/api/github/install-url"
 		if ghInstallOrg != "" {
-			path += "?org=" + ghInstallOrg
+			urlPath += "?org=" + url.QueryEscape(ghInstallOrg)
 		}
 
 		var urlResp installURLResponse
-		err := application.Client.Get(ctx, path, nil, &urlResp)
+		_, err = landingGetJSON(ctx, landingURL, urlPath, &urlResp)
 
 		var installURL string
 		if err != nil || urlResp.URL == "" {
-			// Fallback: construct a reasonable dashboard URL.
-			// TODO: verify this fallback path against vers-landing.
-			baseURL := application.BaseURL.String()
+			// Fallback: construct a reasonable dashboard URL on landing.
+			base := strings.TrimRight(landingURL.String(), "/")
 			if ghInstallOrg != "" {
-				installURL = fmt.Sprintf("%s/dashboard/github/install?org=%s", baseURL, ghInstallOrg)
+				installURL = fmt.Sprintf("%s/dashboard/github/install?org=%s", base, url.QueryEscape(ghInstallOrg))
 			} else {
-				installURL = fmt.Sprintf("%s/dashboard/github/install", baseURL)
+				installURL = fmt.Sprintf("%s/dashboard/github/install", base)
 			}
 			if application.Verbose && err != nil {
 				fmt.Fprintf(application.IO.Err, "Warning: install-url endpoint unavailable (%v), using fallback URL\n", err)
@@ -103,9 +145,9 @@ Examples:
 		// Step 4: Poll for installation status.
 		fmt.Fprintf(application.IO.Err, "Waiting for GitHub App installation (timeout %s)...\n", timeout)
 
-		statusPath := "api/v1/github/status"
+		statusPath := "/api/github/status"
 		if ghInstallOrg != "" {
-			statusPath += "?org=" + ghInstallOrg
+			statusPath += "?org=" + url.QueryEscape(ghInstallOrg)
 		}
 
 		ticker := time.NewTicker(5 * time.Second)
@@ -124,7 +166,7 @@ Examples:
 				return fmt.Errorf("timed out waiting for installation")
 			case <-ticker.C:
 				var status githubStatusResponse
-				if err := application.Client.Get(ctx, statusPath, nil, &status); err != nil {
+				if _, err := landingGetJSON(ctx, landingURL, statusPath, &status); err != nil {
 					if application.Verbose {
 						fmt.Fprintf(application.IO.Err, "  poll error: %v\n", err)
 					}
