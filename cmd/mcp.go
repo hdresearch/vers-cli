@@ -45,11 +45,27 @@ var mcpServeCmd = &cobra.Command{
 		// Give a brief startup message; real logging stays internal.
 		fmt.Fprintf(application.IO.Out, "Starting MCP server (transport=%s, addr=%s)\n", opts.Transport, opts.Addr)
 
+		// Fire and flush the started event immediately — the server blocks for
+		// the lifetime of this command, so waiting for the normal end-of-run
+		// flush would delay the signal by however long the server runs.
+		mcpStart := time.Now()
+		trackSemanticEvent("mcp_server_started", map[string]any{
+			"transport": opts.Transport,
+		})
+		if telemetryClient != nil {
+			telemetryClient.Flush()
+		}
+
 		// Provide a grace period for clean shutdown on CTRL-C.
 		// In future we can wire signal.NotifyContext here.
 		ctx, cancel2 := context.WithTimeout(ctx, application.Timeouts.APILong+time.Minute)
 		defer cancel2()
-		return imcp.StartServer(ctx, application, opts)
+		serveErr := imcp.StartServer(ctx, application, opts)
+
+		trackSemanticOutcomeWithDuration("mcp_server_stopped", serveErr, mcpStart, map[string]any{
+			"transport": opts.Transport,
+		})
+		return serveErr
 	},
 }
 

@@ -17,7 +17,16 @@ var (
 )
 
 // signupWithGit authenticates using the Shell Auth flow with git email + SSH key.
-func signupWithGit() error {
+func signupWithGit() (retErr error) {
+	if telemetryClient != nil {
+		telemetryClient.BeginAuthenticationFlow()
+	}
+	defer func() {
+		if retErr != nil {
+			trackAuthFailure("signup_completed", "signup", "shell_auth", retErr)
+		}
+	}()
+
 	// Step 1: Get email
 	var email string
 	if signupEmail != "" {
@@ -54,7 +63,12 @@ func signupWithGit() error {
 	fmt.Println("\nInitiating authentication...")
 	initResp, err := auth.ShellAuthInitiate(email, sshPubKey)
 	if err != nil {
-		return fmt.Errorf("failed to initiate auth: %w", err)
+		wrapped := fmt.Errorf("failed to initiate auth: %w", err)
+		trackSemanticOutcome("shell_auth_email_sent", wrapped, map[string]any{
+			"flow":   "signup",
+			"method": "shell_auth",
+		})
+		return wrapped
 	}
 
 	var verifyResp *auth.ShellAuthVerifyResponse
@@ -64,8 +78,19 @@ func signupWithGit() error {
 		fmt.Println("SSH key already verified ✓")
 		verifyResp, err = auth.ShellAuthCheckVerification(email, sshPubKey)
 		if err != nil {
-			return fmt.Errorf("failed to fetch org list: %w", err)
+			wrapped := fmt.Errorf("failed to fetch org list: %w", err)
+			trackSemanticOutcome("shell_auth_email_verified", wrapped, map[string]any{
+				"flow":             "signup",
+				"method":           "shell_auth",
+				"already_verified": true,
+			})
+			return wrapped
 		}
+		trackSemanticEvent("shell_auth_email_verified", map[string]any{
+			"flow":             "signup",
+			"method":           "shell_auth",
+			"already_verified": true,
+		})
 	} else {
 		if initResp.IsNewUser {
 			fmt.Println("Creating new Vers account...")
@@ -75,19 +100,41 @@ func signupWithGit() error {
 		fmt.Printf("\n📧 Verification email sent to %s\n", email)
 		fmt.Println("   Click the link in the email to continue.")
 		fmt.Print("   Waiting for verification...")
+		trackSemanticEvent("shell_auth_email_sent", map[string]any{
+			"flow":        "signup",
+			"method":      "shell_auth",
+			"is_new_user": initResp.IsNewUser,
+		})
 
 		verifyResp, err = auth.ShellAuthPollVerification(email, sshPubKey, 10*time.Minute)
 		if err != nil {
 			fmt.Println(" ✗")
+			trackSemanticOutcome("shell_auth_email_verified", err, map[string]any{
+				"flow":        "signup",
+				"method":      "shell_auth",
+				"is_new_user": initResp.IsNewUser,
+			})
 			return err
 		}
 		fmt.Println(" ✓")
+		trackSemanticEvent("shell_auth_email_verified", map[string]any{
+			"flow":        "signup",
+			"method":      "shell_auth",
+			"is_new_user": initResp.IsNewUser,
+		})
 	}
 
 	// Step 5: Select organization
 	orgName := ""
+	orgSelectionMode := "interactive"
 	if len(verifyResp.Orgs) == 0 {
-		return fmt.Errorf("no organizations found for this account")
+		err := fmt.Errorf("no organizations found for this account")
+		trackSemanticOutcome("shell_auth_org_selected", err, map[string]any{
+			"flow":      "signup",
+			"method":    "shell_auth",
+			"org_count": len(verifyResp.Orgs),
+		})
+		return err
 	} else if signupOrg != "" {
 		// --org flag provided, match by name
 		found := false
@@ -103,19 +150,39 @@ func signupWithGit() error {
 			for i, org := range verifyResp.Orgs {
 				names[i] = org.Name
 			}
-			return fmt.Errorf("organization %q not found. Available: %s", signupOrg, strings.Join(names, ", "))
+			wrapped := fmt.Errorf("organization %q not found. Available: %s", signupOrg, strings.Join(names, ", "))
+			trackSemanticOutcome("shell_auth_org_selected", wrapped, map[string]any{
+				"flow":      "signup",
+				"method":    "shell_auth",
+				"org_count": len(verifyResp.Orgs),
+			})
+			return wrapped
 		}
+		orgSelectionMode = "flag"
 		fmt.Printf("\nOrganization: %s\n", orgName)
 	} else if len(verifyResp.Orgs) == 1 {
 		orgName = verifyResp.Orgs[0].Name
+		orgSelectionMode = "single_option"
 		fmt.Printf("\nOrganization: %s\n", orgName)
 	} else {
 		names := make([]string, len(verifyResp.Orgs))
 		for i, org := range verifyResp.Orgs {
 			names[i] = org.Name
 		}
-		return fmt.Errorf("multiple organizations found. Use --org to specify one: %s", strings.Join(names, ", "))
+		wrapped := fmt.Errorf("multiple organizations found. Use --org to specify one: %s", strings.Join(names, ", "))
+		trackSemanticOutcome("shell_auth_org_selected", wrapped, map[string]any{
+			"flow":      "signup",
+			"method":    "shell_auth",
+			"org_count": len(verifyResp.Orgs),
+		})
+		return wrapped
 	}
+	trackSemanticEvent("shell_auth_org_selected", map[string]any{
+		"flow":               "signup",
+		"method":             "shell_auth",
+		"org_selection_mode": orgSelectionMode,
+		"org_count":          len(verifyResp.Orgs),
+	})
 
 	// Step 6: Create API key
 	hostname, _ := os.Hostname()
@@ -128,7 +195,13 @@ func signupWithGit() error {
 	keyResp, err := auth.ShellAuthCreateAPIKey(email, sshPubKey, label, orgName)
 	if err != nil {
 		fmt.Println("✗")
-		return fmt.Errorf("failed to create API key: %w", err)
+		wrapped := fmt.Errorf("failed to create API key: %w", err)
+		trackSemanticOutcome("api_key_validated", wrapped, map[string]any{
+			"flow":   "signup",
+			"method": "shell_auth",
+			"stage":  "create",
+		})
+		return wrapped
 	}
 	fmt.Println("✓")
 
@@ -136,8 +209,18 @@ func signupWithGit() error {
 	fmt.Print("Validating API key... ")
 	if err := validateAPIKey(keyResp.APIKey); err != nil {
 		fmt.Println("✗")
+		trackSemanticOutcome("api_key_validated", err, map[string]any{
+			"flow":   "signup",
+			"method": "shell_auth",
+			"stage":  "validate",
+		})
 		return err
 	}
+	trackSemanticEvent("api_key_validated", map[string]any{
+		"flow":   "signup",
+		"method": "shell_auth",
+		"stage":  "validate",
+	})
 
 	config, err := auth.LoadConfig()
 	if err != nil {
@@ -146,8 +229,18 @@ func signupWithGit() error {
 	config.APIKey = keyResp.APIKey
 	config.Email = email
 	config.SSHKeyPath = sshKeyPath
+	config.UserID = verifyResp.UserID
+	config.OrgID = keyResp.OrgID
+	if telemetryClient != nil && telemetryClient.AnonymousID() != "" {
+		config.AnonymousID = telemetryClient.AnonymousID()
+	}
 	if err := auth.SaveConfig(config); err != nil {
 		return fmt.Errorf("error saving config: %w", err)
+	}
+	if telemetryClient != nil {
+		telemetryClient.ReplaceConfig(config)
+		telemetryClient.SetAPIKey(keyResp.APIKey)
+		telemetryClient.TrackAuthSuccess("signup_completed", "shell_auth", verifyResp.UserID, keyResp.OrgID, email)
 	}
 
 	fmt.Printf("\n✓ Successfully authenticated with Vers (org: %s)\n", keyResp.OrgName)
@@ -168,10 +261,19 @@ an account. A verification email is sent — click the link and you're in.
   vers signup --git=false            Prompt for an API key instead
 
 If you already have an account, this will log you in.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 		if signupGit {
 			return signupWithGit()
 		}
+
+		if telemetryClient != nil {
+			telemetryClient.BeginAuthenticationFlow()
+		}
+		defer func() {
+			if retErr != nil {
+				trackAuthFailure("signin_completed", "signup", "api_key", retErr)
+			}
+		}()
 
 		// Fallback: prompt for API key (same as `vers login`)
 		apiKey, err := secureReadAPIKey()
@@ -182,12 +284,34 @@ If you already have an account, this will log you in.`,
 		fmt.Print("Validating API key... ")
 		if err := validateAPIKey(apiKey); err != nil {
 			fmt.Println("✗")
+			trackSemanticOutcome("api_key_validated", err, map[string]any{
+				"flow":   "signup",
+				"method": "api_key",
+			})
 			return err
 		}
 		fmt.Println("✓")
+		trackSemanticEvent("api_key_validated", map[string]any{
+			"flow":   "signup",
+			"method": "api_key",
+		})
 
-		if err := auth.SaveAPIKey(apiKey); err != nil {
+		config, err := auth.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("error loading config: %w", err)
+		}
+		config.APIKey = apiKey
+		auth.ClearUserIdentity(config)
+		if telemetryClient != nil && telemetryClient.AnonymousID() != "" {
+			config.AnonymousID = telemetryClient.AnonymousID()
+		}
+		if err := auth.SaveConfig(config); err != nil {
 			return fmt.Errorf("error saving API key: %w", err)
+		}
+		if telemetryClient != nil {
+			telemetryClient.ReplaceConfig(config)
+			telemetryClient.SetAPIKey(apiKey)
+			telemetryClient.TrackAuthSuccess("signin_completed", "api_key", "", "", "")
 		}
 
 		fmt.Println("\n✓ Successfully authenticated with Vers")

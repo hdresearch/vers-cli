@@ -19,7 +19,9 @@ If no arguments are provided, shows the current HEAD.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// If no arguments provided, show current HEAD
 		if len(args) == 0 {
-			return showCurrentHead()
+			err := showCurrentHead()
+			trackSemanticOutcome("vm_checkout_viewed", err, nil)
+			return err
 		}
 
 		target := args[0]
@@ -34,10 +36,15 @@ If no arguments are provided, shows the current HEAD.`,
 		// Use utils to resolve and set HEAD (this handles ID/alias resolution and stores ID)
 		vmInfo, err := utils.SetHeadFromIdentifier(apiCtx, client, target)
 		if err != nil {
-			return fmt.Errorf("failed to switch to VM '%s': %w", target, err)
+			wrapped := fmt.Errorf("failed to switch to VM '%s': %w", target, err)
+			trackSemanticOutcome("vm_checked_out", wrapped, nil)
+			return wrapped
 		}
 
 		fmt.Printf("Switched to VM '%s'\n", vmInfo.DisplayName)
+		trackSemanticEvent("vm_checked_out", map[string]any{
+			"vm_id": vmInfo.ID,
+		})
 		return nil
 	},
 }

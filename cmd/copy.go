@@ -40,9 +40,21 @@ Examples:
 		}
 		view, err := handlers.HandleCopy(apiCtx, application, handlers.CopyReq{Target: target, Source: source, Destination: destination, Recursive: recursive})
 		if err != nil {
+			trackSemanticOutcome("vm_files_copied", err, map[string]any{
+				"vm_target":       target,
+			"target_provided": target != "",
+				"recursive":       recursive,
+				"custom_timeout":  copyTimeout > 0,
+			})
 			return err
 		}
 		pres.RenderCopy(application, view)
+		trackSemanticEvent("vm_files_copied", map[string]any{
+			"vm_target":       target,
+			"target_provided": target != "",
+			"recursive":       recursive,
+			"custom_timeout":  copyTimeout > 0,
+		})
 		return nil
 	},
 }

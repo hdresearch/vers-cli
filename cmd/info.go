@@ -33,6 +33,11 @@ Use --format json for machine-readable output.`,
 
 		res, err := handlers.HandleInfo(apiCtx, application, handlers.InfoReq{Target: target})
 		if err != nil {
+			trackSemanticOutcome("vm_info_viewed", err, map[string]any{
+				"target_provided": target != "",
+				"quiet":           infoQuiet,
+				"format_json":     infoFormat == "json",
+			})
 			return err
 		}
 
@@ -45,6 +50,12 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderInfo(application, res)
 		}
+		trackSemanticEvent("vm_info_viewed", map[string]any{
+			"vm_id":           res.Metadata.VmID,
+			"target_provided": target != "",
+			"quiet":           infoQuiet,
+			"format_json":     infoFormat == "json",
+		})
 		return nil
 	},
 }

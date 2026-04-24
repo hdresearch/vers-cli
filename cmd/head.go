@@ -15,9 +15,14 @@ var headCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vmID, err := utils.GetCurrentHeadVM()
 		if err != nil {
-			return fmt.Errorf("no HEAD set: %w", err)
+			wrapped := fmt.Errorf("no HEAD set: %w", err)
+			trackSemanticOutcome("vm_head_viewed", wrapped, nil)
+			return wrapped
 		}
 		fmt.Println(vmID)
+		trackSemanticEvent("vm_head_viewed", map[string]any{
+			"vm_id": vmID,
+		})
 		return nil
 	},
 }

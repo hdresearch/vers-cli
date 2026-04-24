@@ -28,6 +28,10 @@ Use --wait to block until the VM is running.`,
 		commitKey := args[0]
 		cfg, err := runconfig.Load()
 		if err != nil {
+			trackSemanticOutcome("commit_executed", err, map[string]any{
+				"wait":      runCommitWait,
+				"has_alias": commitVmAlias != "",
+			})
 			return err
 		}
 		applyFlagOverrides(cmd, cfg)
@@ -36,6 +40,10 @@ Use --wait to block until the VM is running.`,
 		req := handlers.RunCommitReq{CommitKey: commitKey, VMAlias: commitVmAlias, Wait: runCommitWait}
 		view, err := handlers.HandleRunCommit(apiCtx, application, req)
 		if err != nil {
+			trackSemanticOutcome("commit_executed", err, map[string]any{
+				"wait":      runCommitWait,
+				"has_alias": commitVmAlias != "",
+			})
 			return err
 		}
 
@@ -46,6 +54,10 @@ Use --wait to block until the VM is running.`,
 		default:
 			pres.RenderRunCommit(application, view)
 		}
+		trackSemanticEvent("commit_executed", map[string]any{
+			"wait":      runCommitWait,
+			"has_alias": commitVmAlias != "",
+		})
 		return nil
 	},
 }

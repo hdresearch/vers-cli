@@ -24,10 +24,23 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APILong)
 		defer cancel()
-		return handlers.HandleKill(ctx, application, handlers.KillReq{
+		if err := handlers.HandleKill(ctx, application, handlers.KillReq{
 			Targets:          args,
 			SkipConfirmation: skipConfirmation,
+		}); err != nil {
+			trackSemanticOutcome("vm_deleted", err, map[string]any{
+				"count":             max(1, len(args)),
+				"vm_ids":            args,
+				"skip_confirmation": skipConfirmation,
+			})
+			return err
+		}
+		trackSemanticEvent("vm_deleted", map[string]any{
+			"count":             max(1, len(args)),
+			"vm_ids":            args,
+			"skip_confirmation": skipConfirmation,
 		})
+		return nil
 	},
 }
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ var connectCmd = &cobra.Command{
 	Long:  `Connect to a running Vers VM via SSH. If no VM ID or alias is provided, uses the current HEAD.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		started := time.Now()
 		// Use a context without timeout for interactive SSH sessions.
 		// The SSH connection should stay open until the user exits.
 		ctx := context.Background()
@@ -23,8 +25,16 @@ var connectCmd = &cobra.Command{
 		}
 		_, err := handlers.HandleConnect(ctx, application, handlers.ConnectReq{Target: target})
 		if err != nil {
+			trackSemanticOutcomeWithDuration("vm_connected", err, started, map[string]any{
+				"vm_target":       target,
+			"target_provided": target != "",
+			})
 			return err
 		}
+		trackSemanticOutcomeWithDuration("vm_connected", nil, started, map[string]any{
+			"vm_target":       target,
+			"target_provided": target != "",
+		})
 		return nil
 	},
 }

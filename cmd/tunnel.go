@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ Examples:
   vers tunnel 9090:10.0.0.2:80  Forward local 9090 to 10.0.0.2:80 via the VM`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		started := time.Now()
 		// Parse args: either [spec] or [target, spec]
 		var target, spec string
 		if len(args) == 1 {
@@ -41,6 +43,9 @@ Examples:
 
 		localPort, remoteHost, remotePort, err := parseTunnelSpec(spec)
 		if err != nil {
+			trackSemanticOutcome("vm_tunnel_opened", err, map[string]any{
+				"target_provided": target != "",
+			})
 			return err
 		}
 
@@ -60,6 +65,13 @@ Examples:
 			LocalPort:  localPort,
 			RemoteHost: remoteHost,
 			RemotePort: remotePort,
+		})
+		trackSemanticOutcomeWithDuration("vm_tunnel_opened", err, started, map[string]any{
+			"vm_target":          target,
+			"target_provided":    target != "",
+			"local_port":         localPort,
+			"remote_port":        remotePort,
+			"remote_host_custom": remoteHost != "localhost",
 		})
 		return err
 	},

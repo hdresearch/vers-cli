@@ -20,6 +20,10 @@ type UpgradeReq struct {
 	CheckOnly      bool
 	Prerelease     bool
 	SkipChecksum   bool
+	// OnUpgradeOutcome is invoked after an install attempt succeeds or fails.
+	// Used by the CLI layer to fire cli_updated telemetry without dragging the
+	// analytics package into handlers. Optional.
+	OnUpgradeOutcome func(fromVersion, toVersion string, err error)
 }
 
 func HandleUpgrade(a *app.App, r UpgradeReq) error {
@@ -59,9 +63,15 @@ func HandleUpgrade(a *app.App, r UpgradeReq) error {
 	}
 
 	if err := performUpgrade(DebugPrint, latest, r.SkipChecksum); err != nil {
+		if r.OnUpgradeOutcome != nil {
+			r.OnUpgradeOutcome(r.CurrentVersion, latest.TagName, err)
+		}
 		return err
 	}
 	update.UpdateCheckTime()
+	if r.OnUpgradeOutcome != nil {
+		r.OnUpgradeOutcome(r.CurrentVersion, latest.TagName, nil)
+	}
 	return nil
 }
 

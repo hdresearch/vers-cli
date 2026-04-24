@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -15,9 +16,62 @@ const DEFAULT_VERS_URL_STR = "https://api.vers.sh"
 
 // Config represents the structure of the .versrc file
 type Config struct {
-	APIKey     string `json:"apiKey"`
-	Email      string `json:"email,omitempty"`
-	SSHKeyPath string `json:"sshKeyPath,omitempty"`
+	APIKey      string           `json:"apiKey"`
+	Email       string           `json:"email,omitempty"`
+	SSHKeyPath  string           `json:"sshKeyPath,omitempty"`
+	UserID      string           `json:"userId,omitempty"`
+	OrgID       string           `json:"orgId,omitempty"`
+	AnonymousID string           `json:"anonymousId,omitempty"`
+	DeviceID    string           `json:"deviceId,omitempty"`
+	Telemetry   *TelemetryConfig `json:"telemetry,omitempty"`
+}
+
+type TelemetryConfig struct {
+	Enabled            *bool `json:"enabled,omitempty"`
+	NoticeAcknowledged bool  `json:"noticeAcknowledged,omitempty"`
+}
+
+func NewTelemetryID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4],
+		b[4:6],
+		b[6:8],
+		b[8:10],
+		b[10:16],
+	)
+}
+
+func ClearUserIdentity(config *Config) {
+	if config == nil {
+		return
+	}
+	config.UserID = ""
+	config.OrgID = ""
+	config.Email = ""
+}
+
+func EnsureTelemetryConfig(config *Config) *TelemetryConfig {
+	if config.Telemetry == nil {
+		config.Telemetry = &TelemetryConfig{}
+	}
+	return config.Telemetry
+}
+
+func EffectiveTelemetryStatus(config *Config) (enabled bool, reason string) {
+	if value := strings.ToLower(strings.TrimSpace(os.Getenv("DO_NOT_TRACK"))); value == "1" || value == "true" {
+		return false, "disabled by DO_NOT_TRACK"
+	}
+	if config != nil && config.Telemetry != nil && config.Telemetry.Enabled != nil {
+		if *config.Telemetry.Enabled {
+			return true, "enabled in .versrc"
+		}
+		return false, "disabled in .versrc"
+	}
+	return true, "enabled by default"
 }
 
 // GetConfigPath returns the path to the .versrc file in the user's home directory
@@ -142,6 +196,29 @@ func GetVersUrl() (*url.URL, error) {
 	}
 
 	return versUrl, nil
+}
+
+// GetSiteURL returns the main site URL corresponding to the configured API URL.
+// For example:
+//   - https://api.vers.sh -> https://vers.sh
+//   - https://api.staging.vers.sh -> https://staging.vers.sh
+func GetSiteURL() (*url.URL, error) {
+	versURL, err := GetVersUrl()
+	if err != nil {
+		return nil, err
+	}
+
+	siteURL := *versURL
+	host := versURL.Hostname()
+	if strings.HasPrefix(host, "api.") {
+		host = strings.TrimPrefix(host, "api.")
+	}
+	if port := versURL.Port(); port != "" {
+		siteURL.Host = host + ":" + port
+	} else {
+		siteURL.Host = host
+	}
+	return &siteURL, nil
 }
 
 // GetClientOptions returns the options for the SDK client

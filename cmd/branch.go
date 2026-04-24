@@ -42,6 +42,13 @@ Use --wait to block until new VMs are running.`,
 			Wait:     branchWait,
 		})
 		if err != nil {
+			trackSemanticOutcome("vm_branched", err, map[string]any{
+				"source_vm_id":    target,
+				"target_provided": target != "",
+				"count":           branchCount,
+				"checkout":        checkoutFlag,
+				"wait":            branchWait,
+			})
 			return err
 		}
 
@@ -52,6 +59,14 @@ Use --wait to block until new VMs are running.`,
 		default:
 			pres.RenderBranch(application, res)
 		}
+		trackSemanticEvent("vm_branched", map[string]any{
+			"source_vm_id":    target,
+			"target_provided": target != "",
+			"new_vm_ids":      res.NewIDs,
+			"count":           branchCount,
+			"checkout":        checkoutFlag,
+			"wait":            branchWait,
+		})
 		return nil
 	},
 }

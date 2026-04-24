@@ -36,6 +36,11 @@ Use --format json for machine-readable output.`,
 
 		res, err := handlers.HandleStatus(apiCtx, application, handlers.StatusReq{Target: target})
 		if err != nil {
+			trackSemanticOutcome("vm_status_viewed", err, map[string]any{
+				"target_provided": target != "",
+				"quiet":           statusQuiet,
+				"format_json":     statusFormat == "json",
+			})
 			return err
 		}
 
@@ -60,6 +65,18 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderStatus(application, res)
 		}
+		count := len(res.VMs)
+		props := map[string]any{
+			"target_provided": target != "",
+			"quiet":           statusQuiet,
+			"format_json":     statusFormat == "json",
+		}
+		if res.Mode == pres.StatusVM && res.VM != nil {
+			count = 1
+			props["vm_id"] = res.VM.VmID
+		}
+		props["count"] = count
+		trackSemanticEvent("vm_status_viewed", props)
 		return nil
 	},
 }

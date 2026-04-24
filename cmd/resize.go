@@ -36,6 +36,9 @@ Use --format json for machine-readable output.`,
 			FsSizeMib: resizeDiskSize,
 		})
 		if err != nil {
+			trackSemanticOutcome("vm_resized", err, map[string]any{
+				"fs_size_mib": resizeDiskSize,
+			})
 			return err
 		}
 
@@ -46,6 +49,11 @@ Use --format json for machine-readable output.`,
 		default:
 			fmt.Printf("✓ Disk resized to %d MiB for VM %s\n", resizeDiskSize, vmID)
 		}
+		trackSemanticEvent("vm_resized", map[string]any{
+			"vm_id":           vmID,
+			"target_provided": target != "",
+			"fs_size_mib":     resizeDiskSize,
+		})
 		return nil
 	},
 }

@@ -18,9 +18,13 @@ Examples:
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			return listAliases()
+			err := listAliases()
+			trackSemanticOutcome("vm_aliases_listed", err, nil)
+			return err
 		}
-		return showAlias(args[0])
+		err := showAlias(args[0])
+		trackSemanticOutcome("vm_alias_viewed", err, nil)
+		return err
 	},
 }
 

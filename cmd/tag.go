@@ -33,9 +33,15 @@ var tagCreateCmd = &cobra.Command{
 			Description: tagCreateDescription,
 		})
 		if err != nil {
+			trackSemanticOutcome("tag_created", err, map[string]any{
+				"has_description": tagCreateDescription != "",
+			})
 			return err
 		}
 		fmt.Printf("✓ Tag '%s' created → %s\n", resp.TagName, resp.CommitID)
+		trackSemanticEvent("tag_created", map[string]any{
+			"has_description": tagCreateDescription != "",
+		})
 		return nil
 	},
 }
@@ -61,6 +67,10 @@ Use --format json for machine-readable output.`,
 
 		res, err := handlers.HandleTagList(apiCtx, application, handlers.TagListReq{})
 		if err != nil {
+			trackSemanticOutcome("tag_listed", err, map[string]any{
+				"quiet":       tagListQuiet,
+				"format_json": tagListFormat == "json",
+			})
 			return err
 		}
 
@@ -77,6 +87,11 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderTagList(application, res)
 		}
+		trackSemanticEvent("tag_listed", map[string]any{
+			"quiet":       tagListQuiet,
+			"format_json": tagListFormat == "json",
+			"count":       len(res.Tags),
+		})
 		return nil
 	},
 }
@@ -98,6 +113,9 @@ Use --format json for machine-readable output.`,
 			TagName: args[0],
 		})
 		if err != nil {
+			trackSemanticOutcome("tag_viewed", err, map[string]any{
+				"format_json": tagGetFormat == "json",
+			})
 			return err
 		}
 
@@ -108,6 +126,9 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderTagInfo(application, info)
 		}
+		trackSemanticEvent("tag_viewed", map[string]any{
+			"format_json": tagGetFormat == "json",
+		})
 		return nil
 	},
 }
@@ -124,7 +145,12 @@ var tagUpdateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if tagUpdateCommit == "" && tagUpdateDescription == "" {
-			return fmt.Errorf("at least one of --commit or --description must be provided")
+			err := fmt.Errorf("at least one of --commit or --description must be provided")
+			trackSemanticOutcome("tag_updated", err, map[string]any{
+				"updates_commit":      tagUpdateCommit != "",
+				"updates_description": tagUpdateDescription != "",
+			})
+			return err
 		}
 
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -136,9 +162,17 @@ var tagUpdateCmd = &cobra.Command{
 			Description: tagUpdateDescription,
 		})
 		if err != nil {
+			trackSemanticOutcome("tag_updated", err, map[string]any{
+				"updates_commit":      tagUpdateCommit != "",
+				"updates_description": tagUpdateDescription != "",
+			})
 			return err
 		}
 		fmt.Printf("✓ Tag '%s' updated\n", args[0])
+		trackSemanticEvent("tag_updated", map[string]any{
+			"updates_commit":      tagUpdateCommit != "",
+			"updates_description": tagUpdateDescription != "",
+		})
 		return nil
 	},
 }
@@ -158,6 +192,7 @@ Examples:
 		defer cancel()
 
 		var firstErr error
+		successCount := 0
 		for _, name := range args {
 			err := handlers.HandleTagDelete(apiCtx, application, handlers.TagDeleteReq{
 				TagName: name,
@@ -169,7 +204,15 @@ Examples:
 				}
 				continue
 			}
+			successCount += 1
+			trackSemanticEvent("tag_deleted", nil)
 			fmt.Printf("✓ Tag '%s' deleted\n", name)
+		}
+		if firstErr != nil {
+			trackSemanticOutcome("tag_deleted", firstErr, map[string]any{
+				"count":         len(args),
+				"success_count": successCount,
+			})
 		}
 		return firstErr
 	},

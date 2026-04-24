@@ -26,6 +26,9 @@ Use --format json for machine-readable output.`,
 		}
 		view, err := handlers.HandlePause(apiCtx, application, handlers.PauseReq{Target: target})
 		if err != nil {
+			trackSemanticOutcome("vm_paused", err, map[string]any{
+				"target_provided": target != "",
+			})
 			return err
 		}
 
@@ -36,6 +39,10 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderPause(application, view)
 		}
+		trackSemanticEvent("vm_paused", map[string]any{
+			"vm_id":           view.VMName,
+			"target_provided": target != "",
+		})
 		return nil
 	},
 }

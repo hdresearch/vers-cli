@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/hdresearch/vers-cli/internal/assets"
@@ -28,7 +29,23 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a new vers project",
 	Long:  `Initialize a new vers project with a vers.toml configuration file.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+		createdGitignore := false
+		createdVersToml := false
+		started := time.Now()
+		props := func() map[string]any {
+			return map[string]any{
+				"has_name":          projectName != "",
+				"created_gitignore": createdGitignore,
+				"created_config":    createdVersToml,
+			}
+		}
+		defer func() {
+			if retErr != nil {
+				trackSemanticOutcomeWithDuration("project_initialized", retErr, started, props())
+			}
+		}()
+
 		// Check if API key exists, prompt for login if not
 		hasAPIKey, err := auth.HasAPIKey()
 		if err != nil {
@@ -51,6 +68,7 @@ var initCmd = &cobra.Command{
 			if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
 				return fmt.Errorf("error creating .gitignore file: %w", err)
 			}
+			createdGitignore = true
 		}
 
 		// Create .vers/logs directory for commit history
@@ -124,12 +142,14 @@ var initCmd = &cobra.Command{
 			if err := os.WriteFile(versTomlPath, []byte(versTomlContent), 0644); err != nil {
 				return fmt.Errorf("error creating vers.toml file: %w", err)
 			}
+			createdVersToml = true
 			fmt.Println("Created vers.toml with default configuration")
 		} else {
 			fmt.Println("vers.toml already exists, skipping")
 		}
 
 		fmt.Println("Initialized vers repository in " + versDir + " directory")
+		trackSemanticOutcomeWithDuration("project_initialized", nil, started, props())
 
 		return nil
 	},

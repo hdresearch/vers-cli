@@ -57,6 +57,7 @@ Use --format json for machine-readable output.`,
 			Target: target,
 		})
 		if err != nil {
+			trackSemanticOutcome("commit_created", err, nil)
 			return err
 		}
 
@@ -71,6 +72,9 @@ Use --format json for machine-readable output.`,
 			fmt.Printf("✓ Committed VM '%s'\n", res.VmID)
 			fmt.Printf("Commit ID: %s\n", res.CommitID)
 		}
+		trackSemanticEvent("commit_created", map[string]any{
+			"used_head": res.UsedHEAD,
+		})
 		return nil
 	},
 }
@@ -99,6 +103,9 @@ Use --format json for machine-readable output.`,
 			Public: commitListPublic,
 		})
 		if err != nil {
+			trackSemanticOutcome("commit_listed", err, map[string]any{
+				"public": commitListPublic,
+			})
 			return err
 		}
 
@@ -115,6 +122,10 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderCommitsList(application, res)
 		}
+		trackSemanticEvent("commit_listed", map[string]any{
+			"public": commitListPublic,
+			"count":  len(res.Commits),
+		})
 		return nil
 	},
 }
@@ -145,7 +156,13 @@ Examples:
 				}
 				continue
 			}
+			trackSemanticEvent("commit_deleted", nil)
 			fmt.Printf("✓ Commit %s deleted\n", id)
+		}
+		if firstErr != nil {
+			trackSemanticOutcome("commit_deleted", firstErr, map[string]any{
+				"count": len(args),
+			})
 		}
 		return firstErr
 	},
@@ -168,6 +185,7 @@ Use --format json for machine-readable output.`,
 			CommitID: args[0],
 		})
 		if err != nil {
+			trackSemanticOutcome("commit_history_viewed", err, nil)
 			return err
 		}
 
@@ -178,6 +196,7 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderCommitParents(application, res)
 		}
+		trackSemanticEvent("commit_history_viewed", nil)
 		return nil
 	},
 }
@@ -196,9 +215,11 @@ var commitPublishCmd = &cobra.Command{
 			IsPublic: true,
 		})
 		if err != nil {
+			trackSemanticOutcome("commit_published", err, nil)
 			return err
 		}
 		fmt.Printf("✓ Commit %s is now public\n", info.CommitID)
+		trackSemanticEvent("commit_published", nil)
 		return nil
 	},
 }
@@ -217,9 +238,11 @@ var commitUnpublishCmd = &cobra.Command{
 			IsPublic: false,
 		})
 		if err != nil {
+			trackSemanticOutcome("commit_unpublished", err, nil)
 			return err
 		}
 		fmt.Printf("✓ Commit %s is now private\n", info.CommitID)
+		trackSemanticEvent("commit_unpublished", nil)
 		return nil
 	},
 }

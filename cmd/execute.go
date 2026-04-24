@@ -70,12 +70,27 @@ Use --ssh to bypass the API and connect directly via SSH (legacy behavior).`,
 			timeoutSec = uint64(executeTimeout)
 		}
 
+		// "transport" is a stable key name — property keys containing "ssh"
+		// are stripped by the telemetry denylist. Value side is free-form.
+		transport := "api"
+		if executeSSH {
+			transport = "ssh"
+		}
+
 		// Read stdin if -i flag is set
 		var stdinData string
 		if executeStdin {
 			data, err := io.ReadAll(os.Stdin)
 			if err != nil {
-				return fmt.Errorf("failed to read stdin: %w", err)
+				wrapped := fmt.Errorf("failed to read stdin: %w", err)
+				trackSemanticOutcome("vm_command_executed", wrapped, map[string]any{
+					"vm_target":      target,
+					"transport":      transport,
+					"interactive":    executeStdin,
+					"has_workdir":    executeWorkDir != "",
+					"custom_timeout": executeTimeout > 0,
+				})
+				return wrapped
 			}
 			stdinData = string(data)
 		}
@@ -89,14 +104,42 @@ Use --ssh to bypass the API and connect directly via SSH (legacy behavior).`,
 			Stdin:      stdinData,
 		})
 		if err != nil {
+			trackSemanticOutcome("vm_command_executed", err, map[string]any{
+				"vm_target":      target,
+				"transport":      transport,
+				"interactive":    executeStdin,
+				"has_workdir":    executeWorkDir != "",
+				"custom_timeout": executeTimeout > 0,
+			})
 			return err
 		}
 		pres.RenderExecute(application, view)
 
 		// Exit with the command's exit code
 		if view.ExitCode != 0 {
+			exitErr := fmt.Errorf("remote command exited with code %d", view.ExitCode)
+			trackSemanticOutcome("vm_command_executed", exitErr, map[string]any{
+				"vm_target":      target,
+				"transport":      transport,
+				"interactive":    executeStdin,
+				"has_workdir":    executeWorkDir != "",
+				"custom_timeout": executeTimeout > 0,
+				"exit_code":      view.ExitCode,
+			})
+			if telemetryClient != nil {
+				telemetryClient.TrackCommandResult(commandName, false, view.ExitCode, time.Since(commandStart), exitErr)
+				telemetryClient.Flush()
+			}
 			os.Exit(view.ExitCode)
 		}
+		trackSemanticOutcome("vm_command_executed", nil, map[string]any{
+			"vm_target":      target,
+			"transport":      transport,
+			"interactive":    executeStdin,
+			"has_workdir":    executeWorkDir != "",
+			"custom_timeout": executeTimeout > 0,
+			"exit_code":      view.ExitCode,
+		})
 		return nil
 	},
 }

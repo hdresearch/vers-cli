@@ -34,9 +34,15 @@ var repoCreateCmd = &cobra.Command{
 			Description: repoCreateDescription,
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_created", err, map[string]any{
+				"has_description": repoCreateDescription != "",
+			})
 			return err
 		}
 		fmt.Printf("✓ Repository '%s' created (%s)\n", resp.Name, resp.RepoID)
+		trackSemanticEvent("repo_created", map[string]any{
+			"has_description": repoCreateDescription != "",
+		})
 		return nil
 	},
 }
@@ -62,6 +68,10 @@ Use --format json for machine-readable output.`,
 
 		res, err := handlers.HandleRepoList(apiCtx, application, handlers.RepoListReq{})
 		if err != nil {
+			trackSemanticOutcome("repo_listed", err, map[string]any{
+				"quiet":       repoListQuiet,
+				"format_json": repoListFormat == "json",
+			})
 			return err
 		}
 
@@ -78,6 +88,11 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderRepoList(application, pres.RepoListView{Repositories: res.Repositories})
 		}
+		trackSemanticEvent("repo_listed", map[string]any{
+			"quiet":       repoListQuiet,
+			"format_json": repoListFormat == "json",
+			"count":       len(res.Repositories),
+		})
 		return nil
 	},
 }
@@ -101,6 +116,9 @@ Use --format json for machine-readable output.`,
 			Name: args[0],
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_viewed", err, map[string]any{
+				"format_json": repoGetFormat == "json",
+			})
 			return err
 		}
 
@@ -111,6 +129,9 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderRepoInfo(application, info)
 		}
+		trackSemanticEvent("repo_viewed", map[string]any{
+			"format_json": repoGetFormat == "json",
+		})
 		return nil
 	},
 }
@@ -133,6 +154,7 @@ Examples:
 		defer cancel()
 
 		var firstErr error
+		successCount := 0
 		for _, name := range args {
 			err := handlers.HandleRepoDelete(apiCtx, application, handlers.RepoDeleteReq{
 				Name: name,
@@ -144,7 +166,15 @@ Examples:
 				}
 				continue
 			}
+			successCount += 1
+			trackSemanticEvent("repo_deleted", nil)
 			fmt.Printf("✓ Repository '%s' deleted\n", name)
+		}
+		if firstErr != nil {
+			trackSemanticOutcome("repo_deleted", firstErr, map[string]any{
+				"count":         len(args),
+				"success_count": successCount,
+			})
 		}
 		return firstErr
 	},
@@ -172,6 +202,9 @@ Examples:
 			IsPublic: repoVisibilityPublic,
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_visibility_updated", err, map[string]any{
+				"is_public": repoVisibilityPublic,
+			})
 			return err
 		}
 
@@ -180,6 +213,9 @@ Examples:
 			vis = "public"
 		}
 		fmt.Printf("✓ Repository '%s' is now %s\n", args[0], vis)
+		trackSemanticEvent("repo_visibility_updated", map[string]any{
+			"is_public": repoVisibilityPublic,
+		})
 		return nil
 	},
 }
@@ -204,6 +240,10 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		org, repo, tag, err := parseRepoRef(args[0])
 		if err != nil {
+			trackSemanticOutcome("repo_forked", err, map[string]any{
+				"has_repo_name": repoForkRepoName != "",
+				"has_tag_name":  repoForkTagName != "",
+			})
 			return err
 		}
 
@@ -218,11 +258,19 @@ Examples:
 			TagName:    repoForkTagName,
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_forked", err, map[string]any{
+				"has_repo_name": repoForkRepoName != "",
+				"has_tag_name":  repoForkTagName != "",
+			})
 			return err
 		}
 		fmt.Printf("✓ Forked → %s\n", resp.Reference)
 		fmt.Printf("  VM:     %s\n", resp.VmID)
 		fmt.Printf("  Commit: %s\n", resp.CommitID)
+		trackSemanticEvent("repo_forked", map[string]any{
+			"has_repo_name": repoForkRepoName != "",
+			"has_tag_name":  repoForkTagName != "",
+		})
 		return nil
 	},
 }
@@ -253,9 +301,15 @@ var repoTagCreateCmd = &cobra.Command{
 			Description: repoTagCreateDescription,
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_tag_created", err, map[string]any{
+				"has_description": repoTagCreateDescription != "",
+			})
 			return err
 		}
 		fmt.Printf("✓ Tag created → %s\n", resp.Reference)
+		trackSemanticEvent("repo_tag_created", map[string]any{
+			"has_description": repoTagCreateDescription != "",
+		})
 		return nil
 	},
 }
@@ -280,6 +334,10 @@ Use -q/--quiet for just tag names. Use --format json for machine-readable output
 			RepoName: args[0],
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_tag_listed", err, map[string]any{
+				"quiet":       repoTagListQuiet,
+				"format_json": repoTagListFormat == "json",
+			})
 			return err
 		}
 
@@ -299,6 +357,11 @@ Use -q/--quiet for just tag names. Use --format json for machine-readable output
 				Tags:       res.Tags,
 			})
 		}
+		trackSemanticEvent("repo_tag_listed", map[string]any{
+			"quiet":       repoTagListQuiet,
+			"format_json": repoTagListFormat == "json",
+			"count":       len(res.Tags),
+		})
 		return nil
 	},
 }
@@ -321,6 +384,9 @@ Use --format json for machine-readable output.`,
 			TagName:  args[1],
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_tag_viewed", err, map[string]any{
+				"format_json": repoTagGetFormat == "json",
+			})
 			return err
 		}
 
@@ -331,6 +397,9 @@ Use --format json for machine-readable output.`,
 		default:
 			pres.RenderRepoTagInfo(application, info)
 		}
+		trackSemanticEvent("repo_tag_viewed", map[string]any{
+			"format_json": repoTagGetFormat == "json",
+		})
 		return nil
 	},
 }
@@ -347,7 +416,12 @@ var repoTagUpdateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if repoTagUpdateCommit == "" && repoTagUpdateDescription == "" {
-			return fmt.Errorf("at least one of --commit or --description must be provided")
+			err := fmt.Errorf("at least one of --commit or --description must be provided")
+			trackSemanticOutcome("repo_tag_updated", err, map[string]any{
+				"updates_commit":      repoTagUpdateCommit != "",
+				"updates_description": repoTagUpdateDescription != "",
+			})
+			return err
 		}
 
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -360,9 +434,17 @@ var repoTagUpdateCmd = &cobra.Command{
 			Description: repoTagUpdateDescription,
 		})
 		if err != nil {
+			trackSemanticOutcome("repo_tag_updated", err, map[string]any{
+				"updates_commit":      repoTagUpdateCommit != "",
+				"updates_description": repoTagUpdateDescription != "",
+			})
 			return err
 		}
 		fmt.Printf("✓ Tag '%s' in '%s' updated\n", args[1], args[0])
+		trackSemanticEvent("repo_tag_updated", map[string]any{
+			"updates_commit":      repoTagUpdateCommit != "",
+			"updates_description": repoTagUpdateDescription != "",
+		})
 		return nil
 	},
 }
@@ -384,6 +466,7 @@ Examples:
 		defer cancel()
 
 		var firstErr error
+		successCount := 0
 		for _, name := range tagNames {
 			err := handlers.HandleRepoTagDelete(apiCtx, application, handlers.RepoTagDeleteReq{
 				RepoName: repoName,
@@ -396,7 +479,15 @@ Examples:
 				}
 				continue
 			}
+			successCount += 1
+			trackSemanticEvent("repo_tag_deleted", nil)
 			fmt.Printf("✓ Tag '%s' deleted from '%s'\n", name, repoName)
+		}
+		if firstErr != nil {
+			trackSemanticOutcome("repo_tag_deleted", firstErr, map[string]any{
+				"count":         len(tagNames),
+				"success_count": successCount,
+			})
 		}
 		return firstErr
 	},

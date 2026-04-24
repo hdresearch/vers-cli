@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hdresearch/vers-cli/internal/analytics"
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/auth"
 	"github.com/hdresearch/vers-cli/internal/errorsx"
@@ -88,7 +89,10 @@ var (
 	client  *vers.Client
 	verbose bool
 	// application is the dependency container, initialized in PersistentPreRunE
-	application *app.App
+	application     *app.App
+	telemetryClient *analytics.Client
+	commandStart    time.Time
+	commandName     string
 )
 
 // MetadataInfo represents the complete version information
@@ -132,6 +136,59 @@ func DebugPrint(format string, args ...interface{}) {
 	}
 }
 
+func telemetryCommandPath(cmd *cobra.Command) string {
+	path := strings.TrimSpace(strings.TrimPrefix(cmd.CommandPath(), "vers"))
+	if path == "" {
+		return "root"
+	}
+	return path
+}
+
+func isTelemetryCommand(cmd *cobra.Command) bool {
+	if cmd == nil {
+		return false
+	}
+	return cmd.Name() == "telemetry" || (cmd.Parent() != nil && cmd.Parent().Name() == "telemetry")
+}
+
+func shouldSkipTelemetryNotice(cmd *cobra.Command, args []string) bool {
+	if cmd == nil {
+		return true
+	}
+	if cmd.Parent() == nil && cmd.Name() == "vers" && len(args) == 0 {
+		return true
+	}
+	if cmd.Name() == "help" || cmd.CalledAs() == "help" || isTelemetryCommand(cmd) {
+		return true
+	}
+	if formatFlag := cmd.Flags().Lookup("format"); formatFlag != nil {
+		if format, err := cmd.Flags().GetString("format"); err == nil && strings.EqualFold(strings.TrimSpace(format), "json") {
+			return true
+		}
+	}
+	return false
+}
+
+func maybeShowTelemetryNotice(cmd *cobra.Command, args []string) {
+	if telemetryClient == nil || !telemetryClient.Enabled() || shouldSkipTelemetryNotice(cmd, args) {
+		return
+	}
+	config, err := auth.LoadConfig()
+	if err != nil {
+		DebugPrint("telemetry notice config load failed: %v\n", err)
+		return
+	}
+	telemetryConfig := auth.EnsureTelemetryConfig(config)
+	if telemetryConfig.NoticeAcknowledged {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Telemetry is on by default. You can disable it any time with: vers telemetry disable")
+	telemetryConfig.NoticeAcknowledged = true
+	if err := auth.SaveConfig(config); err != nil {
+		DebugPrint("telemetry notice config save failed: %v\n", err)
+	}
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "vers",
@@ -172,11 +229,27 @@ interaction capabilities, and more.`,
 			os.Setenv("VERS_VERBOSE", "true")
 		}
 
+		// Load .env early so telemetry and shell/site URL resolution see VERS_URL.
+		godotenv.Load()
+
+		if telemetryClient == nil {
+			t, err := analytics.New(Version, GitCommit, verbose)
+			if err != nil {
+				DebugPrint("telemetry init failed: %v\n", err)
+			} else {
+				telemetryClient = t
+			}
+		}
+		commandStart = time.Now()
+		commandName = telemetryCommandPath(cmd)
+		maybeShowTelemetryNotice(cmd, args)
+
 		// Skip update check for certain commands
 		skipUpdateCheck := cmd.Name() == "login" ||
 			cmd.Name() == "signup" ||
 			cmd.Name() == "help" ||
 			cmd.CalledAs() == "help" ||
+			isTelemetryCommand(cmd) ||
 			cmd.Name() == "upgrade"
 
 		if !skipUpdateCheck && update.ShouldCheckForUpdate() {
@@ -192,17 +265,17 @@ interaction capabilities, and more.`,
 			}()
 		}
 
-		if cmd.Name() == "login" || cmd.Name() == "signup" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
+		if cmd.Name() == "login" || cmd.Name() == "signup" || cmd.Name() == "help" || cmd.CalledAs() == "help" || isTelemetryCommand(cmd) {
 			return nil
 		}
-
-		// Load .env for the VERS_URL
-		godotenv.Load()
 
 		// Initialize the client with API key if available
 		apiKey, err := auth.GetAPIKey()
 		if err != nil {
 			return fmt.Errorf("failed to load API key: %w", err)
+		}
+		if telemetryClient != nil && apiKey != "" {
+			telemetryClient.SetAPIKey(apiKey)
 		}
 
 		if apiKey == "" {
@@ -245,6 +318,14 @@ interaction capabilities, and more.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
+	if telemetryClient != nil && !strings.HasPrefix(commandName, "telemetry") {
+		exitCode := 0
+		if err != nil {
+			exitCode = errorsx.ExitCodeFromError(err)
+		}
+		telemetryClient.TrackCommandResult(commandName, err == nil, exitCode, time.Since(commandStart), err)
+		telemetryClient.Flush()
+	}
 	if err != nil {
 		code := errorsx.ExitCodeFromError(err)
 		if code == errorsx.ExitAuth {

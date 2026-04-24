@@ -54,3 +54,6 @@ agent.sh*
 anti-quine.sh
 next.sh
 quine.sh*
+
+# Local notes/scratch (not for version control)
+/notes/

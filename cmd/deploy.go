@@ -57,6 +57,15 @@ Examples:
 
 		view, err := handlers.HandleDeploy(apiCtx, application, req)
 		if err != nil {
+			trackSemanticOutcome("deploy_initiated", err, map[string]any{
+				"wait":            deployWait,
+				"has_branch":      deployBranch != "",
+				"has_name":        deployName != "",
+				"has_build":       deployBuildCommand != "",
+				"has_install":     deployInstallCommand != "",
+				"has_run":         deployRunCommand != "",
+				"has_working_dir": deployWorkingDirectory != "",
+			})
 			return err
 		}
 
@@ -67,6 +76,16 @@ Examples:
 		default:
 			pres.RenderDeploy(application, view)
 		}
+		trackSemanticEvent("deploy_initiated", map[string]any{
+			"wait":            deployWait,
+			"has_branch":      deployBranch != "",
+			"has_name":        deployName != "",
+			"has_build":       deployBuildCommand != "",
+			"has_install":     deployInstallCommand != "",
+			"has_run":         deployRunCommand != "",
+			"has_working_dir": deployWorkingDirectory != "",
+			"deploy_status":   view.Status,
+		})
 		return nil
 	},
 }

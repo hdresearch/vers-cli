@@ -33,6 +33,9 @@ Use --wait to block until the VM is running.`,
 			Wait:   resumeWait,
 		})
 		if err != nil {
+			trackSemanticOutcome("vm_resumed", err, map[string]any{
+				"wait": resumeWait,
+			})
 			return err
 		}
 
@@ -43,6 +46,11 @@ Use --wait to block until the VM is running.`,
 		default:
 			pres.RenderResume(application, view)
 		}
+		trackSemanticEvent("vm_resumed", map[string]any{
+			"vm_id":           view.VMName,
+			"target_provided": target != "",
+			"wait":            resumeWait,
+		})
 		return nil
 	},
 }

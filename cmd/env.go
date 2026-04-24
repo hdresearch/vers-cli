@@ -40,6 +40,9 @@ These variables will be injected into newly created VMs at boot time.`,
 
 		vars, err := handlers.HandleEnvList(apiCtx, application, handlers.EnvListReq{})
 		if err != nil {
+			trackSemanticOutcome("env_vars_listed", err, map[string]any{
+				"format_json": envFormat == "json",
+			})
 			return err
 		}
 
@@ -50,6 +53,10 @@ These variables will be injected into newly created VMs at boot time.`,
 		default:
 			if len(vars) == 0 {
 				fmt.Println("No environment variables configured.")
+				trackSemanticEvent("env_vars_listed", map[string]any{
+					"format_json": envFormat == "json",
+					"count":       0,
+				})
 				return nil
 			}
 
@@ -72,6 +79,10 @@ These variables will be injected into newly created VMs at boot time.`,
 			}
 			w.Flush()
 		}
+		trackSemanticEvent("env_vars_listed", map[string]any{
+			"format_json": envFormat == "json",
+			"count":       len(vars),
+		})
 		return nil
 	},
 }
@@ -111,11 +122,17 @@ Examples:
 			Value: value,
 		})
 		if err != nil {
+			trackSemanticOutcome("env_var_upserted", err, map[string]any{
+				"name_length": len(key),
+			})
 			return err
 		}
 
 		fmt.Printf("Environment variable %s set successfully.\n", key)
 		fmt.Println("This variable will be available in newly created VMs.")
+		trackSemanticEvent("env_var_upserted", map[string]any{
+			"name_length": len(key),
+		})
 		return nil
 	},
 }
@@ -148,10 +165,16 @@ Examples:
 			Key: key,
 		})
 		if err != nil {
+			trackSemanticOutcome("env_var_deleted", err, map[string]any{
+				"name_length": len(key),
+			})
 			return err
 		}
 
 		fmt.Printf("Environment variable %s deleted successfully.\n", key)
+		trackSemanticEvent("env_var_deleted", map[string]any{
+			"name_length": len(key),
+		})
 		return nil
 	},
 }

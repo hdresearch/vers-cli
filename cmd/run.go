@@ -26,6 +26,10 @@ Use --wait to block until the VM is running.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := runconfig.Load()
 		if err != nil {
+			trackSemanticOutcome("vm_created", err, map[string]any{
+				"wait":  runWait,
+				"stage": "config",
+			})
 			return err
 		}
 		applyFlagOverrides(cmd, cfg)
@@ -42,6 +46,9 @@ Use --wait to block until the VM is running.`,
 		}
 		view, err := handlers.HandleRun(apiCtx, application, req)
 		if err != nil {
+			trackSemanticOutcome("vm_created", err, map[string]any{
+				"wait": runWait,
+			})
 			return err
 		}
 
@@ -52,6 +59,11 @@ Use --wait to block until the VM is running.`,
 		default:
 			pres.RenderRun(application, view)
 		}
+		trackSemanticEvent("vm_created", map[string]any{
+			"vm_id":      view.RootVmID,
+			"has_alias":  vmAlias != "",
+			"wait":       runWait,
+		})
 		return nil
 	},
 }
