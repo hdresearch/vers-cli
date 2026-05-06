@@ -18,6 +18,10 @@ type UpdateCheckConfig struct {
 	LastCheck     time.Time `json:"last_check"`
 	NextCheck     time.Time `json:"next_check"`
 	CheckInterval int64     `json:"check_interval"` // in seconds, default 3600 (1 hour)
+	// LatestVersion is the most recently observed upstream release tag
+	// (e.g. "v0.10.0"). Cached so the "update available" nag can be
+	// printed synchronously on subsequent runs without hitting the network.
+	LatestVersion string `json:"latest_version,omitempty"`
 }
 
 // GetCLIConfigPath returns the path to the CLI config file

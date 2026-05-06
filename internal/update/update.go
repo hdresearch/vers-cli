@@ -1,9 +1,11 @@
 package update
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -25,39 +27,61 @@ type GitHubRelease struct {
 	PublishedAt time.Time `json:"published_at"`
 }
 
-// CheckForUpdates checks if there's a new version available
+// IsDevVersion reports whether a version string represents a local/dev build
+// for which we should skip update checks entirely.
+func IsDevVersion(v string) bool {
+	v = strings.TrimPrefix(v, "v")
+	return v == "" || v == "dev" || v == "unknown" || strings.HasPrefix(v, "dev-") || strings.Contains(v, "-dirty")
+}
+
+// CheckForUpdates checks if there's a new version available.
+// This is a thin wrapper around CheckForUpdatesContext that uses a default
+// 5s timeout for backward compatibility with callers that don't manage
+// their own context (e.g. `vers upgrade`).
 func CheckForUpdates(currentVersion, repository string, verbose bool) (bool, string, error) {
-	// Skip check for dev versions
-	currentVersion = strings.TrimPrefix(currentVersion, "v")
-	if currentVersion == "dev" || currentVersion == "unknown" {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return CheckForUpdatesContext(ctx, currentVersion, repository, verbose)
+}
+
+// CheckForUpdatesContext checks if there's a new version available, honoring
+// the supplied context's deadline/cancellation.
+func CheckForUpdatesContext(ctx context.Context, currentVersion, repository string, verbose bool) (bool, string, error) {
+	if IsDevVersion(currentVersion) {
 		if verbose {
-			fmt.Printf("[DEBUG] Skipping update check for development version\n")
+			fmt.Printf("[DEBUG] Skipping update check for development version %q\n", currentVersion)
 		}
 		return false, "", nil
 	}
 
-	// Get latest release
-	latest, err := GetLatestRelease(repository, false, verbose)
+	latest, err := GetLatestReleaseContext(ctx, repository, false, verbose)
 	if err != nil {
 		if verbose {
 			fmt.Printf("[DEBUG] Failed to check for updates: %v\n", err)
 		}
-		return false, "", nil // Don't error out - just skip the check
+		return false, "", err
 	}
 
+	current := strings.TrimPrefix(currentVersion, "v")
 	latestVersion := strings.TrimPrefix(latest.TagName, "v")
 	if verbose {
-		fmt.Printf("[DEBUG] Current: %s, Latest: %s\n", currentVersion, latestVersion)
+		fmt.Printf("[DEBUG] Current: %s, Latest: %s\n", current, latestVersion)
 	}
 
-	// Check if there's an update available
-	hasUpdate := currentVersion != latestVersion
-	return hasUpdate, latest.TagName, nil
+	return current != latestVersion, latest.TagName, nil
 }
 
-// GetLatestRelease fetches the latest release from GitHub
-// If includePrerelease is true, it will return the latest release including prereleases
+// GetLatestRelease fetches the latest release from GitHub.
+// If includePrerelease is true, it will return the latest release including
+// prereleases. Uses a default 5s timeout.
 func GetLatestRelease(repository string, includePrerelease bool, verbose bool) (*GitHubRelease, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return GetLatestReleaseContext(ctx, repository, includePrerelease, verbose)
+}
+
+// GetLatestReleaseContext is like GetLatestRelease but honors the supplied context.
+func GetLatestReleaseContext(ctx context.Context, repository string, includePrerelease bool, verbose bool) (*GitHubRelease, error) {
 	// Extract owner/repo from Repository constant
 	repoURL := strings.TrimPrefix(repository, "https://github.com/")
 
@@ -70,7 +94,13 @@ func GetLatestRelease(repository string, includePrerelease bool, verbose bool) (
 		fmt.Printf("[DEBUG] Fetching release info from: %s\n", apiURL)
 	}
 
-	resp, err := http.Get(apiURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build release request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch release info: %w", err)
 	}
@@ -122,4 +152,135 @@ func UpdateCheckTime() {
 
 	cliConfig.SetNextCheckTime()
 	config.SaveCLIConfig(cliConfig)
+}
+
+// isNewerSemver returns true if `latest` is a strictly higher version than
+// `current` using a tolerant lexical comparison after stripping a leading
+// "v". Falls back to plain string inequality if either side fails to parse
+// as dotted integers, which preserves the old behavior.
+func isNewerSemver(current, latest string) bool {
+	c := strings.TrimPrefix(current, "v")
+	l := strings.TrimPrefix(latest, "v")
+	if c == "" || l == "" || c == l {
+		return false
+	}
+
+	// Strip pre-release/build metadata for the numeric comparison.
+	stripMeta := func(s string) string {
+		if i := strings.IndexAny(s, "-+"); i >= 0 {
+			return s[:i]
+		}
+		return s
+	}
+
+	cp := strings.Split(stripMeta(c), ".")
+	lp := strings.Split(stripMeta(l), ".")
+	parseInt := func(s string) (int, bool) {
+		n := 0
+		if s == "" {
+			return 0, false
+		}
+		for _, r := range s {
+			if r < '0' || r > '9' {
+				return 0, false
+			}
+			n = n*10 + int(r-'0')
+		}
+		return n, true
+	}
+
+	for i := 0; i < len(cp) || i < len(lp); i++ {
+		var ci, li int
+		var ok bool
+		if i < len(cp) {
+			if ci, ok = parseInt(cp[i]); !ok {
+				return c != l // unparseable -> fall back
+			}
+		}
+		if i < len(lp) {
+			if li, ok = parseInt(lp[i]); !ok {
+				return c != l
+			}
+		}
+		if li > ci {
+			return true
+		}
+		if li < ci {
+			return false
+		}
+	}
+	return false
+}
+
+// MaybeNotifyUpdate prints an "update available" message to the given writer
+// when a newer release is known. It is designed to be called once during CLI
+// startup and is cheap on the hot path:
+//
+//   - If a previously-cached LatestVersion is newer than `current`, the
+//     message prints synchronously with no network I/O.
+//   - Otherwise, if it's been longer than the configured check interval since
+//     the last successful check, it performs a single bounded HTTP request
+//     (capped at `timeout`) to refresh the cache. The cache (and NextCheck
+//     timestamp) are only advanced on a successful response, so transient
+//     network failures don't suppress the nag for an hour.
+//
+// Errors are intentionally swallowed — the update check must never break a
+// real command. When verbose is true, debug output is written to stderr.
+func MaybeNotifyUpdate(ctx context.Context, current, repository string, timeout time.Duration, verbose bool) {
+	if IsDevVersion(current) {
+		return
+	}
+
+	cliConfig, err := config.LoadCLIConfig()
+	if err != nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[DEBUG] update: failed to load CLI config: %v\n", err)
+		}
+		return
+	}
+
+	// 1. Fast path: print from cache if we already know about a newer release.
+	cached := cliConfig.UpdateCheck.LatestVersion
+	printedCached := false
+	if cached != "" && isNewerSemver(current, cached) {
+		printUpdateBanner(current, cached)
+		printedCached = true
+	}
+
+	if !cliConfig.ShouldCheckForUpdate() {
+		return
+	}
+
+	// 2. Slow path: refresh from GitHub with a tight timeout.
+	fetchCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	latest, err := GetLatestReleaseContext(fetchCtx, repository, false, verbose)
+	if err != nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[DEBUG] update: refresh failed: %v\n", err)
+		}
+		// Don't fully bump NextCheck on failure — try again soon (5min backoff)
+		// so a flaky network at the moment of first launch doesn't suppress
+		// the nag for the full check interval.
+		cliConfig.UpdateCheck.NextCheck = time.Now().Add(5 * time.Minute)
+		_ = config.SaveCLIConfig(cliConfig)
+		return
+	}
+
+	cliConfig.UpdateCheck.LatestVersion = latest.TagName
+	cliConfig.SetNextCheckTime()
+	if err := config.SaveCLIConfig(cliConfig); err != nil && verbose {
+		fmt.Fprintf(os.Stderr, "[DEBUG] update: failed to save CLI config: %v\n", err)
+	}
+
+	// If the refresh revealed a newer version that the fast path didn't
+	// already print, print now.
+	if !printedCached && isNewerSemver(current, latest.TagName) {
+		printUpdateBanner(current, latest.TagName)
+	}
+}
+
+func printUpdateBanner(current, latest string) {
+	fmt.Fprintf(os.Stderr, "💡 vers update available: %s -> %s (run 'vers upgrade')\n\n", current, latest)
 }

@@ -179,17 +179,17 @@ interaction capabilities, and more.`,
 			cmd.CalledAs() == "help" ||
 			cmd.Name() == "upgrade"
 
-		if !skipUpdateCheck && update.ShouldCheckForUpdate() {
-			// Update the check time regardless of result
-			update.UpdateCheckTime()
-			// Check for updates in background
-			go func() {
-				DebugPrint("Checking for updates...\n")
-				hasUpdate, latestVersion, err := update.CheckForUpdates(Version, Repository, verbose)
-				if err == nil && hasUpdate {
-					fmt.Printf("💡 Update available: %s -> %s (run 'vers upgrade')\n\n", Version, latestVersion)
-				}
-			}()
+		if !skipUpdateCheck {
+			// Synchronous update check with a tight timeout. Uses a
+			// disk-cached "latest known release" so the nag prints
+			// instantly on subsequent runs without any network I/O,
+			// and only refreshes once per check interval.
+			//
+			// Done synchronously (not in a goroutine) because short
+			// commands like `vers ps` would exit before a detached
+			// goroutine could finish its HTTP call, suppressing the
+			// nag indefinitely.
+			update.MaybeNotifyUpdate(cmd.Context(), Version, Repository, 800*time.Millisecond, verbose)
 		}
 
 		if cmd.Name() == "login" || cmd.Name() == "signup" || cmd.Name() == "help" || cmd.CalledAs() == "help" {
