@@ -44,7 +44,14 @@ func TestIsNewerSemver(t *testing.T) {
 }
 
 func TestIsDevVersion(t *testing.T) {
-	dev := []string{"dev", "unknown", "dev-abc1234", "dev-abc1234-dirty", "v0.10.0-dirty", ""}
+	dev := []string{
+		"dev", "unknown", "dev-abc1234", "dev-abc1234-dirty",
+		"v0.10.0-dirty", "",
+		// Go module pseudo-versions, as produced by `go install` /
+		// `go run` against an untagged commit.
+		"v0.0.0-20260506213344-eb1e5d25fa7c",
+		"v0.0.0-20260101000000-000000000000",
+	}
 	notDev := []string{"v0.10.0", "0.10.0", "v1.2.3", "v0.10.0-rc1"}
 	for _, v := range dev {
 		if !IsDevVersion(v) {
@@ -55,6 +62,66 @@ func TestIsDevVersion(t *testing.T) {
 		if IsDevVersion(v) {
 			t.Errorf("IsDevVersion(%q) = true, want false", v)
 		}
+	}
+}
+
+func TestMaybeNotifyUpdate_EnvVarSilencesCheck(t *testing.T) {
+	withTempHome(t)
+
+	// Server that fails the test if hit.
+	hits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		http.Error(w, "should not be called", 500)
+	}))
+	defer srv.Close()
+	withRewrittenHTTP(t, strings.TrimPrefix(srv.URL, "http://"))
+
+	for _, varName := range []string{"VERS_NO_UPDATE_CHECK", "NO_UPDATE_NOTIFIER"} {
+		t.Run(varName, func(t *testing.T) {
+			t.Setenv(varName, "1")
+			out := captureStderr(t, func() {
+				MaybeNotifyUpdate(context.Background(), "v0.9.0", "https://github.com/hdresearch/vers-cli", 500*time.Millisecond, false)
+			})
+			if hits != 0 {
+				t.Errorf("expected zero network calls when %s=1, got %d", varName, hits)
+			}
+			if out != "" {
+				t.Errorf("expected silent output when %s=1, got %q", varName, out)
+			}
+		})
+	}
+}
+
+func TestMaybeNotifyUpdate_EnvVarFalsyValuesDoNotSilence(t *testing.T) {
+	// "0", "false", "no", "off" should NOT silence the nag — only positive
+	// truthy values do. This mirrors common CLI conventions.
+	for _, val := range []string{"0", "false", "FALSE", "no", "off", ""} {
+		t.Run("VERS_NO_UPDATE_CHECK="+val, func(t *testing.T) {
+			withTempHome(t)
+			t.Setenv("VERS_NO_UPDATE_CHECK", val)
+			t.Setenv("NO_UPDATE_NOTIFIER", "")
+
+			cfg := &config.CLIConfig{
+				UpdateCheck: config.UpdateCheckConfig{
+					NextCheck:     time.Now().Add(-1 * time.Hour),
+					CheckInterval: 3600,
+				},
+			}
+			_ = config.SaveCLIConfig(cfg)
+
+			hits := 0
+			srv := fakeReleasesServer(t, "v0.10.0", &hits)
+			defer srv.Close()
+			withRewrittenHTTP(t, strings.TrimPrefix(srv.URL, "http://"))
+
+			out := captureStderr(t, func() {
+				MaybeNotifyUpdate(context.Background(), "v0.9.0", "https://github.com/hdresearch/vers-cli", 1*time.Second, false)
+			})
+			if !strings.Contains(out, "v0.9.0 -> v0.10.0") {
+				t.Errorf("expected banner with VERS_NO_UPDATE_CHECK=%q, got %q", val, out)
+			}
+		})
 	}
 }
 

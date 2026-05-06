@@ -85,8 +85,10 @@ func RunVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, BinPath, args...)
-	// Inherit env so VERS_URL and VERS_API_KEY are visible
-	cmd.Env = os.Environ()
+	// Inherit env so VERS_URL and VERS_API_KEY are visible, but force
+	// the update-check off so the "💡 vers update available" banner
+	// can't contaminate command output that tests parse.
+	cmd.Env = append(os.Environ(), "VERS_NO_UPDATE_CHECK=1")
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(out), fmt.Errorf("command timed out: vers %s", strings.Join(args, " "))
@@ -107,7 +109,7 @@ func RunVersInDir(t TLike, dir string, timeout time.Duration, args ...string) (s
 
 	cmd := exec.CommandContext(ctx, absBin, args...)
 	cmd.Dir = dir
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "VERS_NO_UPDATE_CHECK=1")
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		return string(out), fmt.Errorf("command timed out: vers %s", strings.Join(args, " "))

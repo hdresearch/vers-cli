@@ -29,9 +29,31 @@ type GitHubRelease struct {
 
 // IsDevVersion reports whether a version string represents a local/dev build
 // for which we should skip update checks entirely.
+//
+// This catches:
+//   - the literal sentinels "dev" / "unknown" / "" set when ldflags weren't applied
+//   - "dev-<sha>" / "*-dirty" produced by our init() fallback against `git describe`
+//   - Go module *pseudo-versions* of the form "v0.0.0-<timestamp>-<commit>",
+//     which are what `go install` and `go run` produce against an untagged
+//     commit. Without this, integration test runs that build via the module
+//     graph end up with a perfectly valid-looking semver and try to "upgrade"
+//     to whatever real release is currently latest, contaminating test output.
 func IsDevVersion(v string) bool {
-	v = strings.TrimPrefix(v, "v")
-	return v == "" || v == "dev" || v == "unknown" || strings.HasPrefix(v, "dev-") || strings.Contains(v, "-dirty")
+	stripped := strings.TrimPrefix(v, "v")
+	if stripped == "" || stripped == "dev" || stripped == "unknown" {
+		return true
+	}
+	if strings.HasPrefix(stripped, "dev-") || strings.Contains(stripped, "-dirty") {
+		return true
+	}
+	// Go pseudo-versions all start with "0.0.0-" (untagged repo) or
+	// "X.Y.Z-0.<timestamp>-<commit>" (post-tag). The first form is the
+	// only one we hit in practice (the release pipeline sets a real
+	// version via ldflags), so checking that prefix is sufficient.
+	if strings.HasPrefix(stripped, "0.0.0-") {
+		return true
+	}
+	return false
 }
 
 // CheckForUpdates checks if there's a new version available.
@@ -227,7 +249,19 @@ func isNewerSemver(current, latest string) bool {
 // Errors are intentionally swallowed — the update check must never break a
 // real command. When verbose is true, debug output is written to stderr.
 func MaybeNotifyUpdate(ctx context.Context, current, repository string, timeout time.Duration, verbose bool) {
+	// Escape hatches for CI / scripted use. Either of these silences the
+	// nag and skips all network I/O. Mirrors NO_UPDATE_NOTIFIER (npm) and
+	// HOMEBREW_NO_AUTO_UPDATE (brew), which are well-known patterns.
+	if envFlagSet("VERS_NO_UPDATE_CHECK") || envFlagSet("NO_UPDATE_NOTIFIER") {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[DEBUG] update: skipped (VERS_NO_UPDATE_CHECK / NO_UPDATE_NOTIFIER set)\n")
+		}
+		return
+	}
 	if IsDevVersion(current) {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "[DEBUG] update: skipped (dev/pseudo version %q)\n", current)
+		}
 		return
 	}
 
@@ -283,4 +317,21 @@ func MaybeNotifyUpdate(ctx context.Context, current, repository string, timeout 
 
 func printUpdateBanner(current, latest string) {
 	fmt.Fprintf(os.Stderr, "💡 vers update available: %s -> %s (run 'vers upgrade')\n\n", current, latest)
+}
+
+// envFlagSet returns true if the env var is set to a "truthy" value.
+// Treats unset, empty string, "0", "false", "no", "off" (case-insensitive)
+// as false and anything else as true. This matches the convention used by
+// most CLI tools and avoids surprises like VERS_NO_UPDATE_CHECK=0 being
+// interpreted as "yes, suppress".
+func envFlagSet(name string) bool {
+	v := strings.TrimSpace(os.Getenv(name))
+	if v == "" {
+		return false
+	}
+	switch strings.ToLower(v) {
+	case "0", "false", "no", "off":
+		return false
+	}
+	return true
 }
