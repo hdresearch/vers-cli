@@ -42,7 +42,7 @@ func TestResizeBasic(t *testing.T) {
 		t.Fatalf("expected '20480' in output, got:\n%s", out)
 	}
 
-	t.Log("✓ VM disk resized successfully")
+	t.Log("VM disk resized successfully")
 }
 
 // TestResizeTooSmall tests that shrinking a disk fails.
@@ -72,7 +72,7 @@ func TestResizeTooSmall(t *testing.T) {
 		t.Fatalf("expected error when shrinking disk, got success:\n%s", out)
 	}
 	t.Logf("Got expected error:\n%s", out)
-	t.Log("✓ Resize to smaller size failed as expected")
+	t.Log("Resize to smaller size failed as expected")
 }
 
 // TestResizeMissingSize tests that --size flag is required.
@@ -90,7 +90,7 @@ func TestResizeMissingSize(t *testing.T) {
 		t.Logf("Warning: error message could mention --size requirement. Got:\n%s", out)
 	}
 
-	t.Log("✓ Missing --size flag failed as expected")
+	t.Log("Missing --size flag failed as expected")
 }
 
 // TestResizeNonExistent tests that resizing a non-existent VM fails.
@@ -107,5 +107,5 @@ func TestResizeNonExistent(t *testing.T) {
 		t.Fatalf("expected error for non-existent VM, got success:\n%s", out)
 	}
 	t.Logf("Got expected error:\n%s", out)
-	t.Log("✓ Resize non-existent VM failed as expected")
+	t.Log("Resize non-existent VM failed as expected")
 }

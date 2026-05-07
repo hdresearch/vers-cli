@@ -31,7 +31,7 @@ Subcommands:
   unpublish  Make a commit private`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Bare `vers commit` with no args → create commit of HEAD
+		// Bare `vers commit` with no args -> create commit of HEAD
 		return commitCreateCmd.RunE(cmd, args)
 	},
 }
@@ -68,7 +68,7 @@ Use --format json for machine-readable output.`,
 			if res.UsedHEAD {
 				fmt.Printf("Using current HEAD VM: %s\n", res.VmID)
 			}
-			fmt.Printf("✓ Committed VM '%s'\n", res.VmID)
+			fmt.Printf("Committed VM '%s'\n", res.VmID)
 			fmt.Printf("Commit ID: %s\n", res.CommitID)
 		}
 		return nil
@@ -139,13 +139,13 @@ Examples:
 				CommitID: id,
 			})
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to delete commit %s: %v\n", id, err)
+				fmt.Fprintf(cmd.ErrOrStderr(), "error: failed to delete commit %s: %v\n", id, err)
 				if firstErr == nil {
 					firstErr = err
 				}
 				continue
 			}
-			fmt.Printf("✓ Commit %s deleted\n", id)
+			fmt.Printf("Commit %s deleted\n", id)
 		}
 		return firstErr
 	},
@@ -198,7 +198,7 @@ var commitPublishCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Commit %s is now public\n", info.CommitID)
+		fmt.Printf("Commit %s is now public\n", info.CommitID)
 		return nil
 	},
 }
@@ -219,7 +219,7 @@ var commitUnpublishCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Commit %s is now private\n", info.CommitID)
+		fmt.Printf("Commit %s is now private\n", info.CommitID)
 		return nil
 	},
 }

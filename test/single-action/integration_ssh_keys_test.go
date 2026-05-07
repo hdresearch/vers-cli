@@ -84,7 +84,7 @@ J8aHcHXRqvNKwFdF9wAAAEDummyJZD5xPH8cYmP5KkqLXQBLJ8aHcHXRqvNKwFdF
 		t.Errorf("key file content doesn't match expected content")
 	}
 
-	t.Log("✓ GetOrCreateSSHKey successfully returned existing key path")
+	t.Log("GetOrCreateSSHKey successfully returned existing key path")
 	t.Log("TestGetOrCreateSSHKey_ExistingKey completed")
 }
 
@@ -133,7 +133,7 @@ func TestGetOrCreateSSHKey_NoKey(t *testing.T) {
 		t.Logf("Warning: error message doesn't mention 'failed to fetch'. Got: %s", err.Error())
 	}
 
-	t.Log("✓ GetOrCreateSSHKey correctly returns error when VM doesn't exist")
+	t.Log("GetOrCreateSSHKey correctly returns error when VM doesn't exist")
 	t.Log("TestGetOrCreateSSHKey_NoKey completed")
 }
 
@@ -199,7 +199,7 @@ func TestGetOrCreateSSHKey_Integration(t *testing.T) {
 		t.Errorf("key file doesn't appear to contain a valid SSH private key. Content length: %d bytes", len(keyStr))
 	}
 
-	t.Logf("✓ SSH key successfully fetched and saved (%d bytes)", len(keyStr))
+	t.Logf("SSH key successfully fetched and saved (%d bytes)", len(keyStr))
 
 	// Test that calling it again returns the cached key
 	t.Log("Testing cached key retrieval...")
@@ -212,6 +212,6 @@ func TestGetOrCreateSSHKey_Integration(t *testing.T) {
 		t.Errorf("expected same key path on second call, got %s vs %s", keyPath, keyPath2)
 	}
 
-	t.Log("✓ Cached key retrieval works")
+	t.Log("Cached key retrieval works")
 	t.Log("TestGetOrCreateSSHKey_Integration completed")
 }

@@ -47,7 +47,7 @@ func TestExecuteBasic(t *testing.T) {
 		t.Fatalf("expected 'hello-from-vers' in output, got:\n%s", out)
 	}
 
-	t.Log("✓ Execute command successful")
+	t.Log("Execute command successful")
 	t.Log("TestExecuteBasic completed")
 }
 
@@ -90,7 +90,7 @@ func TestExecuteWithFlags(t *testing.T) {
 		t.Fatalf("expected directory listing in output, got:\n%s", out)
 	}
 
-	t.Log("✓ Execute with flags successful")
+	t.Log("Execute with flags successful")
 	t.Log("TestExecuteWithFlags completed")
 }
 
@@ -133,7 +133,7 @@ func TestExecuteQuotedCommand(t *testing.T) {
 		t.Fatalf("expected directory listing in output, got:\n%s", out)
 	}
 
-	t.Log("✓ Execute with quoted command successful")
+	t.Log("Execute with quoted command successful")
 	t.Log("TestExecuteQuotedCommand completed")
 }
 
@@ -176,7 +176,7 @@ func TestExecuteMultipleArgs(t *testing.T) {
 		t.Fatalf("expected 'hello world from vers' in output, got:\n%s", out)
 	}
 
-	t.Log("✓ Execute with multiple args successful")
+	t.Log("Execute with multiple args successful")
 	t.Log("TestExecuteMultipleArgs completed")
 }
 
@@ -206,7 +206,7 @@ func TestExecuteInvalidVM(t *testing.T) {
 		t.Logf("Warning: error message could be more specific. Got:\n%s", out)
 	}
 
-	t.Log("✓ Execute correctly fails for non-existent VM")
+	t.Log("Execute correctly fails for non-existent VM")
 	t.Log("TestExecuteInvalidVM completed")
 }
 
@@ -252,7 +252,7 @@ func TestExecuteMissingCommand(t *testing.T) {
 		t.Fatalf("expected 'Usage:' in error output, got:\n%s", out)
 	}
 
-	t.Log("✓ Execute correctly fails with clear error for missing command")
+	t.Log("Execute correctly fails with clear error for missing command")
 	t.Log("TestExecuteMissingCommand completed")
 }
 
@@ -299,6 +299,6 @@ func TestExecuteCommandWithExitCode(t *testing.T) {
 		t.Logf("Warning: error message could mention exit code. Got:\n%s", out)
 	}
 
-	t.Log("✓ Execute properly handles non-zero exit codes")
+	t.Log("Execute properly handles non-zero exit codes")
 	t.Log("TestExecuteCommandWithExitCode completed")
 }

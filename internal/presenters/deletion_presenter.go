@@ -18,7 +18,7 @@ func ProgressCounter(current, total int, action, target string) {
 }
 
 func SuccessMessage(message string) {
-	fmt.Printf("✓ %s\n", message)
+	fmt.Printf("%s\n", message)
 }
 
 func OperationCancelled() { fmt.Println("Operation cancelled") }
@@ -32,9 +32,9 @@ func SectionHeader(title string) {
 
 func PrintDeletionSummary(results SummaryResults) {
 	SectionHeader("Operation Summary")
-	fmt.Printf("✓ Successfully processed: %d %s\n", results.SuccessCount, results.ItemType)
+	fmt.Printf("Successfully processed: %d %s\n", results.SuccessCount, results.ItemType)
 	if results.FailCount > 0 {
-		fmt.Printf("✗ Failed to process: %d %s\n", results.FailCount, results.ItemType)
+		fmt.Printf("error: failed to process: %d %s\n", results.FailCount, results.ItemType)
 		if len(results.Errors) > 0 {
 			fmt.Println()
 			fmt.Println("Error details:")

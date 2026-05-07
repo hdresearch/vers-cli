@@ -43,9 +43,9 @@ func RenderCommitParents(_ *app.App, v CommitParentsView) {
 	}
 
 	for i, p := range v.Parents {
-		prefix := "├─"
+		prefix := "|-"
 		if i == len(v.Parents)-1 {
-			prefix = "└─"
+			prefix = "\\-"
 		}
 		name := p.Name
 		if name == "" {

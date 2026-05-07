@@ -53,7 +53,7 @@ func TestRunBasic(t *testing.T) {
 		t.Fatalf("expected 'started successfully' in output, got:\n%s", out)
 	}
 
-	t.Log("✓ VM created successfully")
+	t.Log("VM created successfully")
 	// SDK alpha.24 fixes:
 	// - NewRoot() now returns VM ID in response
 	// - API now returns proper content-type: application/json headers
@@ -88,7 +88,7 @@ func TestRunWithCustomSpecs(t *testing.T) {
 
 	// The command should succeed
 	// Note: We can't verify the specs in the output since the new API doesn't return VM details
-	t.Log("✓ VM created with custom specs successfully")
+	t.Log("VM created with custom specs successfully")
 	t.Log("TestRunWithCustomSpecs completed")
 }
 
@@ -169,7 +169,7 @@ func TestRunSetsHEAD(t *testing.T) {
 		t.Fatalf("HEAD contains %q, expected %q", headVM, vmID)
 	}
 
-	t.Log("✓ vers run correctly persists HEAD")
+	t.Log("vers run correctly persists HEAD")
 
 	// Verify `vers head` also reads it back correctly from the same directory
 	headOut, err := testutil.RunVersInDir(t, tempDir, testutil.DefaultTimeout, "head")
@@ -180,6 +180,6 @@ func TestRunSetsHEAD(t *testing.T) {
 		t.Fatalf("vers head output doesn't contain VM ID %s:\n%s", vmID, headOut)
 	}
 
-	t.Log("✓ vers head reads back the correct VM ID")
+	t.Log("vers head reads back the correct VM ID")
 	t.Log("TestRunSetsHEAD completed")
 }

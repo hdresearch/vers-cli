@@ -61,7 +61,7 @@ func TestCommitAndList(t *testing.T) {
 		t.Fatalf("expected commit %s in list output, got:\n%s", commitID, out)
 	}
 
-	t.Log("✓ Commit created and listed successfully")
+	t.Log("Commit created and listed successfully")
 }
 
 // TestCommitHistory tests the commit history (parents) command.
@@ -108,7 +108,7 @@ func TestCommitHistory(t *testing.T) {
 		t.Fatalf("expected 'Commit History' header in output, got:\n%s", out)
 	}
 
-	t.Log("✓ Commit history retrieved successfully")
+	t.Log("Commit history retrieved successfully")
 }
 
 // TestCommitPublishUnpublish tests publishing and unpublishing a commit.
@@ -160,7 +160,7 @@ func TestCommitPublishUnpublish(t *testing.T) {
 		t.Fatalf("expected 'now private' in output, got:\n%s", out)
 	}
 
-	t.Log("✓ Commit publish/unpublish works")
+	t.Log("Commit publish/unpublish works")
 }
 
 // TestCommitDeleteNonExistent tests that deleting a non-existent commit fails gracefully.
@@ -177,7 +177,7 @@ func TestCommitDeleteNonExistent(t *testing.T) {
 		t.Fatalf("expected error deleting non-existent commit, got success:\n%s", out)
 	}
 	t.Logf("Got expected error:\n%s", out)
-	t.Log("✓ Delete non-existent commit failed as expected")
+	t.Log("Delete non-existent commit failed as expected")
 }
 
 // TestCommitListEmpty tests that commit list works even with no commits.
@@ -198,5 +198,5 @@ func TestCommitListEmpty(t *testing.T) {
 		t.Fatalf("expected commit-related output, got:\n%s", out)
 	}
 
-	t.Log("✓ Commit list works")
+	t.Log("Commit list works")
 }

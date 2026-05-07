@@ -28,7 +28,7 @@ func signupWithGit() error {
 		var err error
 		email, err = auth.GetGitEmail()
 		if err != nil {
-			fmt.Println("✗")
+			fmt.Println("failed")
 			return err
 		}
 		fmt.Println(email)
@@ -38,7 +38,7 @@ func signupWithGit() error {
 	fmt.Print("Looking up SSH public key... ")
 	sshPubKey, sshKeyPath, err := auth.FindSSHPublicKey()
 	if err != nil {
-		fmt.Println("✗")
+		fmt.Println("failed")
 		return err
 	}
 	// Show truncated key for confirmation
@@ -61,7 +61,7 @@ func signupWithGit() error {
 
 	if initResp.AlreadyVerified {
 		// Key is already verified — skip email, go straight to verify-key for org list
-		fmt.Println("SSH key already verified ✓")
+		fmt.Println("SSH key already verified")
 		verifyResp, err = auth.ShellAuthCheckVerification(email, sshPubKey)
 		if err != nil {
 			return fmt.Errorf("failed to fetch org list: %w", err)
@@ -72,16 +72,16 @@ func signupWithGit() error {
 		}
 
 		// Step 4: Wait for email verification
-		fmt.Printf("\n📧 Verification email sent to %s\n", email)
+		fmt.Printf("\nVerification email sent to %s\n", email)
 		fmt.Println("   Click the link in the email to continue.")
 		fmt.Print("   Waiting for verification...")
 
 		verifyResp, err = auth.ShellAuthPollVerification(email, sshPubKey, 10*time.Minute)
 		if err != nil {
-			fmt.Println(" ✗")
+			fmt.Println(" failed")
 			return err
 		}
-		fmt.Println(" ✓")
+		fmt.Println(" ok")
 	}
 
 	// Step 5: Select organization
@@ -127,15 +127,15 @@ func signupWithGit() error {
 	fmt.Print("Creating API key... ")
 	keyResp, err := auth.ShellAuthCreateAPIKey(email, sshPubKey, label, orgName)
 	if err != nil {
-		fmt.Println("✗")
+		fmt.Println("failed")
 		return fmt.Errorf("failed to create API key: %w", err)
 	}
-	fmt.Println("✓")
+	fmt.Println("ok")
 
 	// Step 7: Validate and save
 	fmt.Print("Validating API key... ")
 	if err := validateAPIKey(keyResp.APIKey); err != nil {
-		fmt.Println("✗")
+		fmt.Println("failed")
 		return err
 	}
 
@@ -150,7 +150,7 @@ func signupWithGit() error {
 		return fmt.Errorf("error saving config: %w", err)
 	}
 
-	fmt.Printf("\n✓ Successfully authenticated with Vers (org: %s)\n", keyResp.OrgName)
+	fmt.Printf("\nSuccessfully authenticated with Vers (org: %s)\n", keyResp.OrgName)
 	return nil
 }
 
@@ -181,16 +181,16 @@ If you already have an account, this will log you in.`,
 
 		fmt.Print("Validating API key... ")
 		if err := validateAPIKey(apiKey); err != nil {
-			fmt.Println("✗")
+			fmt.Println("failed")
 			return err
 		}
-		fmt.Println("✓")
+		fmt.Println("ok")
 
 		if err := auth.SaveAPIKey(apiKey); err != nil {
 			return fmt.Errorf("error saving API key: %w", err)
 		}
 
-		fmt.Println("\n✓ Successfully authenticated with Vers")
+		fmt.Println("\nSuccessfully authenticated with Vers")
 		return nil
 	},
 }

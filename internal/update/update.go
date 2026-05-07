@@ -316,7 +316,7 @@ func MaybeNotifyUpdate(ctx context.Context, current, repository string, timeout 
 }
 
 func printUpdateBanner(current, latest string) {
-	fmt.Fprintf(os.Stderr, "💡 vers update available: %s -> %s (run 'vers upgrade')\n\n", current, latest)
+	fmt.Fprintf(os.Stderr, "note: vers update available: %s -> %s (run 'vers upgrade')\n\n", current, latest)
 }
 
 // envFlagSet returns true if the env var is set to a "truthy" value.

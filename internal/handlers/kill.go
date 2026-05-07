@@ -43,10 +43,10 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 	var allDeleted []string
 
 	for i, target := range targets {
-		// Resolve alias → ID
+		// Resolve alias -> ID
 		vmInfo, err := utils.ResolveVMIdentifier(ctx, a.Client, target)
 		if err != nil {
-			fmt.Fprintf(a.IO.Err, "✗ Failed to resolve '%s': %v\n", target, err)
+			fmt.Fprintf(a.IO.Err, "error: failed to resolve '%s': %v\n", target, err)
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -57,7 +57,7 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 
 		deletedID, err := delsvc.DeleteVM(ctx, a.Client, vmInfo.ID)
 		if err != nil {
-			fmt.Fprintf(a.IO.Err, "✗ Failed to delete '%s': %v\n", vmInfo.DisplayName, err)
+			fmt.Fprintf(a.IO.Err, "error: failed to delete '%s': %v\n", vmInfo.DisplayName, err)
 			if firstErr == nil {
 				firstErr = err
 			}

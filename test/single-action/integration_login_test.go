@@ -79,7 +79,7 @@ func TestLoginWithValidKey(t *testing.T) {
 		t.Fatalf("expected file permissions 0600, got %o", perm)
 	}
 
-	t.Log("✓ Login with valid key successful")
+	t.Log("Login with valid key successful")
 	t.Log("TestLoginWithValidKey completed")
 }
 
@@ -122,7 +122,7 @@ func TestLoginWithInvalidKey(t *testing.T) {
 		}
 	}
 
-	t.Log("✓ Login correctly rejected invalid key")
+	t.Log("Login correctly rejected invalid key")
 	t.Log("TestLoginWithInvalidKey completed")
 }
 
@@ -166,7 +166,7 @@ func TestLoginAndUseCommands(t *testing.T) {
 		t.Fatalf("status command failed with auth error after login. Output:\n%s", out)
 	}
 
-	t.Log("✓ Commands work with saved API key")
+	t.Log("Commands work with saved API key")
 	t.Log("TestLoginAndUseCommands completed")
 }
 
@@ -224,6 +224,6 @@ func TestLoginOverwritesExistingKey(t *testing.T) {
 		t.Fatalf("API key doesn't match new key. Expected: %s, Got: %s", apiKey, config.APIKey)
 	}
 
-	t.Log("✓ Login correctly overwrites existing key")
+	t.Log("Login correctly overwrites existing key")
 	t.Log("TestLoginOverwritesExistingKey completed")
 }

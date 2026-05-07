@@ -8,7 +8,7 @@ import (
 )
 
 // TestRepoLifecycle exercises the full repo CRUD lifecycle against production:
-// create repo → list → get → create tag → list tags → get tag → update tag → delete tag → delete repo.
+// create repo -> list -> get -> create tag -> list tags -> get tag -> update tag -> delete tag -> delete repo.
 // Everything is cleaned up regardless of test outcome.
 func TestRepoLifecycle(t *testing.T) {
 	testutil.TestEnv(t)
@@ -187,7 +187,7 @@ func TestRepoLifecycle(t *testing.T) {
 // parseCommitID extracts a commit ID from `vers commit create` output.
 // Expected format:
 //
-//	✓ Committed VM '<vm-id>'
+//	Committed VM '<vm-id>'
 //	Commit ID: <commit-id>
 func parseCommitID(t *testing.T, output string) string {
 	t.Helper()

@@ -105,9 +105,9 @@ func performUpgrade(DebugPrint func(string, ...any), release *update.GitHubRelea
 		if err := verifyChecksum(tempFile, checksumURL); err != nil {
 			return fmt.Errorf("checksum verification failed: %w", err)
 		}
-		fmt.Println("✓ Checksum verification passed")
+		fmt.Println("Checksum verification passed")
 	} else if skipChecksum {
-		fmt.Println("⚠️  Skipping checksum verification (not recommended)")
+		fmt.Println("warning: skipping checksum verification (not recommended)")
 	}
 
 	currentExe, err := os.Executable()
@@ -124,7 +124,7 @@ func performUpgrade(DebugPrint func(string, ...any), release *update.GitHubRelea
 		return fmt.Errorf("failed to install update: %w", err)
 	}
 	os.Remove(backupPath)
-	fmt.Printf("✓ Successfully upgraded to version %s!\n", release.TagName)
+	fmt.Printf("Successfully upgraded to version %s!\n", release.TagName)
 	fmt.Println("Please restart any running vers processes to use the new version.")
 	return nil
 }

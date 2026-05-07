@@ -44,7 +44,7 @@ Use --format json for machine-readable output.`,
 		case pres.FormatJSON:
 			pres.PrintJSON(map[string]interface{}{"vm_id": vmID, "fs_size_mib": resizeDiskSize})
 		default:
-			fmt.Printf("✓ Disk resized to %d MiB for VM %s\n", resizeDiskSize, vmID)
+			fmt.Printf("Disk resized to %d MiB for VM %s\n", resizeDiskSize, vmID)
 		}
 		return nil
 	},

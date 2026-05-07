@@ -58,7 +58,7 @@ func TestBranchBasic(t *testing.T) {
 		t.Fatalf("expected 'Creating new VM from' in output, got:\n%s", out)
 	}
 
-	t.Log("✓ VM branched successfully")
+	t.Log("VM branched successfully")
 	t.Log("TestBranchBasic completed")
 }
 
@@ -85,6 +85,6 @@ func TestBranchFromNonExistent(t *testing.T) {
 		t.Logf("Warning: error message could be more specific. Got:\n%s", out)
 	}
 
-	t.Log("✓ Branch from non-existent VM failed as expected")
+	t.Log("Branch from non-existent VM failed as expected")
 	t.Log("TestBranchFromNonExistent completed")
 }
