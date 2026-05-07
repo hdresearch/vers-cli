@@ -35,7 +35,7 @@ var tagCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Tag '%s' created → %s\n", resp.TagName, resp.CommitID)
+		fmt.Printf("Tag '%s' created -> %s\n", resp.TagName, resp.CommitID)
 		return nil
 	},
 }
@@ -138,7 +138,7 @@ var tagUpdateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Tag '%s' updated\n", args[0])
+		fmt.Printf("Tag '%s' updated\n", args[0])
 		return nil
 	},
 }
@@ -163,13 +163,13 @@ Examples:
 				TagName: name,
 			})
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to delete tag '%s': %v\n", name, err)
+				fmt.Fprintf(cmd.ErrOrStderr(), "error: failed to delete tag '%s': %v\n", name, err)
 				if firstErr == nil {
 					firstErr = err
 				}
 				continue
 			}
-			fmt.Printf("✓ Tag '%s' deleted\n", name)
+			fmt.Printf("Tag '%s' deleted\n", name)
 		}
 		return firstErr
 	},

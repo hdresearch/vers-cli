@@ -126,7 +126,7 @@ func TestConnect_SSHOverTLS(t *testing.T) {
 		t.Errorf("expected 'root' from whoami command, got: %s", lastLine)
 	}
 
-	t.Log("✓ SSH-over-TLS connection successful")
+	t.Log("SSH-over-TLS connection successful")
 	t.Log("TestConnect_SSHOverTLS completed")
 }
 
@@ -203,6 +203,6 @@ func TestConnect_InvalidVM(t *testing.T) {
 	}
 
 	t.Logf("Got expected error: %v", err)
-	t.Log("✓ Connect correctly fails for non-existent VM")
+	t.Log("Connect correctly fails for non-existent VM")
 	t.Log("TestConnect_InvalidVM completed")
 }

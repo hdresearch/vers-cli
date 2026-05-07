@@ -164,7 +164,7 @@ type rewriteTransport struct {
 }
 
 func (rt *rewriteTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	// Rewrite api.github.com → httptest server
+	// Rewrite api.github.com -> httptest server
 	if strings.Contains(r.URL.Host, "api.github.com") {
 		u := *r.URL
 		// httptest server URL is like http://127.0.0.1:PORT

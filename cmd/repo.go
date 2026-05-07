@@ -36,7 +36,7 @@ var repoCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Repository '%s' created (%s)\n", resp.Name, resp.RepoID)
+		fmt.Printf("Repository '%s' created (%s)\n", resp.Name, resp.RepoID)
 		return nil
 	},
 }
@@ -138,13 +138,13 @@ Examples:
 				Name: name,
 			})
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to delete repository '%s': %v\n", name, err)
+				fmt.Fprintf(cmd.ErrOrStderr(), "error: failed to delete repository '%s': %v\n", name, err)
 				if firstErr == nil {
 					firstErr = err
 				}
 				continue
 			}
-			fmt.Printf("✓ Repository '%s' deleted\n", name)
+			fmt.Printf("Repository '%s' deleted\n", name)
 		}
 		return firstErr
 	},
@@ -179,7 +179,7 @@ Examples:
 		if repoVisibilityPublic {
 			vis = "public"
 		}
-		fmt.Printf("✓ Repository '%s' is now %s\n", args[0], vis)
+		fmt.Printf("Repository '%s' is now %s\n", args[0], vis)
 		return nil
 	},
 }
@@ -220,7 +220,7 @@ Examples:
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Forked → %s\n", resp.Reference)
+		fmt.Printf("Forked -> %s\n", resp.Reference)
 		fmt.Printf("  VM:     %s\n", resp.VmID)
 		fmt.Printf("  Commit: %s\n", resp.CommitID)
 		return nil
@@ -255,7 +255,7 @@ var repoTagCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Tag created → %s\n", resp.Reference)
+		fmt.Printf("Tag created -> %s\n", resp.Reference)
 		return nil
 	},
 }
@@ -362,7 +362,7 @@ var repoTagUpdateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("✓ Tag '%s' in '%s' updated\n", args[1], args[0])
+		fmt.Printf("Tag '%s' in '%s' updated\n", args[1], args[0])
 		return nil
 	},
 }
@@ -390,13 +390,13 @@ Examples:
 				TagName:  name,
 			})
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to delete tag '%s': %v\n", name, err)
+				fmt.Fprintf(cmd.ErrOrStderr(), "error: failed to delete tag '%s': %v\n", name, err)
 				if firstErr == nil {
 					firstErr = err
 				}
 				continue
 			}
-			fmt.Printf("✓ Tag '%s' deleted from '%s'\n", name, repoName)
+			fmt.Printf("Tag '%s' deleted from '%s'\n", name, repoName)
 		}
 		return firstErr
 	},

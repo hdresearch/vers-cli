@@ -86,7 +86,7 @@ func RunVers(t TLike, timeout time.Duration, args ...string) (string, error) {
 
 	cmd := exec.CommandContext(ctx, BinPath, args...)
 	// Inherit env so VERS_URL and VERS_API_KEY are visible, but force
-	// the update-check off so the "💡 vers update available" banner
+	// the update-check off so the "note: vers update available" banner
 	// can't contaminate command output that tests parse.
 	cmd.Env = append(os.Environ(), "VERS_NO_UPDATE_CHECK=1")
 	out, err := cmd.CombinedOutput()

@@ -63,7 +63,7 @@ func registerTunnelTool(server *mcp.Server, application *app.App, opts Options) 
 		// Store the tunnel so it can be closed later
 		storeTunnel(tunnel)
 
-		summary := fmt.Sprintf("Tunnel open: 127.0.0.1:%d → %s:%d on VM %s (established in %s)",
+		summary := fmt.Sprintf("Tunnel open: 127.0.0.1:%d -> %s:%d on VM %s (established in %s)",
 			tunnel.LocalPort, remoteHost, in.RemotePort, target, duration.Truncate(time.Millisecond))
 		fmt.Fprintf(os.Stderr, "[mcp] tool=vers.tunnel ok dur=%s target=%s local=%d remote=%s:%d\n",
 			duration.Truncate(time.Millisecond), target, tunnel.LocalPort, remoteHost, in.RemotePort)

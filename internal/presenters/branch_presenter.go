@@ -28,13 +28,13 @@ func RenderBranch(a *app.App, res BranchView) {
 	fmt.Printf("Creating new VM from: %s\n", progressName)
 
 	if numNew == 1 {
-		fmt.Println("✓ New VM created successfully!")
+		fmt.Println("New VM created successfully!")
 		fmt.Printf("VM ID: %s\n", newIDs[0])
 		if res.NewAlias != "" {
 			fmt.Printf("Alias: %s\n", res.NewAlias)
 		}
 	} else {
-		fmt.Printf("✓ %d new VMs created successfully!\n", numNew)
+		fmt.Printf("%d new VMs created successfully!\n", numNew)
 		for _, id := range newIDs {
 			fmt.Println(id)
 		}
@@ -45,7 +45,7 @@ func RenderBranch(a *app.App, res BranchView) {
 		if display == "" {
 			display = newIDs[0]
 		}
-		fmt.Printf("✓ HEAD now points to: %s\n", display)
+		fmt.Printf("HEAD now points to: %s\n", display)
 		return
 	}
 

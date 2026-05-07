@@ -122,7 +122,7 @@ func TestTunnelBasic(t *testing.T) {
 		t.Fatalf("expected echo %q, got %q", testMsg, response)
 	}
 
-	t.Log("✓ Data round-tripped through tunnel successfully")
+	t.Log("Data round-tripped through tunnel successfully")
 	t.Log("TestTunnelBasic completed")
 }
 
@@ -140,7 +140,7 @@ func TestTunnelInvalidVM(t *testing.T) {
 	}
 
 	t.Logf("Got expected error: %v\nOutput:\n%s", err, out)
-	t.Log("✓ Tunnel correctly fails for non-existent VM")
+	t.Log("Tunnel correctly fails for non-existent VM")
 	t.Log("TestTunnelInvalidVM completed")
 }
 
@@ -170,7 +170,7 @@ func TestTunnelInvalidSpec(t *testing.T) {
 		})
 	}
 
-	t.Log("✓ Tunnel correctly rejects invalid specs")
+	t.Log("Tunnel correctly rejects invalid specs")
 	t.Log("TestTunnelInvalidSpec completed")
 }
 
@@ -251,7 +251,7 @@ func TestTunnelUsesHEAD(t *testing.T) {
 	}
 	conn.Close()
 
-	t.Log("✓ Tunnel correctly uses HEAD VM")
+	t.Log("Tunnel correctly uses HEAD VM")
 	t.Log("TestTunnelUsesHEAD completed")
 }
 

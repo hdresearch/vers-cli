@@ -10,9 +10,9 @@ import (
 
 // TestExecuteCommandArgumentParsing tests the argument parsing logic for execute.
 // The logic uses LooksLikeVMTarget to decide if the first arg is a VM or a command:
-//   - UUID → treated as VM target
-//   - Known alias → treated as VM target
-//   - Anything else → treated as command, uses HEAD
+//   - UUID -> treated as VM target
+//   - Known alias -> treated as VM target
+//   - Anything else -> treated as command, uses HEAD
 func TestExecuteCommandArgumentParsing(t *testing.T) {
 	tests := []struct {
 		name            string

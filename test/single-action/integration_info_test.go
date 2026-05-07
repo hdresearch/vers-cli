@@ -49,7 +49,7 @@ func TestInfoBasic(t *testing.T) {
 		t.Fatalf("expected Created field in output, got:\n%s", out)
 	}
 
-	t.Log("✓ VM info retrieved successfully")
+	t.Log("VM info retrieved successfully")
 }
 
 // TestInfoWithLineage tests that a branched VM shows parent commit info.
@@ -106,7 +106,7 @@ func TestInfoWithLineage(t *testing.T) {
 		t.Logf("Note: no parent commit shown — may depend on backend behavior")
 	}
 
-	t.Log("✓ VM info with lineage retrieved")
+	t.Log("VM info with lineage retrieved")
 }
 
 // TestInfoNonExistent tests that info for a non-existent VM fails gracefully.
@@ -123,5 +123,5 @@ func TestInfoNonExistent(t *testing.T) {
 		t.Fatalf("expected error for non-existent VM, got success:\n%s", out)
 	}
 	t.Logf("Got expected error:\n%s", out)
-	t.Log("✓ Info for non-existent VM failed as expected")
+	t.Log("Info for non-existent VM failed as expected")
 }

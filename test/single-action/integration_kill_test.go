@@ -38,7 +38,7 @@ func TestKillBasic(t *testing.T) {
 
 	// Note: Current implementation doesn't print a success message on deletion
 	// Success is indicated by exit code 0 (no error) and empty/minimal output
-	t.Log("✓ VM deleted successfully (command returned with no error)")
+	t.Log("VM deleted successfully (command returned with no error)")
 	t.Log("TestKillBasic completed")
 }
 
@@ -65,7 +65,7 @@ func TestKillNonExistent(t *testing.T) {
 		t.Logf("Warning: error message could be more specific. Got:\n%s", out)
 	}
 
-	t.Log("✓ Non-existent VM deletion failed as expected")
+	t.Log("Non-existent VM deletion failed as expected")
 	t.Log("TestKillNonExistent completed")
 }
 
@@ -107,7 +107,7 @@ func TestKillWithoutConfirmation(t *testing.T) {
 
 	// Check if it's a timeout or prompt-related error
 	if strings.Contains(err.Error(), "timed out") || strings.Contains(out, "confirm") || strings.Contains(out, "y/n") {
-		t.Logf("✓ Kill command prompted for confirmation or timed out as expected. Error: %v", err)
+		t.Logf("Kill command prompted for confirmation or timed out as expected. Error: %v", err)
 	} else {
 		t.Logf("Kill failed with error (this may be expected in non-interactive mode): %v\nOutput:\n%s", err, out)
 	}

@@ -52,6 +52,6 @@ func GetOrCreateSSHKey(vmID string, client *vers.Client, apiCtx context.Context)
 		return "", fmt.Errorf("failed to save SSH key: %w", err)
 	}
 
-	fmt.Println("✓ SSH key cached")
+	fmt.Println("SSH key cached")
 	return keyPath, nil
 }
