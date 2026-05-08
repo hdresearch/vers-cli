@@ -14,7 +14,11 @@ import (
 )
 
 const (
-	DefaultTimeout = 60 * time.Second
+	// DefaultTimeout caps each `vers` invocation in integration tests.
+	// Must exceed the CLI's longest internal context budget (APILong = 120s)
+	// so the CLI gets room to either succeed or return a clean
+	// context-deadline error before the test wrapper kills the process.
+	DefaultTimeout = 180 * time.Second
 )
 
 var (
