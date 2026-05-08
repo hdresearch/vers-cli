@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
+	"github.com/hdresearch/vers-cli/internal/jobs"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/spf13/cobra"
@@ -35,9 +37,23 @@ Use --wait to block until the VM is running.`,
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APILong)
 		defer cancel()
 		req := handlers.RunCommitReq{CommitKey: commitKey, VMAlias: commitVmAlias, Wait: runCommitWait}
+		var jobID string
+		if runCommitWait {
+			jobID, _ = jobs.Submit(jobs.Submission{
+				Kind:    "vm.run_commit",
+				Command: "vers run-commit --wait",
+				Args:    os.Args[1:],
+			})
+		}
 		view, err := handlers.HandleRunCommit(apiCtx, application, req)
 		if err != nil {
+			if runCommitWait {
+				_ = jobs.Fail(jobID, err)
+			}
 			return err
+		}
+		if runCommitWait {
+			_ = jobs.Complete(jobID, view.RootVmID)
 		}
 
 		format, err := pres.ParseFormat(false, runCommitJSON, runCommitFormat)

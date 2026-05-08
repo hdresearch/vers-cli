@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
+	"github.com/hdresearch/vers-cli/internal/jobs"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/hdresearch/vers-cli/internal/runconfig"
 	"github.com/spf13/cobra"
@@ -41,9 +43,23 @@ Use --wait to block until the VM is running.`,
 			VMAlias:     vmAlias,
 			Wait:        runWait,
 		}
+		var jobID string
+		if runWait {
+			jobID, _ = jobs.Submit(jobs.Submission{
+				Kind:    "vm.run",
+				Command: "vers run --wait",
+				Args:    os.Args[1:],
+			})
+		}
 		view, err := handlers.HandleRun(apiCtx, application, req)
 		if err != nil {
+			if runWait {
+				_ = jobs.Fail(jobID, err)
+			}
 			return err
+		}
+		if runWait {
+			_ = jobs.Complete(jobID, view.RootVmID)
 		}
 
 		format, err := pres.ParseFormat(false, runJSON, runFormat)

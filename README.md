@@ -182,6 +182,24 @@ vers get <vm-id> --json | jq '.ip'
 vers ps -q
 ```
 
+### Job Ledger
+
+Every `--wait` invocation of `run`, `branch`, `deploy`, `resume`, or `run-commit`
+appends an entry to a durable JSONL ledger at `~/.vers/jobs.jsonl` (override
+with `VERS_JOBS_DIR`). Use `vers jobs` to introspect:
+
+```bash
+vers jobs list --json                     # all jobs as JSON
+vers jobs list --status failed            # only failed jobs
+vers jobs get job_<id>                    # full record for one job
+vers jobs prune --older-than 7d           # trim entries older than 7 days
+vers jobs prune --all --dry-run           # preview clearing the ledger
+```
+
+Phase 1 ships journaling only. The ledger is written best-effort: a write
+failure never causes the underlying command to fail. Resumption of in-flight
+jobs is not yet implemented.
+
 
 ## Configuration
 

@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
+	"github.com/hdresearch/vers-cli/internal/jobs"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -29,12 +31,26 @@ Use --wait to block until the VM is running.`,
 		if len(args) > 0 {
 			target = args[0]
 		}
+		var jobID string
+		if resumeWait {
+			jobID, _ = jobs.Submit(jobs.Submission{
+				Kind:    "vm.resume",
+				Command: "vers resume --wait",
+				Args:    os.Args[1:],
+			})
+		}
 		view, err := handlers.HandleResume(apiCtx, application, handlers.ResumeReq{
 			Target: target,
 			Wait:   resumeWait,
 		})
 		if err != nil {
+			if resumeWait {
+				_ = jobs.Fail(jobID, err)
+			}
 			return err
+		}
+		if resumeWait {
+			_ = jobs.Complete(jobID, view.VMName)
 		}
 
 		format, err := pres.ParseFormat(false, resumeJSON, resumeFormat)
