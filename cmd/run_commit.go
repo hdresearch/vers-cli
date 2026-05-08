@@ -11,7 +11,7 @@ import (
 
 var (
 	commitVmAlias   string
-	runCommitJSON bool
+	runCommitJSON   bool
 	runCommitFormat string
 	runCommitWait   bool
 )

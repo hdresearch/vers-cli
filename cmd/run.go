@@ -11,7 +11,7 @@ import (
 
 var (
 	vmAlias   string
-	runJSON bool
+	runJSON   bool
 	runFormat string
 	runWait   bool
 )

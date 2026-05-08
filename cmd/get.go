@@ -10,7 +10,7 @@ import (
 
 var (
 	getQuiet  bool
-	getJSON bool
+	getJSON   bool
 	getFormat string
 )
 

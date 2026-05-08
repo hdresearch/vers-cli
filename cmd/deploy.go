@@ -15,7 +15,7 @@ var (
 	deployBuildCommand     string
 	deployRunCommand       string
 	deployWorkingDirectory string
-	deployJSON           bool
+	deployJSON             bool
 	deployFormat           string
 	deployWait             bool
 )

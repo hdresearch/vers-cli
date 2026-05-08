@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	resumeJSON bool
+	resumeJSON   bool
 	resumeFormat string
 	resumeWait   bool
 )

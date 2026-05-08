@@ -11,7 +11,7 @@ import (
 
 var (
 	resizeDiskSize int64
-	resizeJSON   bool
+	resizeJSON     bool
 	resizeFormat   string
 )
 

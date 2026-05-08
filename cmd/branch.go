@@ -11,7 +11,7 @@ import (
 var (
 	alias        string
 	branchCount  int
-	branchJSON bool
+	branchJSON   bool
 	branchFormat string
 	branchWait   bool
 )

@@ -6,8 +6,8 @@ import (
 
 func TestApplyPaging(t *testing.T) {
 	cases := []struct {
-		name              string
-		total, limit, off int
+		name               string
+		total, limit, off  int
 		wantStart, wantEnd int
 		wantTrunc          bool
 		wantNextOffset     int // -1 = nil
