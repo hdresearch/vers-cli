@@ -11,6 +11,7 @@ import (
 
 var (
 	resizeDiskSize int64
+	resizeJSON     bool
 	resizeFormat   string
 )
 
@@ -20,7 +21,7 @@ var resizeCmd = &cobra.Command{
 	Long: `Resize a VM's disk to a new size. The new size must be strictly greater than the
 current size. Size is specified in MiB using the --size flag. If no VM is specified, uses the current HEAD.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -39,7 +40,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, resizeFormat)
+		format, err := pres.ParseFormat(false, resizeJSON, resizeFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(map[string]interface{}{"vm_id": vmID, "fs_size_mib": resizeDiskSize})
@@ -54,5 +58,7 @@ func init() {
 	rootCmd.AddCommand(resizeCmd)
 	resizeCmd.Flags().Int64Var(&resizeDiskSize, "size", 0, "New disk size in MiB (required, must be greater than current size)")
 	resizeCmd.MarkFlagRequired("size")
-	resizeCmd.Flags().StringVar(&resizeFormat, "format", "", "Output format (json)")
+	resizeCmd.Flags().BoolVar(&resizeJSON, "json", false, "Output as JSON")
+	resizeCmd.Flags().StringVar(&resizeFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = resizeCmd.Flags().MarkDeprecated("format", "use --json instead")
 }

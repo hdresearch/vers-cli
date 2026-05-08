@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var commitJSON bool
 var commitFormat string
 
 // commitCmd is the parent command for commit operations.
@@ -42,7 +43,7 @@ var commitCreateCmd = &cobra.Command{
 	Long: `Save the current state of a VM as a commit.
 If no VM ID or alias is provided, commits the current HEAD VM.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -60,7 +61,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, commitFormat)
+		format, err := pres.ParseFormat(false, commitJSON, commitFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(res)
@@ -78,7 +82,10 @@ Use --format json for machine-readable output.`,
 var (
 	commitListPublic bool
 	commitListQuiet  bool
+	commitListJSON   bool
 	commitListFormat string
+	commitListLimit  int
+	commitListOffset int
 )
 
 var commitListCmd = &cobra.Command{
@@ -89,7 +96,14 @@ var commitListCmd = &cobra.Command{
 Use -q/--quiet to output just commit IDs (one per line), useful for scripting:
   vers commit delete $(vers commit list -q)   # delete all commits
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (use with --limit to page).
+
+When the result is truncated, a hint with --offset for the next page is
+printed to stderr (text mode) or included in the JSON envelope.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -102,18 +116,33 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(commitListQuiet, commitListFormat)
+		format, err := pres.ParseFormat(commitListQuiet, commitListJSON, commitListFormat)
+		if err != nil {
+			return err
+		}
+
+		// Apply client-side pagination over res.Commits.
+		// TODO: when the SDK exposes server-side limit/offset on the commit
+		// list endpoint, plumb commitListLimit/commitListOffset through to
+		// the API and use the server-reported total instead of len(items).
+		start, end, info := pres.ApplyPaging(len(res.Commits), commitListLimit, commitListOffset)
+		paged := res.Commits[start:end]
+
 		switch format {
 		case pres.FormatQuiet:
-			ids := make([]string, len(res.Commits))
-			for i, c := range res.Commits {
+			ids := make([]string, len(paged))
+			for i, c := range paged {
 				ids[i] = c.CommitID
 			}
 			pres.PrintQuiet(ids)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		case pres.FormatJSON:
-			pres.PrintJSON(res.Commits)
+			pres.PrintListJSON(paged, info)
 		default:
-			pres.RenderCommitsList(application, res)
+			pagedView := res
+			pagedView.Commits = paged
+			pres.RenderCommitsList(application, pagedView)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
@@ -151,6 +180,7 @@ Examples:
 	},
 }
 
+var commitHistoryJSON bool
 var commitHistoryFormat string
 
 var commitHistoryCmd = &cobra.Command{
@@ -158,7 +188,7 @@ var commitHistoryCmd = &cobra.Command{
 	Short: "Show the parent commit chain",
 	Long: `Display the chain of parent commits leading up to a given commit.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -171,7 +201,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, commitHistoryFormat)
+		format, err := pres.ParseFormat(false, commitHistoryJSON, commitHistoryFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(res.Parents)
@@ -227,16 +260,24 @@ var commitUnpublishCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(commitCmd)
 
-	commitCreateCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json)")
+	commitCreateCmd.Flags().BoolVar(&commitJSON, "json", false, "Output as JSON")
+	commitCreateCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = commitCreateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	commitCmd.AddCommand(commitCreateCmd)
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
 	commitListCmd.Flags().BoolVarP(&commitListQuiet, "quiet", "q", false, "Only display commit IDs")
-	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json)")
+	commitListCmd.Flags().BoolVar(&commitListJSON, "json", false, "Output as JSON")
+	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = commitListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	commitListCmd.Flags().IntVar(&commitListLimit, "limit", 50, "Maximum number of commits to return (0 = unbounded)")
+	commitListCmd.Flags().IntVar(&commitListOffset, "offset", 0, "Number of commits to skip (for paging)")
 	commitCmd.AddCommand(commitListCmd)
 	commitCmd.AddCommand(commitDeleteCmd)
 
-	commitHistoryCmd.Flags().StringVar(&commitHistoryFormat, "format", "", "Output format (json)")
+	commitHistoryCmd.Flags().BoolVar(&commitHistoryJSON, "json", false, "Output as JSON")
+	commitHistoryCmd.Flags().StringVar(&commitHistoryFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = commitHistoryCmd.Flags().MarkDeprecated("format", "use --json instead")
 	commitCmd.AddCommand(commitHistoryCmd)
 	commitCmd.AddCommand(commitPublishCmd)
 	commitCmd.AddCommand(commitUnpublishCmd)

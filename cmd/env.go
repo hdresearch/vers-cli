@@ -12,7 +12,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var envFormat string
+var (
+	envJSON   bool
+	envFormat string
+	envLimit  int
+	envOffset int
+)
 
 // envCmd represents the env command
 var envCmd = &cobra.Command{
@@ -32,7 +37,16 @@ var envListCmd = &cobra.Command{
 	Short: "List all environment variables",
 	Long: `List all environment variables configured for your account.
 
-These variables will be injected into newly created VMs at boot time.`,
+These variables will be injected into newly created VMs at boot time.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (alphabetically by key).
+
+Note: when truncated, JSON output switches from the historical map shape
+({KEY: VALUE, ...}) to an ordered envelope ({items: [{key, value}, ...]})
+so paging by --offset is stable. The map shape is preserved when not
+truncated for backwards compatibility.`,
 	Aliases: []string{"ls"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -43,26 +57,56 @@ These variables will be injected into newly created VMs at boot time.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, envFormat)
+		format, err := pres.ParseFormat(false, envJSON, envFormat)
+		if err != nil {
+			return err
+		}
+
+		// Sort keys for consistent output and stable pagination.
+		keys := make([]string, 0, len(vars))
+		for k := range vars {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		// TODO: env list returns the entire map from the API; once a
+		// server-side limit/offset is exposed, plumb envLimit/envOffset
+		// through instead of trimming client-side here.
+		start, end, info := pres.ApplyPaging(len(keys), envLimit, envOffset)
+		pagedKeys := keys[start:end]
+
+		// Build a sorted, paged map for emission. Use a slice of {key,value}
+		// pairs so JSON output preserves order when truncated.
+		type kv struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+		pagedPairs := make([]kv, len(pagedKeys))
+		pagedMap := make(map[string]string, len(pagedKeys))
+		for i, k := range pagedKeys {
+			pagedPairs[i] = kv{Key: k, Value: vars[k]}
+			pagedMap[k] = vars[k]
+		}
+
 		switch format {
 		case pres.FormatJSON:
-			pres.PrintJSON(vars)
+			// Preserve historical shape (object keyed by name) when not
+			// truncated; switch to ordered envelope when paginated so the
+			// agent gets a stable next_offset.
+			if info.Truncated {
+				pres.PrintListJSON(pagedPairs, info)
+			} else {
+				pres.PrintJSON(pagedMap)
+			}
 		default:
-			if len(vars) == 0 {
+			if len(keys) == 0 {
 				fmt.Println("No environment variables configured.")
 				return nil
 			}
 
-			// Sort keys for consistent output
-			keys := make([]string, 0, len(vars))
-			for k := range vars {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "KEY\tVALUE")
-			for _, key := range keys {
+			for _, key := range pagedKeys {
 				value := vars[key]
 				// Truncate long values for display
 				if len(value) > 50 {
@@ -71,6 +115,7 @@ These variables will be injected into newly created VMs at boot time.`,
 				fmt.Fprintf(w, "%s\t%s\n", key, value)
 			}
 			w.Flush()
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
@@ -188,5 +233,9 @@ func init() {
 	envCmd.AddCommand(envDeleteCmd)
 
 	// Add flags
-	envListCmd.Flags().StringVar(&envFormat, "format", "", "Output format (json)")
+	envListCmd.Flags().BoolVar(&envJSON, "json", false, "Output as JSON")
+	envListCmd.Flags().StringVar(&envFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = envListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	envListCmd.Flags().IntVar(&envLimit, "limit", 50, "Maximum number of environment variables to return (0 = unbounded)")
+	envListCmd.Flags().IntVar(&envOffset, "offset", 0, "Number of variables to skip (for paging)")
 }

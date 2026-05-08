@@ -15,6 +15,7 @@ var (
 	deployBuildCommand     string
 	deployRunCommand       string
 	deployWorkingDirectory string
+	deployJSON             bool
 	deployFormat           string
 	deployWait             bool
 )
@@ -38,7 +39,7 @@ Examples:
   vers deploy hdresearch/my-app --branch develop
   vers deploy hdresearch/my-app --name my-project --install "npm install" --build "npm run build" --run "npm start"
   vers deploy hdresearch/my-app --working-dir packages/web
-  vers deploy hdresearch/my-app --format json`,
+  vers deploy hdresearch/my-app --json`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APILong)
@@ -60,7 +61,10 @@ Examples:
 			return err
 		}
 
-		format := pres.ParseFormat(false, deployFormat)
+		format, err := pres.ParseFormat(false, deployJSON, deployFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(view)
@@ -80,6 +84,8 @@ func init() {
 	deployCmd.Flags().StringVar(&deployBuildCommand, "build", "", "Build command (e.g. \"npm run build\")")
 	deployCmd.Flags().StringVar(&deployRunCommand, "run", "", "Run command (e.g. \"npm start\")")
 	deployCmd.Flags().StringVar(&deployWorkingDirectory, "working-dir", "", "Working directory relative to repo root")
-	deployCmd.Flags().StringVar(&deployFormat, "format", "", "Output format (json)")
+	deployCmd.Flags().BoolVar(&deployJSON, "json", false, "Output as JSON")
+	deployCmd.Flags().StringVar(&deployFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = deployCmd.Flags().MarkDeprecated("format", "use --json instead")
 	deployCmd.Flags().BoolVar(&deployWait, "wait", false, "Wait until the VM is running before returning")
 }

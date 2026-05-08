@@ -54,11 +54,11 @@ vers status
 vers status -q
 
 # Full JSON output
-vers status --format json
+vers status --json
 
 # Detailed metadata for a VM (IP, lineage, timestamps)
-vers info <vm-id>
-vers info --format json
+vers get <vm-id>
+vers get --json
 
 # Execute a command on a VM
 vers execute <vm-id> <command> [args...]
@@ -91,7 +91,7 @@ vers commit <vm-id>
 # List your commits
 vers commit list
 vers commit list -q               # just IDs
-vers commit list --format json
+vers commit list --json
 vers commit list --public         # public commits
 
 # View commit history (parent chain)
@@ -118,7 +118,7 @@ vers tag create production abc-123 -d "stable release"
 # List all tags
 vers tag list
 vers tag list -q                  # just names
-vers tag list --format json
+vers tag list --json
 
 # Get tag details
 vers tag get <name>
@@ -147,11 +147,11 @@ vers commit delete $(vers commit list -q)
 vers tag delete $(vers tag list -q)
 
 # Get info on the first VM
-vers info $(vers status -q | head -1)
+vers get $(vers status -q | head -1)
 
 # JSON piped to jq
-vers status --format json | jq '.[].vm_id'
-vers info <vm-id> --format json | jq '.ip'
+vers status --json | jq '.[].vm_id'
+vers get <vm-id> --json | jq '.ip'
 ```
 
 `ps` is an alias for `status`:

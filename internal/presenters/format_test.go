@@ -13,21 +13,42 @@ import (
 
 func TestParseFormat(t *testing.T) {
 	tests := []struct {
+		name     string
 		quiet    bool
+		jsonFlag bool
 		format   string
 		expected presenters.OutputFormat
+		wantErr  bool
 	}{
-		{false, "", presenters.FormatDefault},
-		{true, "", presenters.FormatQuiet},
-		{false, "json", presenters.FormatJSON},
-		{true, "json", presenters.FormatQuiet}, // quiet takes precedence
+		{"default", false, false, "", presenters.FormatDefault, false},
+		{"quiet only", true, false, "", presenters.FormatQuiet, false},
+		{"json flag", false, true, "", presenters.FormatJSON, false},
+		{"legacy format=json", false, false, "json", presenters.FormatJSON, false},
+		{"quiet beats json flag", true, true, "", presenters.FormatQuiet, false},
+		{"quiet beats format=json", true, false, "json", presenters.FormatQuiet, false},
+		{"json flag + format=json (both ok)", false, true, "json", presenters.FormatJSON, false},
+		{"invalid format value", false, false, "yaml", presenters.FormatDefault, true},
+		{"invalid format value with json flag also set", false, true, "yaml", presenters.FormatDefault, true},
 	}
 
 	for _, tt := range tests {
-		got := presenters.ParseFormat(tt.quiet, tt.format)
-		if got != tt.expected {
-			t.Errorf("ParseFormat(quiet=%v, format=%q) = %v, want %v", tt.quiet, tt.format, got, tt.expected)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := presenters.ParseFormat(tt.quiet, tt.jsonFlag, tt.format)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseFormat err=%v, wantErr=%v", err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.expected {
+				t.Errorf("ParseFormat(quiet=%v, json=%v, format=%q) = %v, want %v",
+					tt.quiet, tt.jsonFlag, tt.format, got, tt.expected)
+			}
+			if tt.wantErr && err != nil {
+				// error message should enumerate the valid value and mention deprecation
+				msg := err.Error()
+				if !strings.Contains(msg, `"json"`) || !strings.Contains(msg, "deprecated") {
+					t.Errorf("error message missing valid set or deprecation note: %q", msg)
+				}
+			}
+		})
 	}
 }
 

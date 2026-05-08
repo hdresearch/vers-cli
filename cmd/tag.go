@@ -42,7 +42,10 @@ var tagCreateCmd = &cobra.Command{
 
 var (
 	tagListQuiet  bool
+	tagListJSON   bool
 	tagListFormat string
+	tagListLimit  int
+	tagListOffset int
 )
 
 var tagListCmd = &cobra.Command{
@@ -53,7 +56,11 @@ var tagListCmd = &cobra.Command{
 Use -q/--quiet to output just tag names (one per line), useful for scripting:
   vers tag delete $(vers tag list -q)   # delete all tags
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (use with --limit to page).`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -64,23 +71,35 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(tagListQuiet, tagListFormat)
+		format, err := pres.ParseFormat(tagListQuiet, tagListJSON, tagListFormat)
+		if err != nil {
+			return err
+		}
+
+		// TODO: plumb limit/offset to the SDK once server-side pagination is
+		// exposed; today we trim client-side after the full response.
+		start, end, info := pres.ApplyPaging(len(res.Tags), tagListLimit, tagListOffset)
+		paged := res.Tags[start:end]
+
 		switch format {
 		case pres.FormatQuiet:
-			names := make([]string, len(res.Tags))
-			for i, t := range res.Tags {
+			names := make([]string, len(paged))
+			for i, t := range paged {
 				names[i] = t.TagName
 			}
 			pres.PrintQuiet(names)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		case pres.FormatJSON:
-			pres.PrintJSON(res.Tags)
+			pres.PrintListJSON(paged, info)
 		default:
-			pres.RenderTagList(application, res)
+			pres.RenderTagList(application, pres.TagListView{Tags: paged})
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
 }
 
+var tagGetJSON bool
 var tagGetFormat string
 
 var tagGetCmd = &cobra.Command{
@@ -88,7 +107,7 @@ var tagGetCmd = &cobra.Command{
 	Short: "Get details of a tag",
 	Long: `Show detailed information about a specific tag.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -101,7 +120,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, tagGetFormat)
+		format, err := pres.ParseFormat(false, tagGetJSON, tagGetFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(info)
@@ -182,10 +204,16 @@ func init() {
 	tagCmd.AddCommand(tagCreateCmd)
 
 	tagListCmd.Flags().BoolVarP(&tagListQuiet, "quiet", "q", false, "Only display tag names")
-	tagListCmd.Flags().StringVar(&tagListFormat, "format", "", "Output format (json)")
+	tagListCmd.Flags().BoolVar(&tagListJSON, "json", false, "Output as JSON")
+	tagListCmd.Flags().StringVar(&tagListFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = tagListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	tagListCmd.Flags().IntVar(&tagListLimit, "limit", 50, "Maximum number of tags to return (0 = unbounded)")
+	tagListCmd.Flags().IntVar(&tagListOffset, "offset", 0, "Number of tags to skip (for paging)")
 	tagCmd.AddCommand(tagListCmd)
 
-	tagGetCmd.Flags().StringVar(&tagGetFormat, "format", "", "Output format (json)")
+	tagGetCmd.Flags().BoolVar(&tagGetJSON, "json", false, "Output as JSON")
+	tagGetCmd.Flags().StringVar(&tagGetFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = tagGetCmd.Flags().MarkDeprecated("format", "use --json instead")
 	tagCmd.AddCommand(tagGetCmd)
 
 	tagUpdateCmd.Flags().StringVar(&tagUpdateCommit, "commit", "", "Move tag to this commit ID")

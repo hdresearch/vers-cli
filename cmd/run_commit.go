@@ -11,6 +11,7 @@ import (
 
 var (
 	commitVmAlias   string
+	runCommitJSON   bool
 	runCommitFormat string
 	runCommitWait   bool
 )
@@ -21,7 +22,7 @@ var runCommitCmd = &cobra.Command{
 	Short: "Start a development environment from a commit",
 	Long: `Start a Vers development environment from an existing commit using its commit key.
 
-Use --format json for machine-readable output.
+Use --json for machine-readable output.
 Use --wait to block until the VM is running.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -39,7 +40,10 @@ Use --wait to block until the VM is running.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, runCommitFormat)
+		format, err := pres.ParseFormat(false, runCommitJSON, runCommitFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(view)
@@ -54,6 +58,8 @@ func init() {
 	rootCmd.AddCommand(runCommitCmd)
 
 	runCommitCmd.Flags().StringVarP(&commitVmAlias, "vm-alias", "N", "", "Set an alias for the root VM")
-	runCommitCmd.Flags().StringVar(&runCommitFormat, "format", "", "Output format (json)")
+	runCommitCmd.Flags().BoolVar(&runCommitJSON, "json", false, "Output as JSON")
+	runCommitCmd.Flags().StringVar(&runCommitFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = runCommitCmd.Flags().MarkDeprecated("format", "use --json instead")
 	runCommitCmd.Flags().BoolVar(&runCommitWait, "wait", false, "Wait until VM is running")
 }

@@ -16,14 +16,28 @@ const (
 )
 
 // ParseFormat returns the output format from flag values.
-func ParseFormat(quiet bool, formatStr string) OutputFormat {
+//
+// Precedence: quiet > json > format > default. The legacy --format flag is
+// accepted for backwards compatibility but only "json" is valid; any other
+// value returns an enumerated error so agents can self-correct in one retry.
+//
+// Callers should pass the values of --quiet, --json, and --format directly;
+// deprecation of --format is handled by cobra's MarkDeprecated at the flag
+// registration site, which prints a warning to stderr when --format is used.
+func ParseFormat(quiet bool, jsonFlag bool, formatStr string) (OutputFormat, error) {
 	if quiet {
-		return FormatQuiet
+		return FormatQuiet, nil
 	}
-	if formatStr == "json" {
-		return FormatJSON
+	if formatStr != "" {
+		if formatStr != "json" {
+			return FormatDefault, fmt.Errorf(`--format must be "json" (got: %q). Note: --format is deprecated, use --json instead`, formatStr)
+		}
+		return FormatJSON, nil
 	}
-	return FormatDefault
+	if jsonFlag {
+		return FormatJSON, nil
+	}
+	return FormatDefault, nil
 }
 
 // PrintQuiet prints each string on its own line to stdout.
