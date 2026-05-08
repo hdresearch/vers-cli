@@ -45,6 +45,7 @@ var repoCreateCmd = &cobra.Command{
 
 var (
 	repoListQuiet  bool
+	repoListJSON bool
 	repoListFormat string
 )
 
@@ -54,7 +55,7 @@ var repoListCmd = &cobra.Command{
 	Long: `List all repositories in your organization.
 
 Use -q/--quiet to output just names (one per line), useful for scripting.
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -65,7 +66,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(repoListQuiet, repoListFormat)
+		format, err := pres.ParseFormat(repoListQuiet, repoListJSON, repoListFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatQuiet:
 			names := make([]string, len(res.Repositories))
@@ -84,6 +88,7 @@ Use --format json for machine-readable output.`,
 
 // ── repo get ─────────────────────────────────────────────────────────
 
+var repoGetJSON bool
 var repoGetFormat string
 
 var repoGetCmd = &cobra.Command{
@@ -91,7 +96,7 @@ var repoGetCmd = &cobra.Command{
 	Short: "Get details of a repository",
 	Long: `Show detailed information about a specific repository.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -104,7 +109,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, repoGetFormat)
+		format, err := pres.ParseFormat(false, repoGetJSON, repoGetFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(info)
@@ -262,6 +270,7 @@ var repoTagCreateCmd = &cobra.Command{
 
 var (
 	repoTagListQuiet  bool
+	repoTagListJSON bool
 	repoTagListFormat string
 )
 
@@ -270,7 +279,7 @@ var repoTagListCmd = &cobra.Command{
 	Short: "List tags in a repository",
 	Long: `List all tags within a repository.
 
-Use -q/--quiet for just tag names. Use --format json for machine-readable output.`,
+Use -q/--quiet for just tag names. Use --json for machine-readable output.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -283,7 +292,10 @@ Use -q/--quiet for just tag names. Use --format json for machine-readable output
 			return err
 		}
 
-		format := pres.ParseFormat(repoTagListQuiet, repoTagListFormat)
+		format, err := pres.ParseFormat(repoTagListQuiet, repoTagListJSON, repoTagListFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatQuiet:
 			names := make([]string, len(res.Tags))
@@ -303,6 +315,7 @@ Use -q/--quiet for just tag names. Use --format json for machine-readable output
 	},
 }
 
+var repoTagGetJSON bool
 var repoTagGetFormat string
 
 var repoTagGetCmd = &cobra.Command{
@@ -310,7 +323,7 @@ var repoTagGetCmd = &cobra.Command{
 	Short: "Get details of a repository tag",
 	Long: `Show detailed information about a specific tag within a repository.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -324,7 +337,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, repoTagGetFormat)
+		format, err := pres.ParseFormat(false, repoTagGetJSON, repoTagGetFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(info)
@@ -451,11 +467,15 @@ func init() {
 
 	// repo list
 	repoListCmd.Flags().BoolVarP(&repoListQuiet, "quiet", "q", false, "Only display repository names")
-	repoListCmd.Flags().StringVar(&repoListFormat, "format", "", "Output format (json)")
+	repoListCmd.Flags().BoolVar(&repoListJSON, "json", false, "Output as JSON")
+	repoListCmd.Flags().StringVar(&repoListFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoListCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoCmd.AddCommand(repoListCmd)
 
 	// repo get
-	repoGetCmd.Flags().StringVar(&repoGetFormat, "format", "", "Output format (json)")
+	repoGetCmd.Flags().BoolVar(&repoGetJSON, "json", false, "Output as JSON")
+	repoGetCmd.Flags().StringVar(&repoGetFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoGetCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoCmd.AddCommand(repoGetCmd)
 
 	// repo delete
@@ -477,10 +497,14 @@ func init() {
 	repoTagCmd.AddCommand(repoTagCreateCmd)
 
 	repoTagListCmd.Flags().BoolVarP(&repoTagListQuiet, "quiet", "q", false, "Only display tag names")
-	repoTagListCmd.Flags().StringVar(&repoTagListFormat, "format", "", "Output format (json)")
+	repoTagListCmd.Flags().BoolVar(&repoTagListJSON, "json", false, "Output as JSON")
+	repoTagListCmd.Flags().StringVar(&repoTagListFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoTagListCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoTagCmd.AddCommand(repoTagListCmd)
 
-	repoTagGetCmd.Flags().StringVar(&repoTagGetFormat, "format", "", "Output format (json)")
+	repoTagGetCmd.Flags().BoolVar(&repoTagGetJSON, "json", false, "Output as JSON")
+	repoTagGetCmd.Flags().StringVar(&repoTagGetFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoTagGetCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoTagCmd.AddCommand(repoTagGetCmd)
 
 	repoTagUpdateCmd.Flags().StringVar(&repoTagUpdateCommit, "commit", "", "Move tag to this commit ID")

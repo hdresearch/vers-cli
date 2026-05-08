@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var commitJSON bool
 var commitFormat string
 
 // commitCmd is the parent command for commit operations.
@@ -42,7 +43,7 @@ var commitCreateCmd = &cobra.Command{
 	Long: `Save the current state of a VM as a commit.
 If no VM ID or alias is provided, commits the current HEAD VM.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -60,7 +61,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, commitFormat)
+		format, err := pres.ParseFormat(false, commitJSON, commitFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(res)
@@ -78,6 +82,7 @@ Use --format json for machine-readable output.`,
 var (
 	commitListPublic bool
 	commitListQuiet  bool
+	commitListJSON bool
 	commitListFormat string
 )
 
@@ -89,7 +94,7 @@ var commitListCmd = &cobra.Command{
 Use -q/--quiet to output just commit IDs (one per line), useful for scripting:
   vers commit delete $(vers commit list -q)   # delete all commits
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -102,7 +107,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(commitListQuiet, commitListFormat)
+		format, err := pres.ParseFormat(commitListQuiet, commitListJSON, commitListFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatQuiet:
 			ids := make([]string, len(res.Commits))
@@ -151,6 +159,7 @@ Examples:
 	},
 }
 
+var commitHistoryJSON bool
 var commitHistoryFormat string
 
 var commitHistoryCmd = &cobra.Command{
@@ -158,7 +167,7 @@ var commitHistoryCmd = &cobra.Command{
 	Short: "Show the parent commit chain",
 	Long: `Display the chain of parent commits leading up to a given commit.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -171,7 +180,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, commitHistoryFormat)
+		format, err := pres.ParseFormat(false, commitHistoryJSON, commitHistoryFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(res.Parents)
@@ -227,16 +239,22 @@ var commitUnpublishCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(commitCmd)
 
-	commitCreateCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json)")
+	commitCreateCmd.Flags().BoolVar(&commitJSON, "json", false, "Output as JSON")
+	commitCreateCmd.Flags().StringVar(&commitFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = commitCreateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	commitCmd.AddCommand(commitCreateCmd)
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
 	commitListCmd.Flags().BoolVarP(&commitListQuiet, "quiet", "q", false, "Only display commit IDs")
-	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json)")
+	commitListCmd.Flags().BoolVar(&commitListJSON, "json", false, "Output as JSON")
+	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = commitListCmd.Flags().MarkDeprecated("format", "use --json instead")
 	commitCmd.AddCommand(commitListCmd)
 	commitCmd.AddCommand(commitDeleteCmd)
 
-	commitHistoryCmd.Flags().StringVar(&commitHistoryFormat, "format", "", "Output format (json)")
+	commitHistoryCmd.Flags().BoolVar(&commitHistoryJSON, "json", false, "Output as JSON")
+	commitHistoryCmd.Flags().StringVar(&commitHistoryFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = commitHistoryCmd.Flags().MarkDeprecated("format", "use --json instead")
 	commitCmd.AddCommand(commitHistoryCmd)
 	commitCmd.AddCommand(commitPublishCmd)
 	commitCmd.AddCommand(commitUnpublishCmd)

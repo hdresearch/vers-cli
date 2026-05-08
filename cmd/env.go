@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var envJSON bool
 var envFormat string
 
 // envCmd represents the env command
@@ -43,7 +44,10 @@ These variables will be injected into newly created VMs at boot time.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, envFormat)
+		format, err := pres.ParseFormat(false, envJSON, envFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(vars)
@@ -188,5 +192,7 @@ func init() {
 	envCmd.AddCommand(envDeleteCmd)
 
 	// Add flags
-	envListCmd.Flags().StringVar(&envFormat, "format", "", "Output format (json)")
+	envListCmd.Flags().BoolVar(&envJSON, "json", false, "Output as JSON")
+	envListCmd.Flags().StringVar(&envFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = envListCmd.Flags().MarkDeprecated("format", "use --json instead")
 }

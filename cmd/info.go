@@ -10,6 +10,7 @@ import (
 
 var (
 	infoQuiet  bool
+	infoJSON bool
 	infoFormat string
 )
 
@@ -20,7 +21,7 @@ var infoCmd = &cobra.Command{
 grandparent VM), and timestamps. If no VM is specified, uses the current HEAD.
 
 Use -q/--quiet to output just the VM ID.
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -36,7 +37,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(infoQuiet, infoFormat)
+		format, err := pres.ParseFormat(infoQuiet, infoJSON, infoFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatQuiet:
 			pres.PrintQuiet([]string{res.Metadata.VmID})
@@ -52,5 +56,7 @@ Use --format json for machine-readable output.`,
 func init() {
 	rootCmd.AddCommand(infoCmd)
 	infoCmd.Flags().BoolVarP(&infoQuiet, "quiet", "q", false, "Only display VM ID")
-	infoCmd.Flags().StringVar(&infoFormat, "format", "", "Output format (json)")
+	infoCmd.Flags().BoolVar(&infoJSON, "json", false, "Output as JSON")
+	infoCmd.Flags().StringVar(&infoFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = infoCmd.Flags().MarkDeprecated("format", "use --json instead")
 }

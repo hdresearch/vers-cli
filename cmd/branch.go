@@ -11,6 +11,7 @@ import (
 var (
 	alias        string
 	branchCount  int
+	branchJSON bool
 	branchFormat string
 	branchWait   bool
 )
@@ -21,7 +22,7 @@ var branchCmd = &cobra.Command{
 	Short: "Create a new VM from an existing VM",
 	Long: `Create a new VM (branch) from the state of an existing VM. If no VM ID or alias is provided, uses the current HEAD.
 
-Use --format json for machine-readable output.
+Use --json for machine-readable output.
 Use --wait to block until new VMs are running.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -45,7 +46,10 @@ Use --wait to block until new VMs are running.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, branchFormat)
+		format, err := pres.ParseFormat(false, branchJSON, branchFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(res)
@@ -62,6 +66,8 @@ func init() {
 	branchCmd.Flags().StringVarP(&alias, "alias", "n", "", "Alias for the new VM")
 	branchCmd.Flags().BoolP("checkout", "c", false, "Switch to the new VM after creation")
 	branchCmd.Flags().IntVar(&branchCount, "count", 1, "Number of branches to create")
-	branchCmd.Flags().StringVar(&branchFormat, "format", "", "Output format (json)")
+	branchCmd.Flags().BoolVar(&branchJSON, "json", false, "Output as JSON")
+	branchCmd.Flags().StringVar(&branchFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = branchCmd.Flags().MarkDeprecated("format", "use --json instead")
 	branchCmd.Flags().BoolVar(&branchWait, "wait", false, "Wait until new VMs are running")
 }

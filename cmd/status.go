@@ -10,6 +10,7 @@ import (
 
 var (
 	statusQuiet  bool
+	statusJSON bool
 	statusFormat string
 )
 
@@ -23,7 +24,7 @@ Use -q/--quiet to output just VM IDs (one per line), useful for scripting:
   vers kill $(vers status -q)              # kill all VMs
   vers info $(vers status -q | head -1)    # info on first VM
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 	Aliases: []string{"ps"},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var target string
@@ -39,7 +40,10 @@ Use --format json for machine-readable output.`,
 			return err
 		}
 
-		format := pres.ParseFormat(statusQuiet, statusFormat)
+		format, err := pres.ParseFormat(statusQuiet, statusJSON, statusFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatQuiet:
 			if res.Mode == pres.StatusVM && res.VM != nil {
@@ -67,5 +71,7 @@ Use --format json for machine-readable output.`,
 func init() {
 	rootCmd.AddCommand(statusCmd)
 	statusCmd.Flags().BoolVarP(&statusQuiet, "quiet", "q", false, "Only display VM IDs")
-	statusCmd.Flags().StringVar(&statusFormat, "format", "", "Output format (json)")
+	statusCmd.Flags().BoolVar(&statusJSON, "json", false, "Output as JSON")
+	statusCmd.Flags().StringVar(&statusFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = statusCmd.Flags().MarkDeprecated("format", "use --json instead")
 }

@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	resumeJSON bool
 	resumeFormat string
 	resumeWait   bool
 )
@@ -18,7 +19,7 @@ var resumeCmd = &cobra.Command{
 	Short: "Resume a paused VM",
 	Long: `Resume a paused Vers VM. If no VM ID or alias is provided, uses the current HEAD.
 
-Use --format json for machine-readable output.
+Use --json for machine-readable output.
 Use --wait to block until the VM is running.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,7 +37,10 @@ Use --wait to block until the VM is running.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, resumeFormat)
+		format, err := pres.ParseFormat(false, resumeJSON, resumeFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(map[string]string{"vm_id": view.VMName, "state": view.NewState})
@@ -49,6 +53,8 @@ Use --wait to block until the VM is running.`,
 
 func init() {
 	rootCmd.AddCommand(resumeCmd)
-	resumeCmd.Flags().StringVar(&resumeFormat, "format", "", "Output format (json)")
+	resumeCmd.Flags().BoolVar(&resumeJSON, "json", false, "Output as JSON")
+	resumeCmd.Flags().StringVar(&resumeFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = resumeCmd.Flags().MarkDeprecated("format", "use --json instead")
 	resumeCmd.Flags().BoolVar(&resumeWait, "wait", false, "Wait until VM is running")
 }

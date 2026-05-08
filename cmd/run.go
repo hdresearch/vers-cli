@@ -11,6 +11,7 @@ import (
 
 var (
 	vmAlias   string
+	runJSON bool
 	runFormat string
 	runWait   bool
 )
@@ -21,7 +22,7 @@ var runCmd = &cobra.Command{
 	Short: "Start a development environment",
 	Long: `Start a Vers development environment according to the configuration in vers.toml.
 
-Use --format json for machine-readable output.
+Use --json for machine-readable output.
 Use --wait to block until the VM is running.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := runconfig.Load()
@@ -45,7 +46,10 @@ Use --wait to block until the VM is running.`,
 			return err
 		}
 
-		format := pres.ParseFormat(false, runFormat)
+		format, err := pres.ParseFormat(false, runJSON, runFormat)
+		if err != nil {
+			return err
+		}
 		switch format {
 		case pres.FormatJSON:
 			pres.PrintJSON(view)
@@ -65,6 +69,8 @@ func init() {
 	runCmd.Flags().String("kernel", "", "Override kernel name")
 	runCmd.Flags().Int64("fs-size-vm", 0, "Override VM filesystem size (MiB)")
 	runCmd.Flags().StringVarP(&vmAlias, "vm-alias", "N", "", "Set an alias for the root VM")
-	runCmd.Flags().StringVar(&runFormat, "format", "", "Output format (json)")
+	runCmd.Flags().BoolVar(&runJSON, "json", false, "Output as JSON")
+	runCmd.Flags().StringVar(&runFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = runCmd.Flags().MarkDeprecated("format", "use --json instead")
 	runCmd.Flags().BoolVar(&runWait, "wait", false, "Wait until VM is running before returning")
 }
