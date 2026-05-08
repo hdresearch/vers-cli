@@ -132,6 +132,29 @@ vers tag delete <name>
 vers tag delete <name-1> <name-2>
 ```
 
+### Feedback
+
+Report friction (or anything else) about the CLI. Entries are appended to a
+local JSONL journal at `~/.vers/feedback.jsonl`.
+
+```bash
+# Record locally
+vers feedback "the --tier flag rejects 'enterprise' but docs list it as valid"
+
+# List recent entries
+vers feedback list
+vers feedback list --limit 5 --json
+
+# Opt-in upstream delivery: when VERS_FEEDBACK_ENDPOINT is set, the entry is
+# also POSTed there (application/json, 5s timeout). Failures are logged to
+# stderr but the local journal entry is still written.
+VERS_FEEDBACK_ENDPOINT=https://example.com/cli-feedback \
+  vers feedback "race condition in --wait when job completes during first poll"
+```
+
+Override the journal path with `VERS_FEEDBACK_PATH` (primarily for testing).
+
+
 ### Shell Composition
 
 Commands with `-q` output are designed to compose with standard Unix tools:
