@@ -22,7 +22,7 @@ var statusCmd = &cobra.Command{
 
 Use -q/--quiet to output just VM IDs (one per line), useful for scripting:
   vers kill $(vers status -q)              # kill all VMs
-  vers info $(vers status -q | head -1)    # info on first VM
+  vers get $(vers status -q | head -1)    # info on first VM
 
 Use --json for machine-readable output.`,
 	Aliases: []string{"ps"},

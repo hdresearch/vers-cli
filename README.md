@@ -57,8 +57,8 @@ vers status -q
 vers status --json
 
 # Detailed metadata for a VM (IP, lineage, timestamps)
-vers info <vm-id>
-vers info --json
+vers get <vm-id>
+vers get --json
 
 # Execute a command on a VM
 vers execute <vm-id> <command> [args...]
@@ -147,11 +147,11 @@ vers commit delete $(vers commit list -q)
 vers tag delete $(vers tag list -q)
 
 # Get info on the first VM
-vers info $(vers status -q | head -1)
+vers get $(vers status -q | head -1)
 
 # JSON piped to jq
 vers status --json | jq '.[].vm_id'
-vers info <vm-id> --json | jq '.ip'
+vers get <vm-id> --json | jq '.ip'
 ```
 
 `ps` is an alias for `status`:

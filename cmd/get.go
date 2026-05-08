@@ -9,19 +9,22 @@ import (
 )
 
 var (
-	infoQuiet  bool
-	infoJSON bool
-	infoFormat string
+	getQuiet  bool
+	getJSON bool
+	getFormat string
 )
 
-var infoCmd = &cobra.Command{
-	Use:   "info [vm-id|alias]",
-	Short: "Show detailed metadata for a VM",
+var getCmd = &cobra.Command{
+	Use:     "get [vm-id|alias]",
+	Aliases: []string{"info"},
+	Short:   "Show detailed metadata for a VM",
 	Long: `Display detailed metadata for a VM including IP address, lineage (parent commit,
 grandparent VM), and timestamps. If no VM is specified, uses the current HEAD.
 
 Use -q/--quiet to output just the VM ID.
-Use --json for machine-readable output.`,
+Use --json for machine-readable output.
+
+The "info" alias is preserved for backwards compatibility.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -37,7 +40,7 @@ Use --json for machine-readable output.`,
 			return err
 		}
 
-		format, err := pres.ParseFormat(infoQuiet, infoJSON, infoFormat)
+		format, err := pres.ParseFormat(getQuiet, getJSON, getFormat)
 		if err != nil {
 			return err
 		}
@@ -54,9 +57,9 @@ Use --json for machine-readable output.`,
 }
 
 func init() {
-	rootCmd.AddCommand(infoCmd)
-	infoCmd.Flags().BoolVarP(&infoQuiet, "quiet", "q", false, "Only display VM ID")
-	infoCmd.Flags().BoolVar(&infoJSON, "json", false, "Output as JSON")
-	infoCmd.Flags().StringVar(&infoFormat, "format", "", "Output format (json) [deprecated: use --json]")
-	_ = infoCmd.Flags().MarkDeprecated("format", "use --json instead")
+	rootCmd.AddCommand(getCmd)
+	getCmd.Flags().BoolVarP(&getQuiet, "quiet", "q", false, "Only display VM ID")
+	getCmd.Flags().BoolVar(&getJSON, "json", false, "Output as JSON")
+	getCmd.Flags().StringVar(&getFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = getCmd.Flags().MarkDeprecated("format", "use --json instead")
 }
