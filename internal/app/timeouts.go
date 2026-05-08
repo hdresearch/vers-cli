@@ -16,7 +16,7 @@ func DefaultTimeouts() Timeouts {
 	return Timeouts{
 		APIShort:    10 * time.Second,
 		APIMedium:   30 * time.Second,
-		APILong:     60 * time.Second,
+		APILong:     120 * time.Second,
 		BuildUpload: 600 * time.Second,
 		SSHConnect:  5 * time.Second,
 	}
