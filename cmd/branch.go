@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"context"
+	"os"
+	"strings"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
+	"github.com/hdresearch/vers-cli/internal/jobs"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -35,6 +38,14 @@ Use --wait to block until new VMs are running.`,
 		if len(args) > 0 {
 			target = args[0]
 		}
+		var jobID string
+		if branchWait {
+			jobID, _ = jobs.Submit(jobs.Submission{
+				Kind:    "vm.branch",
+				Command: "vers branch --wait",
+				Args:    os.Args[1:],
+			})
+		}
 		res, err := handlers.HandleBranch(apiCtx, application, handlers.BranchReq{
 			Target:   target,
 			Alias:    alias,
@@ -43,7 +54,17 @@ Use --wait to block until new VMs are running.`,
 			Wait:     branchWait,
 		})
 		if err != nil {
+			if branchWait {
+				_ = jobs.Fail(jobID, err)
+			}
 			return err
+		}
+		if branchWait {
+			result := res.NewID
+			if result == "" && len(res.NewIDs) > 0 {
+				result = strings.Join(res.NewIDs, ",")
+			}
+			_ = jobs.Complete(jobID, result)
 		}
 
 		format, err := pres.ParseFormat(false, branchJSON, branchFormat)

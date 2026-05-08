@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/handlers"
+	"github.com/hdresearch/vers-cli/internal/jobs"
 	pres "github.com/hdresearch/vers-cli/internal/presenters"
 	"github.com/spf13/cobra"
 )
@@ -56,9 +58,23 @@ Examples:
 			Wait:             deployWait,
 		}
 
+		var jobID string
+		if deployWait {
+			jobID, _ = jobs.Submit(jobs.Submission{
+				Kind:    "vm.deploy",
+				Command: "vers deploy --wait",
+				Args:    os.Args[1:],
+			})
+		}
 		view, err := handlers.HandleDeploy(apiCtx, application, req)
 		if err != nil {
+			if deployWait {
+				_ = jobs.Fail(jobID, err)
+			}
 			return err
+		}
+		if deployWait {
+			_ = jobs.Complete(jobID, view.VmID)
 		}
 
 		format, err := pres.ParseFormat(false, deployJSON, deployFormat)
