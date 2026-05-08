@@ -167,4 +167,3 @@ func TestPostUpstreamTransportError(t *testing.T) {
 		t.Errorf("expected status 0 on transport error, got %d", status)
 	}
 }
-

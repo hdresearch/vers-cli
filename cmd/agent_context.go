@@ -61,11 +61,11 @@ func init() {
 
 // agentContextDoc is the top-level JSON shape emitted by `vers agent-context`.
 type agentContextDoc struct {
-	SchemaVersion     string                     `json:"schema_version"`
-	CLI               agentContextCLI            `json:"cli"`
+	SchemaVersion     string                          `json:"schema_version"`
+	CLI               agentContextCLI                 `json:"cli"`
 	Commands          map[string]*agentContextCommand `json:"commands"`
-	AvailableProfiles []string                   `json:"available_profiles"`
-	Feedback          agentContextFeedback       `json:"feedback"`
+	AvailableProfiles []string                        `json:"available_profiles"`
+	Feedback          agentContextFeedback            `json:"feedback"`
 }
 
 type agentContextCLI struct {
@@ -100,8 +100,8 @@ type agentContextFlag struct {
 }
 
 type agentContextFeedback struct {
-	LocalPath           string `json:"local_path"`
-	EndpointConfigured  bool   `json:"endpoint_configured"`
+	LocalPath          string `json:"local_path"`
+	EndpointConfigured bool   `json:"endpoint_configured"`
 }
 
 func buildAgentContext(root *cobra.Command) *agentContextDoc {
