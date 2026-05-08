@@ -45,8 +45,10 @@ var repoCreateCmd = &cobra.Command{
 
 var (
 	repoListQuiet  bool
-	repoListJSON bool
+	repoListJSON   bool
 	repoListFormat string
+	repoListLimit  int
+	repoListOffset int
 )
 
 var repoListCmd = &cobra.Command{
@@ -55,7 +57,14 @@ var repoListCmd = &cobra.Command{
 	Long: `List all repositories in your organization.
 
 Use -q/--quiet to output just names (one per line), useful for scripting.
-Use --json for machine-readable output.`,
+Use --json for machine-readable output.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (use with --limit to page).
+
+When the result is truncated, a hint with --offset for the next page is
+printed to stderr (text mode) or included in the JSON envelope.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -70,17 +79,25 @@ Use --json for machine-readable output.`,
 		if err != nil {
 			return err
 		}
+
+		// TODO: when the SDK exposes server-side limit/offset for repo list,
+		// plumb repoListLimit/repoListOffset through instead of trimming here.
+		start, end, info := pres.ApplyPaging(len(res.Repositories), repoListLimit, repoListOffset)
+		paged := res.Repositories[start:end]
+
 		switch format {
 		case pres.FormatQuiet:
-			names := make([]string, len(res.Repositories))
-			for i, r := range res.Repositories {
+			names := make([]string, len(paged))
+			for i, r := range paged {
 				names[i] = r.Name
 			}
 			pres.PrintQuiet(names)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		case pres.FormatJSON:
-			pres.PrintJSON(res.Repositories)
+			pres.PrintListJSON(paged, info)
 		default:
-			pres.RenderRepoList(application, pres.RepoListView{Repositories: res.Repositories})
+			pres.RenderRepoList(application, pres.RepoListView{Repositories: paged})
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
@@ -270,8 +287,10 @@ var repoTagCreateCmd = &cobra.Command{
 
 var (
 	repoTagListQuiet  bool
-	repoTagListJSON bool
+	repoTagListJSON   bool
 	repoTagListFormat string
+	repoTagListLimit  int
+	repoTagListOffset int
 )
 
 var repoTagListCmd = &cobra.Command{
@@ -279,7 +298,11 @@ var repoTagListCmd = &cobra.Command{
 	Short: "List tags in a repository",
 	Long: `List all tags within a repository.
 
-Use -q/--quiet for just tag names. Use --json for machine-readable output.`,
+Use -q/--quiet for just tag names. Use --json for machine-readable output.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (use with --limit to page).`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -296,20 +319,28 @@ Use -q/--quiet for just tag names. Use --json for machine-readable output.`,
 		if err != nil {
 			return err
 		}
+
+		// TODO: plumb limit/offset to the SDK once server-side pagination is
+		// exposed; today we trim client-side after the full response.
+		start, end, info := pres.ApplyPaging(len(res.Tags), repoTagListLimit, repoTagListOffset)
+		paged := res.Tags[start:end]
+
 		switch format {
 		case pres.FormatQuiet:
-			names := make([]string, len(res.Tags))
-			for i, t := range res.Tags {
+			names := make([]string, len(paged))
+			for i, t := range paged {
 				names[i] = t.TagName
 			}
 			pres.PrintQuiet(names)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		case pres.FormatJSON:
-			pres.PrintJSON(res.Tags)
+			pres.PrintListJSON(paged, info)
 		default:
 			pres.RenderRepoTagList(application, pres.RepoTagListView{
 				Repository: res.Repository,
-				Tags:       res.Tags,
+				Tags:       paged,
 			})
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
@@ -470,6 +501,8 @@ func init() {
 	repoListCmd.Flags().BoolVar(&repoListJSON, "json", false, "Output as JSON")
 	repoListCmd.Flags().StringVar(&repoListFormat, "format", "", "Output format (json) [deprecated: use --json]")
 	_ = repoListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	repoListCmd.Flags().IntVar(&repoListLimit, "limit", 50, "Maximum number of repositories to return (0 = unbounded)")
+	repoListCmd.Flags().IntVar(&repoListOffset, "offset", 0, "Number of repositories to skip (for paging)")
 	repoCmd.AddCommand(repoListCmd)
 
 	// repo get
@@ -500,6 +533,8 @@ func init() {
 	repoTagListCmd.Flags().BoolVar(&repoTagListJSON, "json", false, "Output as JSON")
 	repoTagListCmd.Flags().StringVar(&repoTagListFormat, "format", "", "Output format (json) [deprecated: use --json]")
 	_ = repoTagListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	repoTagListCmd.Flags().IntVar(&repoTagListLimit, "limit", 50, "Maximum number of tags to return (0 = unbounded)")
+	repoTagListCmd.Flags().IntVar(&repoTagListOffset, "offset", 0, "Number of tags to skip (for paging)")
 	repoTagCmd.AddCommand(repoTagListCmd)
 
 	repoTagGetCmd.Flags().BoolVar(&repoTagGetJSON, "json", false, "Output as JSON")

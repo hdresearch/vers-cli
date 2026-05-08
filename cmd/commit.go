@@ -82,8 +82,10 @@ Use --json for machine-readable output.`,
 var (
 	commitListPublic bool
 	commitListQuiet  bool
-	commitListJSON bool
+	commitListJSON   bool
 	commitListFormat string
+	commitListLimit  int
+	commitListOffset int
 )
 
 var commitListCmd = &cobra.Command{
@@ -94,7 +96,14 @@ var commitListCmd = &cobra.Command{
 Use -q/--quiet to output just commit IDs (one per line), useful for scripting:
   vers commit delete $(vers commit list -q)   # delete all commits
 
-Use --json for machine-readable output.`,
+Use --json for machine-readable output.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (use with --limit to page).
+
+When the result is truncated, a hint with --offset for the next page is
+printed to stderr (text mode) or included in the JSON envelope.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -111,17 +120,29 @@ Use --json for machine-readable output.`,
 		if err != nil {
 			return err
 		}
+
+		// Apply client-side pagination over res.Commits.
+		// TODO: when the SDK exposes server-side limit/offset on the commit
+		// list endpoint, plumb commitListLimit/commitListOffset through to
+		// the API and use the server-reported total instead of len(items).
+		start, end, info := pres.ApplyPaging(len(res.Commits), commitListLimit, commitListOffset)
+		paged := res.Commits[start:end]
+
 		switch format {
 		case pres.FormatQuiet:
-			ids := make([]string, len(res.Commits))
-			for i, c := range res.Commits {
+			ids := make([]string, len(paged))
+			for i, c := range paged {
 				ids[i] = c.CommitID
 			}
 			pres.PrintQuiet(ids)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		case pres.FormatJSON:
-			pres.PrintJSON(res.Commits)
+			pres.PrintListJSON(paged, info)
 		default:
-			pres.RenderCommitsList(application, res)
+			pagedView := res
+			pagedView.Commits = paged
+			pres.RenderCommitsList(application, pagedView)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
@@ -249,6 +270,8 @@ func init() {
 	commitListCmd.Flags().BoolVar(&commitListJSON, "json", false, "Output as JSON")
 	commitListCmd.Flags().StringVar(&commitListFormat, "format", "", "Output format (json) [deprecated: use --json]")
 	_ = commitListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	commitListCmd.Flags().IntVar(&commitListLimit, "limit", 50, "Maximum number of commits to return (0 = unbounded)")
+	commitListCmd.Flags().IntVar(&commitListOffset, "offset", 0, "Number of commits to skip (for paging)")
 	commitCmd.AddCommand(commitListCmd)
 	commitCmd.AddCommand(commitDeleteCmd)
 

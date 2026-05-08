@@ -42,8 +42,10 @@ var tagCreateCmd = &cobra.Command{
 
 var (
 	tagListQuiet  bool
-	tagListJSON bool
+	tagListJSON   bool
 	tagListFormat string
+	tagListLimit  int
+	tagListOffset int
 )
 
 var tagListCmd = &cobra.Command{
@@ -54,7 +56,11 @@ var tagListCmd = &cobra.Command{
 Use -q/--quiet to output just tag names (one per line), useful for scripting:
   vers tag delete $(vers tag list -q)   # delete all tags
 
-Use --json for machine-readable output.`,
+Use --json for machine-readable output.
+
+Pagination:
+  --limit N    Cap results at N (default 50). Use 0 for unbounded.
+  --offset N   Skip the first N results (use with --limit to page).`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
@@ -69,17 +75,25 @@ Use --json for machine-readable output.`,
 		if err != nil {
 			return err
 		}
+
+		// TODO: plumb limit/offset to the SDK once server-side pagination is
+		// exposed; today we trim client-side after the full response.
+		start, end, info := pres.ApplyPaging(len(res.Tags), tagListLimit, tagListOffset)
+		paged := res.Tags[start:end]
+
 		switch format {
 		case pres.FormatQuiet:
-			names := make([]string, len(res.Tags))
-			for i, t := range res.Tags {
+			names := make([]string, len(paged))
+			for i, t := range paged {
 				names[i] = t.TagName
 			}
 			pres.PrintQuiet(names)
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		case pres.FormatJSON:
-			pres.PrintJSON(res.Tags)
+			pres.PrintListJSON(paged, info)
 		default:
-			pres.RenderTagList(application, res)
+			pres.RenderTagList(application, pres.TagListView{Tags: paged})
+			pres.PrintTruncationHint(cmd.ErrOrStderr(), info)
 		}
 		return nil
 	},
@@ -193,6 +207,8 @@ func init() {
 	tagListCmd.Flags().BoolVar(&tagListJSON, "json", false, "Output as JSON")
 	tagListCmd.Flags().StringVar(&tagListFormat, "format", "", "Output format (json) [deprecated: use --json]")
 	_ = tagListCmd.Flags().MarkDeprecated("format", "use --json instead")
+	tagListCmd.Flags().IntVar(&tagListLimit, "limit", 50, "Maximum number of tags to return (0 = unbounded)")
+	tagListCmd.Flags().IntVar(&tagListOffset, "offset", 0, "Number of tags to skip (for paging)")
 	tagCmd.AddCommand(tagListCmd)
 
 	tagGetCmd.Flags().BoolVar(&tagGetJSON, "json", false, "Output as JSON")
