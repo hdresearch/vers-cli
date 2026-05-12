@@ -88,6 +88,12 @@ vers commit
 # Commit a specific VM
 vers commit <vm-id>
 
+# Commit + tag + publish in one shot
+vers commit create <vm-id> --tag my-app:v1.2 --tag my-app:latest --public
+# --tag <repo>:<tag>  (repeatable)  creates the tag, or updates an existing one
+#                                    to point at the new commit
+# --public                           publishes the new commit (is_public=true)
+
 # List your commits
 vers commit list
 vers commit list -q               # just IDs

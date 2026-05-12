@@ -6,6 +6,31 @@ import (
 	"github.com/hdresearch/vers-cli/internal/app"
 )
 
+// RenderCommitCreate prints the text-mode summary for a `vers commit create`
+// invocation. JSON output is handled separately by pres.PrintJSON.
+func RenderCommitCreate(_ *app.App, v CommitCreateView) {
+	if v.UsedHEAD {
+		fmt.Printf("Using current HEAD VM: %s\n", v.VmID)
+	}
+	fmt.Printf("Committed VM '%s'\n", v.VmID)
+	fmt.Printf("Commit ID: %s\n", v.CommitID)
+	if v.Name != "" {
+		fmt.Printf("Name: %s\n", v.Name)
+	}
+	if v.Description != "" {
+		fmt.Printf("Description: %s\n", v.Description)
+	}
+	if len(v.TagsWritten) > 0 {
+		fmt.Println("Tags written:")
+		for _, t := range v.TagsWritten {
+			fmt.Printf("  %s  (tag_id: %s)\n", t.Reference, t.TagID)
+		}
+	}
+	if v.IsPublic {
+		fmt.Println("Visibility: public")
+	}
+}
+
 func RenderCommitsList(_ *app.App, v CommitsListView) {
 	if v.Public {
 		fmt.Println("Public Commits")
