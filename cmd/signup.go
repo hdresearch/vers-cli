@@ -146,6 +146,8 @@ func signupWithGit() error {
 	config.APIKey = keyResp.APIKey
 	config.Email = email
 	config.SSHKeyPath = sshKeyPath
+	config.OrgName = keyResp.OrgName
+	config.OrgID = keyResp.OrgID
 	if err := auth.SaveConfig(config); err != nil {
 		return fmt.Errorf("error saving config: %w", err)
 	}

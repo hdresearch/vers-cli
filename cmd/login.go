@@ -188,7 +188,7 @@ func loginWithGit() error {
 		return err
 	}
 
-	if err := auth.SaveAPIKey(keyResp.APIKey); err != nil {
+	if err := auth.SaveAuth(keyResp.APIKey, keyResp.OrgName, keyResp.OrgID); err != nil {
 		return fmt.Errorf("error saving API key: %w", err)
 	}
 

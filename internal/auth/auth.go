@@ -18,6 +18,13 @@ type Config struct {
 	APIKey     string `json:"apiKey"`
 	Email      string `json:"email,omitempty"`
 	SSHKeyPath string `json:"sshKeyPath,omitempty"`
+	// OrgName is the user's organization name (namespace).
+	// Persisted from the login/signup API response so that callers can
+	// compose canonical references (e.g. <org>/<repo>:<tag>) without
+	// an extra API round-trip.
+	OrgName string `json:"orgName,omitempty"`
+	// OrgID is the user's organization UUID, persisted alongside OrgName.
+	OrgID string `json:"orgID,omitempty"`
 }
 
 // GetConfigPath returns the path to the .versrc file in the user's home directory
@@ -103,6 +110,38 @@ func SaveAPIKey(apiKey string) error {
 
 	config.APIKey = apiKey
 	return SaveConfig(config)
+}
+
+// SaveAuth persists the API key plus org identity to the config file in a
+// single write. Use this from the login/signup paths so that subsequent
+// commands can read the user's org name without an extra API call.
+func SaveAuth(apiKey, orgName, orgID string) error {
+	config, err := LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	config.APIKey = apiKey
+	if orgName != "" {
+		config.OrgName = orgName
+	}
+	if orgID != "" {
+		config.OrgID = orgID
+	}
+	return SaveConfig(config)
+}
+
+// GetOrgName returns the user's org name, preferring the VERS_ORG env var
+// over the persisted config value. Empty string if neither is set.
+func GetOrgName() (string, error) {
+	if orgName := os.Getenv("VERS_ORG"); orgName != "" {
+		return orgName, nil
+	}
+	config, err := LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	return config.OrgName, nil
 }
 
 // HasAPIKey checks if an API key is present in environment variable or config file
