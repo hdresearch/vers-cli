@@ -16,13 +16,19 @@ var tagCmd = &cobra.Command{
 Tags provide human-readable names for commits (e.g. "production", "stable", "v1.2").`,
 }
 
-var tagCreateDescription string
+var (
+	tagCreateDescription string
+	tagCreateJSON        bool
+	tagCreateFormat      string
+)
 
 var tagCreateCmd = &cobra.Command{
 	Use:   "create <tag-name> <commit-id>",
 	Short: "Create a new tag pointing to a commit",
-	Long:  `Create a named tag that points to a specific commit. Tag names must be alphanumeric with hyphens, underscores, or dots (1-64 chars).`,
-	Args:  cobra.ExactArgs(2),
+	Long: `Create a named tag that points to a specific commit. Tag names must be alphanumeric with hyphens, underscores, or dots (1-64 chars).
+
+Use --json for machine-readable output (returns tag_name, commit_id, tag_id).`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -35,7 +41,17 @@ var tagCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Tag '%s' created -> %s\n", resp.TagName, resp.CommitID)
+
+		format, err := pres.ParseFormat(false, tagCreateJSON, tagCreateFormat)
+		if err != nil {
+			return err
+		}
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(resp)
+		default:
+			fmt.Printf("Tag '%s' created -> %s\n", resp.TagName, resp.CommitID)
+		}
 		return nil
 	},
 }
@@ -137,13 +153,17 @@ Use --json for machine-readable output.`,
 var (
 	tagUpdateCommit      string
 	tagUpdateDescription string
+	tagUpdateJSON        bool
+	tagUpdateFormat      string
 )
 
 var tagUpdateCmd = &cobra.Command{
 	Use:   "update <tag-name>",
 	Short: "Update a tag",
-	Long:  `Move a tag to point to a different commit, or update its description.`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Move a tag to point to a different commit, or update its description.
+
+Use --json for machine-readable output (returns tag_name and any updated fields).`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if tagUpdateCommit == "" && tagUpdateDescription == "" {
 			return fmt.Errorf("at least one of --commit or --description must be provided")
@@ -160,7 +180,25 @@ var tagUpdateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Tag '%s' updated\n", args[0])
+
+		format, err := pres.ParseFormat(false, tagUpdateJSON, tagUpdateFormat)
+		if err != nil {
+			return err
+		}
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(struct {
+				TagName     string `json:"tag_name"`
+				CommitID    string `json:"commit_id,omitempty"`
+				Description string `json:"description,omitempty"`
+			}{
+				TagName:     args[0],
+				CommitID:    tagUpdateCommit,
+				Description: tagUpdateDescription,
+			})
+		default:
+			fmt.Printf("Tag '%s' updated\n", args[0])
+		}
 		return nil
 	},
 }
@@ -201,6 +239,9 @@ func init() {
 	rootCmd.AddCommand(tagCmd)
 
 	tagCreateCmd.Flags().StringVarP(&tagCreateDescription, "description", "d", "", "Description for the tag")
+	tagCreateCmd.Flags().BoolVar(&tagCreateJSON, "json", false, "Output as JSON")
+	tagCreateCmd.Flags().StringVar(&tagCreateFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = tagCreateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	tagCmd.AddCommand(tagCreateCmd)
 
 	tagListCmd.Flags().BoolVarP(&tagListQuiet, "quiet", "q", false, "Only display tag names")
@@ -218,6 +259,9 @@ func init() {
 
 	tagUpdateCmd.Flags().StringVar(&tagUpdateCommit, "commit", "", "Move tag to this commit ID")
 	tagUpdateCmd.Flags().StringVarP(&tagUpdateDescription, "description", "d", "", "New description for the tag")
+	tagUpdateCmd.Flags().BoolVar(&tagUpdateJSON, "json", false, "Output as JSON")
+	tagUpdateCmd.Flags().StringVar(&tagUpdateFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = tagUpdateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	tagCmd.AddCommand(tagUpdateCmd)
 
 	tagCmd.AddCommand(tagDeleteCmd)
