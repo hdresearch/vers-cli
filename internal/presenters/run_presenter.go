@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 )
@@ -18,6 +19,6 @@ func RenderRun(a *app.App, v RunView) {
 	if v.HeadTarget != "" {
 		fmt.Printf("HEAD now points to: %s\n", v.HeadTarget)
 	} else {
-		fmt.Println("Warning: .vers directory not found. Run 'vers init' first.")
+		fmt.Fprintln(os.Stderr, "Warning: .vers directory not found. Run 'vers init' first.")
 	}
 }

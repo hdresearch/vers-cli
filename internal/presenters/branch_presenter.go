@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 )
@@ -12,7 +13,7 @@ func RenderBranch(a *app.App, res BranchView) {
 		newIDs = []string{res.NewID}
 	}
 	if len(newIDs) == 0 {
-		fmt.Println("Error: no VM IDs returned from branch operation")
+		fmt.Fprintln(os.Stderr, "Error: no VM IDs returned from branch operation")
 		return
 	}
 	numNew := len(newIDs)
@@ -50,7 +51,7 @@ func RenderBranch(a *app.App, res BranchView) {
 	}
 
 	if res.CheckoutErr != nil {
-		fmt.Printf("WARNING: Failed to update HEAD: %v\n", res.CheckoutErr)
+		fmt.Fprintf(os.Stderr, "WARNING: Failed to update HEAD: %v\n", res.CheckoutErr)
 		return
 	}
 

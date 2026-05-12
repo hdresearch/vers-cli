@@ -107,7 +107,7 @@ func performUpgrade(DebugPrint func(string, ...any), release *update.GitHubRelea
 		}
 		fmt.Println("Checksum verification passed")
 	} else if skipChecksum {
-		fmt.Println("warning: skipping checksum verification (not recommended)")
+		fmt.Fprintln(os.Stderr, "warning: skipping checksum verification (not recommended)")
 	}
 
 	currentExe, err := os.Executable()

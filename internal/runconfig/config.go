@@ -55,7 +55,7 @@ func Default() *Config {
 func Load() (*Config, error) {
 	cfg := Default()
 	if _, err := os.Stat("vers.toml"); os.IsNotExist(err) {
-		fmt.Println("Warning: vers.toml not found, using default configuration")
+		fmt.Fprintln(os.Stderr, "Warning: vers.toml not found, using default configuration")
 		return cfg, nil
 	}
 	if _, err := toml.DecodeFile("vers.toml", cfg); err != nil {
