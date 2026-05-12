@@ -193,34 +193,58 @@ Examples:
 
 // ── repo visibility ──────────────────────────────────────────────────
 
-var repoVisibilityPublic bool
+var (
+	repoVisibilityPublic  bool
+	repoVisibilityPrivate bool
+	repoVisibilityJSON    bool
+	repoVisibilityFormat  string
+)
 
 var repoVisibilityCmd = &cobra.Command{
 	Use:   "visibility <name>",
 	Short: "Set repository visibility",
 	Long: `Set a repository's visibility to public or private.
 
+Exactly one of --public or --private must be specified. The legacy
+--public=false form is no longer accepted; use --private instead.
+
+Use --json for machine-readable output.
+
 Examples:
-  vers repo visibility my-app --public        # make public
-  vers repo visibility my-app --public=false   # make private`,
+  vers repo visibility my-app --public      # make public
+  vers repo visibility my-app --private     # make private`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		isPublic := repoVisibilityPublic
+
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
 
 		err := handlers.HandleRepoSetVisibility(apiCtx, application, handlers.RepoSetVisibilityReq{
 			Name:     args[0],
-			IsPublic: repoVisibilityPublic,
+			IsPublic: isPublic,
 		})
 		if err != nil {
 			return err
 		}
 
-		vis := "private"
-		if repoVisibilityPublic {
-			vis = "public"
+		format, err := pres.ParseFormat(false, repoVisibilityJSON, repoVisibilityFormat)
+		if err != nil {
+			return err
 		}
-		fmt.Printf("Repository '%s' is now %s\n", args[0], vis)
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(struct {
+				Name     string `json:"name"`
+				IsPublic bool   `json:"is_public"`
+			}{Name: args[0], IsPublic: isPublic})
+		default:
+			vis := "private"
+			if isPublic {
+				vis = "public"
+			}
+			fmt.Printf("Repository '%s' is now %s\n", args[0], vis)
+		}
 		return nil
 	},
 }
@@ -589,7 +613,13 @@ func init() {
 	repoCmd.AddCommand(repoDeleteCmd)
 
 	// repo visibility
-	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityPublic, "public", false, "Set to public (use --public=false for private)")
+	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityPublic, "public", false, "Make the repository public")
+	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityPrivate, "private", false, "Make the repository private")
+	repoVisibilityCmd.MarkFlagsMutuallyExclusive("public", "private")
+	repoVisibilityCmd.MarkFlagsOneRequired("public", "private")
+	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityJSON, "json", false, "Output as JSON")
+	repoVisibilityCmd.Flags().StringVar(&repoVisibilityFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoVisibilityCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoCmd.AddCommand(repoVisibilityCmd)
 
 	// repo fork
