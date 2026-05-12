@@ -18,13 +18,19 @@ Repositories group related commits with named tags (e.g. "my-app:latest").`,
 
 // ── repo create ──────────────────────────────────────────────────────
 
-var repoCreateDescription string
+var (
+	repoCreateDescription string
+	repoCreateJSON        bool
+	repoCreateFormat      string
+)
 
 var repoCreateCmd = &cobra.Command{
 	Use:   "create <name>",
 	Short: "Create a new repository",
-	Long:  `Create a named repository. Names must be alphanumeric with hyphens, underscores, or dots (1-64 chars).`,
-	Args:  cobra.ExactArgs(1),
+	Long: `Create a named repository. Names must be alphanumeric with hyphens, underscores, or dots (1-64 chars).
+
+Use --json for machine-readable output (returns the repository name and repo_id).`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -36,7 +42,17 @@ var repoCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Repository '%s' created (%s)\n", resp.Name, resp.RepoID)
+
+		format, err := pres.ParseFormat(false, repoCreateJSON, repoCreateFormat)
+		if err != nil {
+			return err
+		}
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(resp)
+		default:
+			fmt.Printf("Repository '%s' created (%s)\n", resp.Name, resp.RepoID)
+		}
 		return nil
 	},
 }
@@ -177,34 +193,58 @@ Examples:
 
 // ── repo visibility ──────────────────────────────────────────────────
 
-var repoVisibilityPublic bool
+var (
+	repoVisibilityPublic  bool
+	repoVisibilityPrivate bool
+	repoVisibilityJSON    bool
+	repoVisibilityFormat  string
+)
 
 var repoVisibilityCmd = &cobra.Command{
 	Use:   "visibility <name>",
 	Short: "Set repository visibility",
 	Long: `Set a repository's visibility to public or private.
 
+Exactly one of --public or --private must be specified. The legacy
+--public=false form is no longer accepted; use --private instead.
+
+Use --json for machine-readable output.
+
 Examples:
-  vers repo visibility my-app --public        # make public
-  vers repo visibility my-app --public=false   # make private`,
+  vers repo visibility my-app --public      # make public
+  vers repo visibility my-app --private     # make private`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		isPublic := repoVisibilityPublic
+
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
 
 		err := handlers.HandleRepoSetVisibility(apiCtx, application, handlers.RepoSetVisibilityReq{
 			Name:     args[0],
-			IsPublic: repoVisibilityPublic,
+			IsPublic: isPublic,
 		})
 		if err != nil {
 			return err
 		}
 
-		vis := "private"
-		if repoVisibilityPublic {
-			vis = "public"
+		format, err := pres.ParseFormat(false, repoVisibilityJSON, repoVisibilityFormat)
+		if err != nil {
+			return err
 		}
-		fmt.Printf("Repository '%s' is now %s\n", args[0], vis)
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(struct {
+				Name     string `json:"name"`
+				IsPublic bool   `json:"is_public"`
+			}{Name: args[0], IsPublic: isPublic})
+		default:
+			vis := "private"
+			if isPublic {
+				vis = "public"
+			}
+			fmt.Printf("Repository '%s' is now %s\n", args[0], vis)
+		}
 		return nil
 	},
 }
@@ -260,13 +300,19 @@ var repoTagCmd = &cobra.Command{
 	Long:  `Create, list, update, and delete tags within a repository.`,
 }
 
-var repoTagCreateDescription string
+var (
+	repoTagCreateDescription string
+	repoTagCreateJSON        bool
+	repoTagCreateFormat      string
+)
 
 var repoTagCreateCmd = &cobra.Command{
 	Use:   "create <repo-name> <tag-name> <commit-id>",
 	Short: "Create a tag in a repository",
-	Long:  `Create a named tag within a repository that points to a specific commit.`,
-	Args:  cobra.ExactArgs(3),
+	Long: `Create a named tag within a repository that points to a specific commit.
+
+Use --json for machine-readable output (returns repo, tag_name, commit_id, tag_id, reference).`,
+	Args: cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		apiCtx, cancel := context.WithTimeout(context.Background(), application.Timeouts.APIMedium)
 		defer cancel()
@@ -280,7 +326,29 @@ var repoTagCreateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Tag created -> %s\n", resp.Reference)
+
+		format, err := pres.ParseFormat(false, repoTagCreateJSON, repoTagCreateFormat)
+		if err != nil {
+			return err
+		}
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(struct {
+				Repo      string `json:"repo"`
+				TagName   string `json:"tag_name"`
+				CommitID  string `json:"commit_id"`
+				TagID     string `json:"tag_id"`
+				Reference string `json:"reference"`
+			}{
+				Repo:      args[0],
+				TagName:   args[1],
+				CommitID:  resp.CommitID,
+				TagID:     resp.TagID,
+				Reference: resp.Reference,
+			})
+		default:
+			fmt.Printf("Tag created -> %s\n", resp.Reference)
+		}
 		return nil
 	},
 }
@@ -385,13 +453,18 @@ Use --json for machine-readable output.`,
 var (
 	repoTagUpdateCommit      string
 	repoTagUpdateDescription string
+	repoTagUpdateJSON        bool
+	repoTagUpdateFormat      string
 )
 
 var repoTagUpdateCmd = &cobra.Command{
 	Use:   "update <repo-name> <tag-name>",
 	Short: "Update a repository tag",
-	Long:  `Move a tag to a different commit, or update its description.`,
-	Args:  cobra.ExactArgs(2),
+	Long: `Move a tag to a different commit, or update its description.
+
+Use --json for machine-readable output (returns repo, tag_name, reference, and any
+updated fields).`,
+	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if repoTagUpdateCommit == "" && repoTagUpdateDescription == "" {
 			return fmt.Errorf("at least one of --commit or --description must be provided")
@@ -409,7 +482,29 @@ var repoTagUpdateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Tag '%s' in '%s' updated\n", args[1], args[0])
+
+		format, err := pres.ParseFormat(false, repoTagUpdateJSON, repoTagUpdateFormat)
+		if err != nil {
+			return err
+		}
+		switch format {
+		case pres.FormatJSON:
+			return pres.PrintJSON(struct {
+				Repo        string `json:"repo"`
+				TagName     string `json:"tag_name"`
+				Reference   string `json:"reference"`
+				CommitID    string `json:"commit_id,omitempty"`
+				Description string `json:"description,omitempty"`
+			}{
+				Repo:        args[0],
+				TagName:     args[1],
+				Reference:   fmt.Sprintf("%s:%s", args[0], args[1]),
+				CommitID:    repoTagUpdateCommit,
+				Description: repoTagUpdateDescription,
+			})
+		default:
+			fmt.Printf("Tag '%s' in '%s' updated\n", args[1], args[0])
+		}
 		return nil
 	},
 }
@@ -494,6 +589,9 @@ func init() {
 
 	// repo create
 	repoCreateCmd.Flags().StringVarP(&repoCreateDescription, "description", "d", "", "Description for the repository")
+	repoCreateCmd.Flags().BoolVar(&repoCreateJSON, "json", false, "Output as JSON")
+	repoCreateCmd.Flags().StringVar(&repoCreateFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoCreateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoCmd.AddCommand(repoCreateCmd)
 
 	// repo list
@@ -515,7 +613,13 @@ func init() {
 	repoCmd.AddCommand(repoDeleteCmd)
 
 	// repo visibility
-	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityPublic, "public", false, "Set to public (use --public=false for private)")
+	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityPublic, "public", false, "Make the repository public")
+	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityPrivate, "private", false, "Make the repository private")
+	repoVisibilityCmd.MarkFlagsMutuallyExclusive("public", "private")
+	repoVisibilityCmd.MarkFlagsOneRequired("public", "private")
+	repoVisibilityCmd.Flags().BoolVar(&repoVisibilityJSON, "json", false, "Output as JSON")
+	repoVisibilityCmd.Flags().StringVar(&repoVisibilityFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoVisibilityCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoCmd.AddCommand(repoVisibilityCmd)
 
 	// repo fork
@@ -527,6 +631,9 @@ func init() {
 	repoCmd.AddCommand(repoTagCmd)
 
 	repoTagCreateCmd.Flags().StringVarP(&repoTagCreateDescription, "description", "d", "", "Description for the tag")
+	repoTagCreateCmd.Flags().BoolVar(&repoTagCreateJSON, "json", false, "Output as JSON")
+	repoTagCreateCmd.Flags().StringVar(&repoTagCreateFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoTagCreateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoTagCmd.AddCommand(repoTagCreateCmd)
 
 	repoTagListCmd.Flags().BoolVarP(&repoTagListQuiet, "quiet", "q", false, "Only display tag names")
@@ -544,6 +651,9 @@ func init() {
 
 	repoTagUpdateCmd.Flags().StringVar(&repoTagUpdateCommit, "commit", "", "Move tag to this commit ID")
 	repoTagUpdateCmd.Flags().StringVarP(&repoTagUpdateDescription, "description", "d", "", "New description for the tag")
+	repoTagUpdateCmd.Flags().BoolVar(&repoTagUpdateJSON, "json", false, "Output as JSON")
+	repoTagUpdateCmd.Flags().StringVar(&repoTagUpdateFormat, "format", "", "Output format (json) [deprecated: use --json]")
+	_ = repoTagUpdateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	repoTagCmd.AddCommand(repoTagUpdateCmd)
 
 	repoTagCmd.AddCommand(repoTagDeleteCmd)
