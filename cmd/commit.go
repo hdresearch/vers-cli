@@ -14,6 +14,8 @@ var (
 	commitFormat      string
 	commitName        string
 	commitDescription string
+	commitTags        []string
+	commitPublic      bool
 )
 
 // commitCmd is the parent command for commit operations.
@@ -49,12 +51,15 @@ If no VM ID or alias is provided, commits the current HEAD VM.
 
 Use --name to give the commit a human-readable name.
 Use --description to add additional context.
+Use --tag <repo>:<tag> (repeatable) to create or update repo tags pointing at the new commit.
+Use --public to publish the commit (set is_public=true) after it lands.
 Use --json for machine-readable output.
 
 Examples:
   vers commit create --name "golden-image-v3"
   vers commit create --name "pre-deploy" --description "Before deploying auth changes"
-  vers commit create vm-123 --name "checkpoint"`,
+  vers commit create vm-123 --name "checkpoint"
+  vers commit create vm-123 --tag my-app:v1.2 --tag my-app:latest --public`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := ""
@@ -69,6 +74,8 @@ Examples:
 			Target:      target,
 			Name:        commitName,
 			Description: commitDescription,
+			Tags:        commitTags,
+			Public:      commitPublic,
 		})
 		if err != nil {
 			return err
@@ -82,17 +89,7 @@ Examples:
 		case pres.FormatJSON:
 			pres.PrintJSON(res)
 		default:
-			if res.UsedHEAD {
-				fmt.Printf("Using current HEAD VM: %s\n", res.VmID)
-			}
-			fmt.Printf("Committed VM '%s'\n", res.VmID)
-			fmt.Printf("Commit ID: %s\n", res.CommitID)
-			if res.Name != "" {
-				fmt.Printf("Name: %s\n", res.Name)
-			}
-			if res.Description != "" {
-				fmt.Printf("Description: %s\n", res.Description)
-			}
+			pres.RenderCommitCreate(application, res)
 		}
 		return nil
 	},
@@ -284,6 +281,8 @@ func init() {
 	_ = commitCreateCmd.Flags().MarkDeprecated("format", "use --json instead")
 	commitCreateCmd.Flags().StringVarP(&commitName, "name", "n", "", "Human-readable name for the commit")
 	commitCreateCmd.Flags().StringVarP(&commitDescription, "description", "d", "", "Description for the commit")
+	commitCreateCmd.Flags().StringSliceVar(&commitTags, "tag", nil, "Repo tag to write pointing at the new commit, in <repo>:<tag> form (repeatable)")
+	commitCreateCmd.Flags().BoolVar(&commitPublic, "public", false, "Publish the commit (set is_public=true) after it lands")
 	commitCmd.AddCommand(commitCreateCmd)
 
 	commitListCmd.Flags().BoolVar(&commitListPublic, "public", false, "List public commits instead of your own")
