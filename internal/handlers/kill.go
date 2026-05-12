@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/hdresearch/vers-cli/internal/app"
 	"github.com/hdresearch/vers-cli/internal/presenters"
@@ -30,7 +31,7 @@ func HandleKill(ctx context.Context, a *app.App, r KillReq) error {
 	// Confirm if needed
 	if !r.SkipConfirmation {
 		for _, t := range targets {
-			fmt.Printf("Warning: You are about to delete VM '%s'\n", t)
+			fmt.Fprintf(os.Stderr, "Warning: You are about to delete VM '%s'\n", t)
 		}
 		ok, _ := a.Prompter.YesNo("Proceed")
 		if !ok {
