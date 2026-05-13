@@ -16,7 +16,6 @@ import (
 	runrt "github.com/hdresearch/vers-cli/internal/runtime"
 	"github.com/hdresearch/vers-cli/internal/update"
 	vers "github.com/hdresearch/vers-sdk-go"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -196,8 +195,15 @@ interaction capabilities, and more.`,
 			return nil
 		}
 
-		// Load .env for the VERS_URL
-		godotenv.Load()
+		// NOTE: previously this called godotenv.Load() to pick up VERS_URL
+		// from a local .env for dev convenience. That had the side effect of
+		// silently shadowing the user's ~/.versrc credentials with a stale
+		// VERS_API_KEY whenever the user happened to be in a directory
+		// containing a .env file — with no warning about which credential
+		// source won. We now only honor the real environment and ~/.versrc.
+		// Devs who want .env-style loading can use direnv or `export $(cat
+		// .env | xargs)`. Tests load their own .env explicitly via
+		// test/testutil/helpers.go.
 
 		// Initialize the client with API key if available
 		apiKey, err := auth.GetAPIKey()
