@@ -13,7 +13,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 REPO="hdresearch/vers-cli"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
+INSTALL_DIR="${INSTALL_DIR:-}"
 GITHUB_API="https://api.github.com/repos/${REPO}/releases/latest"
 
 # Helper functions
@@ -117,6 +117,15 @@ main() {
     OS=$(detect_os)
     ARCH=$(detect_arch)
     info "Detected OS: $OS, Architecture: $ARCH"
+
+    # Use a PATH location by default on macOS/Linux while preserving the
+    # existing Windows install location. An explicit INSTALL_DIR takes priority.
+    if [ -z "$INSTALL_DIR" ]; then
+        case "$OS" in
+            linux|darwin) INSTALL_DIR="/usr/local/bin" ;;
+            windows)      INSTALL_DIR="$HOME/.local/bin" ;;
+        esac
+    fi
 
     # Get version
     VERSION="${VERS_VERSION:-$(get_latest_version)}"
