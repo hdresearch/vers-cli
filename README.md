@@ -15,7 +15,7 @@ This script will:
 - Detect your OS and architecture automatically
 - Download the appropriate prebuilt binary
 - Verify the checksum for security
-- Install to `~/.local/bin` (or use `INSTALL_DIR` to customize)
+- Install to `/usr/local/bin` on macOS/Linux or `~/.local/bin` on Windows (or use `INSTALL_DIR` to customize)
 - Make the binary executable
 
 **Custom installation directory:**
